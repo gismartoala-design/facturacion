@@ -5,10 +5,7 @@ import { Bot, ChevronDown, MessageCircle, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-
-interface HelpBotProps {
-    activeSection: string;
-}
+import { usePathname } from "next/navigation";
 
 const helpMessages: Record<string, { title: string; message: string }> = {
     overview: {
@@ -38,9 +35,11 @@ const helpMessages: Record<string, { title: string; message: string }> = {
     },
 };
 
-export function HelpBot({ activeSection }: HelpBotProps) {
+export function HelpBot() {
     const [isOpen, setIsOpen] = useState(true);
     const [isAnimating, setIsAnimating] = useState(false);
+    const pathname = usePathname();
+    const activeSection = pathname.replace("/", "") || "overview";
 
     const currentHelp = helpMessages[activeSection] || helpMessages.overview;
 
@@ -61,11 +60,11 @@ export function HelpBot({ activeSection }: HelpBotProps) {
                         initial={{ opacity: 0, y: 20, scale: 0.9 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 20, scale: 0.9 }}
-                        className={`w-72 md:w-80 rounded-2xl border border-emerald-100 bg-white/95 p-4 shadow-xl backdrop-blur-md transition-transform ${isAnimating ? "scale-[1.02]" : ""
+                        className={`w-72 md:w-80 rounded-3xl border border-white/60 bg-white/70 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.08)] backdrop-blur-xl transition-transform ${isAnimating ? "scale-[1.02]" : ""
                             }`}
                     >
                         <div className="flex items-start justify-between">
-                            <div className="flex items-center gap-2 text-emerald-700">
+                            <div className="flex items-center gap-2 text-indigo-700">
                                 <Bot className="h-5 w-5" />
                                 <h3 className="font-semibold">{currentHelp.title}</h3>
                             </div>
@@ -86,8 +85,8 @@ export function HelpBot({ activeSection }: HelpBotProps) {
             <Button
                 onClick={() => setIsOpen(!isOpen)}
                 size="icon"
-                className={`h-12 w-12 rounded-full shadow-lg transition-transform hover:scale-105 active:scale-95 ${isOpen ? "bg-slate-800 hover:bg-slate-700" : "bg-emerald-600 hover:bg-emerald-500"
-                    } text-white`}
+                className={`h-12 w-12 rounded-full shadow-lg transition-transform hover:scale-105 active:scale-95 ${isOpen ? "bg-slate-800 hover:bg-slate-700" : "bg-gradient-to-tr from-indigo-600 to-purple-600 hover:shadow-xl"
+                    } text-white border-0`}
             >
                 {isOpen ? <X className="h-5 w-5" /> : <MessageCircle className="h-6 w-6" />}
             </Button>

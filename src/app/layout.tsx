@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "ARGSOFT MVP | Inventario y Ventas",
-  description: "MVP monolito para inventario, ventas y facturacion SRI",
+  title: "ARGSOFT",
+  description: "Sistema para la gestion de tu negocio",
 };
 
 export default function RootLayout({
