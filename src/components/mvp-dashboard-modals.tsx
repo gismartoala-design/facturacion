@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TBody, Td, Th, THead, Tr } from "@/components/ui/table";
 import type {
   Customer,
+  EditProductForm,
   NewProductForm,
   Product,
   SriInvoiceDetail,
@@ -119,6 +120,150 @@ export function ProductModal({ isOpen, newProduct, setNewProduct, saving, onClos
             </Button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+type EditProductModalProps = {
+  isOpen: boolean;
+  editForm: EditProductForm;
+  setEditForm: Dispatch<SetStateAction<EditProductForm>>;
+  saving: boolean;
+  onClose: () => void;
+  onSubmit: (e: FormEvent<HTMLFormElement>) => void;
+};
+
+export function EditProductModal({ isOpen, editForm, setEditForm, saving, onClose, onSubmit }: EditProductModalProps) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
+      <div className="w-full max-w-2xl rounded-2xl border border-slate-200 bg-white shadow-xl">
+        <div className="border-b border-slate-100 p-5">
+          <h3 className="text-lg font-semibold text-slate-900">Editar Producto</h3>
+          <p className="mt-1 text-sm text-slate-600">Modifica los datos del producto. El stock se gestiona desde Inventario.</p>
+        </div>
+        <form className="grid gap-3 p-5" onSubmit={onSubmit}>
+          <div>
+            <Label htmlFor="edit-nombre">Nombre</Label>
+            <Input
+              id="edit-nombre"
+              value={editForm.nombre}
+              onChange={(e) => setEditForm((prev) => ({ ...prev, nombre: e.target.value }))}
+              required
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label htmlFor="edit-sku">SKU (opcional)</Label>
+              <Input
+                id="edit-sku"
+                value={editForm.sku}
+                onChange={(e) => setEditForm((prev) => ({ ...prev, sku: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-precio">Precio</Label>
+              <Input
+                id="edit-precio"
+                type="number"
+                min="0"
+                step="0.01"
+                value={editForm.precio}
+                onChange={(e) => setEditForm((prev) => ({ ...prev, precio: e.target.value }))}
+                required
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label htmlFor="edit-iva">IVA %</Label>
+              <Input
+                id="edit-iva"
+                type="number"
+                min="0"
+                step="0.01"
+                value={editForm.tarifaIva}
+                onChange={(e) => setEditForm((prev) => ({ ...prev, tarifaIva: e.target.value }))}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-min-stock">Stock minimo</Label>
+              <Input
+                id="edit-min-stock"
+                type="number"
+                min="0"
+                step="0.001"
+                value={editForm.minStock}
+                onChange={(e) => setEditForm((prev) => ({ ...prev, minStock: e.target.value }))}
+                required
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={saving}>
+              {saving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Guardando...
+                </>
+              ) : (
+                "Guardar cambios"
+              )}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+type DeleteProductModalProps = {
+  isOpen: boolean;
+  productName: string;
+  saving: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+};
+
+export function DeleteProductModal({ isOpen, productName, saving, onClose, onConfirm }: DeleteProductModalProps) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
+      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-xl">
+        <div className="border-b border-slate-100 p-5">
+          <h3 className="text-lg font-semibold text-slate-900">Eliminar Producto</h3>
+        </div>
+        <div className="p-5">
+          <p className="text-sm text-slate-600">
+            ¿Estas seguro de que deseas desactivar el producto{" "}
+            <span className="font-semibold text-slate-900">{productName}</span>? El producto no se borrara, quedara inactivo y dejara de aparecer en el catalogo.
+          </p>
+          <div className="mt-5 flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={onConfirm}
+              disabled={saving}
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Eliminando...
+                </>
+              ) : (
+                "Desactivar"
+              )}
+            </Button>
+          </div>
+        </div>
       </div>
     </div>
   );

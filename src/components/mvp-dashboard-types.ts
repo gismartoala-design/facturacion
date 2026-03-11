@@ -1,9 +1,12 @@
 export type Product = {
   id: string;
   codigo: string;
+  sku: string | null;
   nombre: string;
+  descripcion: string | null;
   precio: number;
   tarifaIva: number;
+  activo: boolean;
   stock: number;
   minStock: number;
 };
@@ -127,6 +130,14 @@ export type NewProductForm = {
   precio: string;
   tarifaIva: string;
   stockInicial: string;
+  minStock: string;
+};
+
+export type EditProductForm = {
+  nombre: string;
+  sku: string;
+  precio: string;
+  tarifaIva: string;
   minStock: string;
 };
 

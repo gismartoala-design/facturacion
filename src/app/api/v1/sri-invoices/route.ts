@@ -11,11 +11,12 @@ export async function GET(request: Request) {
     const limit = Math.max(1, Number(searchParams.get("limit") || "10"));
     const skip = (page - 1) * limit;
 
-    const where = statusParam
-      ? {
-          status: statusParam as SriInvoiceStatus,
-        }
-      : {};
+    const where =
+      statusParam === "NOT_AUTHORIZED"
+        ? { status: { notIn: [SriInvoiceStatus.AUTHORIZED] } }
+        : statusParam
+          ? { status: statusParam as SriInvoiceStatus }
+          : {};
 
     const [total, invoices] = await prisma.$transaction([
       prisma.sriInvoice.count({ where }),

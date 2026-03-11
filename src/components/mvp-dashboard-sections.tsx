@@ -3,10 +3,14 @@ import {
   ChevronRight,
   Eye,
   Loader2,
+  Pencil,
   RefreshCcw,
+  Search,
   ShoppingCart,
+  Trash2,
 } from "lucide-react";
 import type { Dispatch, FormEvent, SetStateAction } from "react";
+import { useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -119,9 +123,36 @@ export function OverviewSection({ products, lowStockCount, pendingInvoices, chec
 type ProductsSectionProps = {
   products: Product[];
   onOpenProductModal: () => void;
+  onEditProduct: (product: Product) => void;
+  onDeleteProduct: (product: Product) => void;
 };
 
-export function ProductsSection({ products, onOpenProductModal }: ProductsSectionProps) {
+const PRODUCTS_PAGE_SIZE = 10;
+
+export function ProductsSection({ products, onOpenProductModal, onEditProduct, onDeleteProduct }: ProductsSectionProps) {
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return products;
+    return products.filter(
+      (p) =>
+        p.nombre.toLowerCase().includes(q) ||
+        (p.sku ?? "").toLowerCase().includes(q) ||
+        p.codigo.toLowerCase().includes(q),
+    );
+  }, [products, search]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PRODUCTS_PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const paginated = filtered.slice((safePage - 1) * PRODUCTS_PAGE_SIZE, safePage * PRODUCTS_PAGE_SIZE);
+
+  function handleSearch(value: string) {
+    setSearch(value);
+    setPage(1);
+  }
+
   return (
     <div className="space-y-6">
       <Card>
@@ -140,8 +171,24 @@ export function ProductsSection({ products, onOpenProductModal }: ProductsSectio
 
       <Card>
         <CardHeader>
-          <CardTitle>Catalogo de Productos</CardTitle>
-          <CardDescription>Listado operativo para seleccionar rapidamente en checkout.</CardDescription>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle>Catalogo de Productos</CardTitle>
+              <CardDescription>
+                {filtered.length} producto{filtered.length !== 1 ? "s" : ""}
+                {search ? " encontrado" + (filtered.length !== 1 ? "s" : "") : " en total"}
+              </CardDescription>
+            </div>
+            <div className="relative w-full sm:w-64">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Input
+                placeholder="Buscar por nombre, SKU o codigo..."
+                value={search}
+                onChange={(e) => handleSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -153,21 +200,80 @@ export function ProductsSection({ products, onOpenProductModal }: ProductsSectio
                   <Th>Precio</Th>
                   <Th>IVA</Th>
                   <Th>Stock</Th>
+                  <Th>Acciones</Th>
                 </Tr>
               </THead>
               <TBody>
-                {products.map((product) => (
-                  <Tr key={product.id}>
-                    <Td className="font-medium">{product.codigo}</Td>
-                    <Td>{product.nombre}</Td>
-                    <Td>${product.precio.toFixed(2)}</Td>
-                    <Td>{product.tarifaIva}%</Td>
-                    <Td>{product.stock.toFixed(3)}</Td>
+                {paginated.length === 0 ? (
+                  <Tr>
+                    <Td colSpan={6} className="text-center text-slate-500">
+                      {search ? "Sin resultados para \"" + search + "\"." : "Sin productos aun."}
+                    </Td>
                   </Tr>
-                ))}
+                ) : (
+                  paginated.map((product) => (
+                    <Tr key={product.id}>
+                      <Td className="font-medium">{product.codigo}</Td>
+                      <Td>{product.nombre}</Td>
+                      <Td>${product.precio.toFixed(2)}</Td>
+                      <Td>{product.tarifaIva}%</Td>
+                      <Td>{product.stock.toFixed(3)}</Td>
+                      <Td>
+                        <div className="flex gap-1">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => onEditProduct(product)}
+                            title="Editar"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => onDeleteProduct(product)}
+                            title="Desactivar"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </Td>
+                    </Tr>
+                  ))
+                )}
               </TBody>
             </Table>
           </div>
+
+          {totalPages > 1 && (
+            <div className="mt-4 flex items-center justify-between text-sm text-slate-600">
+              <span>
+                Pagina {safePage} de {totalPages}
+              </span>
+              <div className="flex gap-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={safePage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={safePage === totalPages}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
@@ -513,34 +619,71 @@ export function CheckoutSection({
   );
 }
 
+const SRI_STATUS_LABELS: Record<string, string> = {
+  NOT_AUTHORIZED: "No autorizadas",
+  ALL: "Todas",
+  DRAFT: "Borrador",
+  AUTHORIZED: "Autorizadas",
+  PENDING_SRI: "Pendiente SRI",
+  ERROR: "Con error",
+};
+
+function sriBadgeVariant(status: string): "default" | "success" | "warning" | "danger" {
+  if (status === "AUTHORIZED") return "success";
+  if (status === "ERROR") return "danger";
+  if (status === "PENDING_SRI") return "warning";
+  return "default";
+}
+
 type SriSectionProps = {
   loading: boolean;
-  pendingInvoices: SriInvoice[];
+  invoices: SriInvoice[];
   pagination: PaginationMeta;
+  statusFilter: string;
   saving: boolean;
   onRetry: (invoiceId: string) => void;
   onViewDetails: (invoiceId: string) => void;
   onPageChange: (page: number) => void;
+  onFilterChange: (value: string) => void;
 };
 
 export function SriSection({
   loading,
-  pendingInvoices,
+  invoices,
   pagination,
+  statusFilter,
   saving,
   onRetry,
   onViewDetails,
   onPageChange,
+  onFilterChange,
 }: SriSectionProps) {
+  const canRetry = (status: string) => status === "PENDING_SRI" || status === "ERROR";
+
   return (
     <Card>
       <CardHeader>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <CardTitle>Pendientes SRI</CardTitle>
-            <CardDescription>Facturas con error de autorizacion para reintentar.</CardDescription>
+            <CardTitle>Facturas SRI</CardTitle>
+            <CardDescription>
+              {SRI_STATUS_LABELS[statusFilter] ?? statusFilter} &mdash; pagina {pagination.page} de {pagination.totalPages || 1}
+            </CardDescription>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              className="h-9 rounded-md border border-slate-300 px-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              value={statusFilter}
+              onChange={(e) => onFilterChange(e.target.value)}
+              disabled={loading}
+            >
+              <option value="NOT_AUTHORIZED">No autorizadas</option>
+              <option value="ALL">Todas</option>
+              <option value="DRAFT">Borrador</option>
+              <option value="PENDING_SRI">Pendiente SRI</option>
+              <option value="AUTHORIZED">Autorizadas</option>
+              <option value="ERROR">Con error</option>
+            </select>
             <Button
               variant="outline"
               size="sm"
@@ -549,9 +692,6 @@ export function SriSection({
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <span className="text-sm text-slate-600">
-              Pagina {pagination.page} de {pagination.totalPages || 1}
-            </span>
             <Button
               variant="outline"
               size="sm"
@@ -570,10 +710,10 @@ export function SriSection({
           </div>
         ) : (
           <div className="space-y-2">
-            {pendingInvoices.length === 0 ? (
-              <p className="text-sm text-slate-500">No hay pendientes por ahora.</p>
+            {invoices.length === 0 ? (
+              <p className="text-sm text-slate-500">No hay facturas para este filtro.</p>
             ) : (
-              pendingInvoices.map((invoice) => (
+              invoices.map((invoice) => (
                 <div
                   key={invoice.id}
                   className="flex flex-col gap-2 rounded-lg border border-slate-200 p-3 md:flex-row md:items-center md:justify-between"
@@ -584,10 +724,12 @@ export function SriSection({
                     {invoice.lastError ? <p className="text-xs text-red-600">{invoice.lastError}</p> : null}
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant="warning">{invoice.status}</Badge>
-                    <Button size="sm" variant="outline" onClick={() => onRetry(invoice.id)} disabled={saving}>
-                      <RefreshCcw className="h-4 w-4" /> Reintentar
-                    </Button>
+                    <Badge variant={sriBadgeVariant(invoice.status)}>{SRI_STATUS_LABELS[invoice.status] ?? invoice.status}</Badge>
+                    {canRetry(invoice.status) && (
+                      <Button size="sm" variant="outline" onClick={() => onRetry(invoice.id)} disabled={saving}>
+                        <RefreshCcw className="h-4 w-4" /> Reintentar
+                      </Button>
+                    )}
                     <Button size="sm" variant="secondary" onClick={() => onViewDetails(invoice.id)}>
                       <Eye className="h-4 w-4" /> Ver
                     </Button>

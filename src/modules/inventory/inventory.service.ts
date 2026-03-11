@@ -2,7 +2,7 @@ import { MovementType, Prisma, ReferenceType } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { formatProductCode } from "@/lib/utils";
-import { createProductSchema, stockAdjustmentSchema } from "@/modules/inventory/schemas";
+import { createProductSchema, stockAdjustmentSchema, updateProductSchema } from "@/modules/inventory/schemas";
 
 const productSelect = {
   id: true,
@@ -42,6 +42,7 @@ function productPresenter(product: Prisma.ProductGetPayload<{ select: typeof pro
 export async function listProducts() {
   const products = await prisma.product.findMany({
     select: productSelect,
+    where: { activo: true },
     orderBy: { secuencial: "asc" },
   });
 
@@ -79,6 +80,37 @@ export async function createProduct(rawInput: unknown) {
       },
     });
   }
+
+  return productPresenter(product);
+}
+
+export async function updateProduct(id: string, rawInput: unknown) {
+  const input = updateProductSchema.parse(rawInput);
+
+  const product = await prisma.product.update({
+    where: { id },
+    data: {
+      ...(input.sku !== undefined ? { sku: input.sku || null } : {}),
+      ...(input.nombre !== undefined ? { nombre: input.nombre } : {}),
+      ...(input.descripcion !== undefined ? { descripcion: input.descripcion || null } : {}),
+      ...(input.precio !== undefined ? { precio: input.precio } : {}),
+      ...(input.tarifaIva !== undefined ? { tarifaIva: input.tarifaIva } : {}),
+      ...(input.minStock !== undefined
+        ? { stockLevel: { update: { minQuantity: input.minStock } } }
+        : {}),
+    },
+    select: productSelect,
+  });
+
+  return productPresenter(product);
+}
+
+export async function deactivateProduct(id: string) {
+  const product = await prisma.product.update({
+    where: { id },
+    data: { activo: false },
+    select: productSelect,
+  });
 
   return productPresenter(product);
 }
