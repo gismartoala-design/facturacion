@@ -86,7 +86,7 @@ export function OverviewSection({ products, lowStockCount, pendingInvoices, chec
     <div className="space-y-6">
       <div className="flex items-center gap-4 mb-2">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm overflow-hidden p-1 border border-[#e8d5e5]/30">
-          <Image src="/logo.png" alt="Logo DOVI VELAS" width={48} height={48} className="object-contain" priority />
+          <Image src="/logo.png" alt="Logo DOVI VELAS" width={48} height={48} className="object-contain" priority unoptimized />
         </div>
         <h1 className="text-2xl font-bold text-[#4a3c58]">Resumen Operativo</h1>
       </div>
@@ -523,7 +523,7 @@ export function CheckoutSection({
       <CardHeader>
         <div className="flex items-center gap-4 mb-2">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm overflow-hidden p-1 border border-[#e8d5e5]/30">
-            <Image src="/logo.png" alt="Logo DOVI VELAS" width={48} height={48} className="object-contain" priority />
+            <Image src="/logo.png" alt="Logo DOVI VELAS" width={48} height={48} className="object-contain" priority unoptimized />
           </div>
           <div>
             <CardTitle className="text-[#4a3c58]">Facturar Venta</CardTitle>
@@ -685,14 +685,14 @@ export function CheckoutSection({
                         <Tr key={line.productId} className="hover:bg-[#fdfcf5] transition-colors">
                           <Td className="font-medium">{line.product.codigo}</Td>
                           <Td>{line.product.nombre}</Td>
-                          <Td className="w-36">
+                          <Td className="w-28">
                             <Input
                               type="number"
                               min="0.01"
                               step="0.01"
                               value={line.precioUnitario}
                               onChange={(e) => updateLineByProduct(line.productId, { precioUnitario: Number(e.target.value) || 0.01 })}
-                              className="h-9"
+                              className="h-8 border-[#e8d5e5]/50 bg-white/80 focus:bg-white transition-all text-right px-2"
                               required
                             />
                           </Td>
@@ -715,14 +715,14 @@ export function CheckoutSection({
                               </Button>
                             </div>
                           </Td>
-                          <Td className="w-36">
+                          <Td className="w-28">
                             <Input
                               type="number"
                               min="0"
                               step="0.01"
                               value={line.descuento}
                               onChange={(e) => updateLineByProduct(line.productId, { descuento: Number(e.target.value) || 0 })}
-                              className="h-9"
+                              className="h-8 border-[#e8d5e5]/50 bg-white/80 focus:bg-white transition-all text-right px-2"
                             />
                           </Td>
                           <Td className="font-semibold">${line.total.toFixed(2)}</Td>
@@ -885,7 +885,7 @@ export function SriSection({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm overflow-hidden p-1 border border-[#e8d5e5]/30">
-              <Image src="/logo.png" alt="Logo DOVI VELAS" width={48} height={48} className="object-contain" priority />
+              <Image src="/logo.png" alt="Logo DOVI VELAS" width={48} height={48} className="object-contain" priority unoptimized />
             </div>
             <div>
               <CardTitle className="text-[#4a3c58]">Facturas SRI</CardTitle>

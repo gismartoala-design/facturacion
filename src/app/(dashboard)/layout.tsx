@@ -26,7 +26,7 @@ export default async function DashboardLayout({
               <div className="flex items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-3">
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white shadow-[0_2px_10px_rgba(0,0,0,0.05)] overflow-hidden p-1 border border-[#e8d5e5]/30">
-                    <Image src="/logo.png" alt="Logo DOVI VELAS" width={48} height={48} className="object-contain" priority />
+                    <Image src="/logo.png" alt="Logo DOVI VELAS" width={48} height={48} className="object-contain" priority unoptimized />
                   </div>
                   <div className="min-w-0">
                     <p className="truncate text-xs font-bold uppercase tracking-[0.18em] text-[#4a3c58]/70">DOVI VELAS</p>
