@@ -512,16 +512,16 @@ export function CheckoutSection({
   const hasCustomerSelected = Boolean(checkout.identificacion.trim() && checkout.razonSocial.trim());
 
   return (
-    <Card className="border-emerald-100">
+    <Card className="border-[#e8d5e5]/60">
       <CardHeader>
-        <CardTitle>Facturar Venta</CardTitle>
+        <CardTitle className="text-[#4a3c58]">Facturar Venta</CardTitle>
         <CardDescription>Registrar la venta, validar cliente y emitir factura en un solo paso.</CardDescription>
       </CardHeader>
       <CardContent>
         <form className="grid gap-4 xl:grid-cols-[1.35fr_0.65fr]" onSubmit={onCheckout}>
           <div className="space-y-4">
-            <section className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">1. Documento</p>
+            <section className="rounded-xl border border-[#e8d5e5] bg-[#fdfcf5]/50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-[#b1a1c6]">1. Documento</p>
               <div className="mt-3 grid gap-3 md:grid-cols-3">
                 <div>
                   <Label htmlFor="fecha">Fecha emision</Label>
@@ -581,11 +581,11 @@ export function CheckoutSection({
               </div>
 
               {hasCustomerSelected ? (
-                <div className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                <div className="mt-3 rounded-md border-[#e8d5e5] bg-[#b1a1c6]/10 px-3 py-2 text-sm text-[#4a3c58]">
                   Cliente activo: <span className="font-semibold">{checkout.razonSocial}</span> ({checkout.identificacion})
                 </div>
               ) : (
-                <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                <p className="mt-3 rounded-md border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
                   Aun no has seleccionado cliente.
                 </p>
               )}
@@ -717,18 +717,18 @@ export function CheckoutSection({
           </div>
 
           <aside className="space-y-4 xl:sticky xl:top-8 xl:self-start">
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Resumen en tiempo real</p>
+            <div className="rounded-xl border-[#e8d5e5] bg-[#b1a1c6]/10 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-[#4a3c58]">Resumen en tiempo real</p>
               <div className="mt-3 space-y-2 text-sm">
-                <div className="flex items-center justify-between text-slate-700">
+                <div className="flex items-center justify-between text-[#4a3c58]">
                   <span>Subtotal</span>
                   <span>${checkoutSubtotal.toFixed(2)}</span>
                 </div>
-                <div className="flex items-center justify-between text-slate-700">
+                <div className="flex items-center justify-between text-[#4a3c58]">
                   <span>IVA</span>
                   <span>${checkoutTax.toFixed(2)}</span>
                 </div>
-                <div className="border-t border-emerald-200 pt-2 text-base font-semibold text-emerald-900">
+                <div className="border-t border-[#e8d5e5] pt-2 text-base font-semibold text-[#4a3c58]">
                   <div className="flex items-center justify-between">
                     <span>Total</span>
                     <span>${checkoutTotal.toFixed(2)}</span>

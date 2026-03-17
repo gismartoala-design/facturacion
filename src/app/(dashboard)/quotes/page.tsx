@@ -90,16 +90,16 @@ export default function QuotesPage() {
 
   return (
     <div className="space-y-6">
-      <Card>
+      <Card className="border-[#e8d5e5]/60 bg-white/80 backdrop-blur-sm">
         <CardHeader>
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
-              <CardTitle>Cotizaciones / Proformas</CardTitle>
+              <CardTitle className="text-[#4a3c58]">Cotizaciones / Proformas</CardTitle>
               <CardDescription>Guarda propuestas sin afectar inventario y conviertelas cuando el cliente confirme.</CardDescription>
             </div>
             <div className="flex items-center gap-2">
               <select
-                className="h-10 rounded-md border border-slate-300 px-3 text-sm"
+                className="h-10 rounded-md border border-[#e8d5e5] px-3 text-sm text-[#4a3c58]"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as QuoteFilter)}
                 disabled={saving}
@@ -109,7 +109,7 @@ export default function QuotesPage() {
                 <option value="CONVERTED">{QUOTE_STATUS_LABELS.CONVERTED}</option>
                 <option value="CANCELLED">{QUOTE_STATUS_LABELS.CANCELLED}</option>
               </select>
-              <Button type="button" variant="outline" onClick={() => { void loadQuotes(statusFilter); }} disabled={loading || saving}>
+              <Button type="button" variant="outline" className="border-[#e8d5e5] text-[#4a3c58] hover:bg-[#b1a1c6]/10" onClick={() => { void loadQuotes(statusFilter); }} disabled={loading || saving}>
                 <RefreshCcw className="h-4 w-4" /> Actualizar
               </Button>
             </div>

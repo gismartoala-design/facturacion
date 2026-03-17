@@ -1,12 +1,14 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
+  --background: #fdfcf5;
+  --foreground: #4a3c58;
   --card: #ffffff;
-  --muted: #e2e8f0;
-  --border: #cbd5e1;
-  --font-sans: "Avenir Next", "Segoe UI", "Noto Sans", "Helvetica Neue", sans-serif;
+  --muted: #f7f3e8;
+  --border: #e8d5e5;
+  --primary: #b1a1c6;
+  --accent: #f2e6b1;
+  --font-sans: "Outfit", "Avenir Next", "Segoe UI", "Noto Sans", "Helvetica Neue", sans-serif;
   --font-mono: "IBM Plex Mono", "Menlo", "Consolas", monospace;
 }
 
