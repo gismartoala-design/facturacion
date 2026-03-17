@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import type { Dispatch, FormEvent, SetStateAction } from "react";
 import { useMemo, useState } from "react";
+import Image from "next/image";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -83,6 +84,12 @@ export function OverviewSection({ products, lowStockCount, pendingInvoices, chec
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center gap-4 mb-2">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm overflow-hidden p-1 border border-[#e8d5e5]/30">
+          <Image src="/logo.png" alt="Logo DOVI VELAS" width={48} height={48} className="object-contain" priority />
+        </div>
+        <h1 className="text-2xl font-bold text-[#4a3c58]">Resumen Operativo</h1>
+      </div>
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card>
           <CardHeader>

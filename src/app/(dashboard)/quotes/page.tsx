@@ -2,6 +2,7 @@
 
 import { Loader2, RefreshCcw } from "lucide-react";
 import { useEffect, useState } from "react";
+import Image from "next/image";
 
 import { fetchJson } from "@/components/mvp-dashboard-api";
 import type { Quote, QuoteStatus } from "@/components/mvp-dashboard-types";
@@ -93,9 +94,14 @@ export default function QuotesPage() {
       <Card className="border-[#e8d5e5]/60 bg-[#fdfcf5]/50 backdrop-blur-sm">
         <CardHeader>
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div>
-              <CardTitle className="text-[#4a3c58]">Cotizaciones / Proformas</CardTitle>
-              <CardDescription className="text-[#4a3c58]/70">Guarda propuestas sin afectar inventario y conviertelas cuando el cliente confirme.</CardDescription>
+            <div className="flex items-center gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm overflow-hidden p-1 border border-[#e8d5e5]/30">
+                <Image src="/logo.png" alt="Logo DOVI VELAS" width={48} height={48} className="object-contain" priority />
+              </div>
+              <div>
+                <CardTitle className="text-[#4a3c58]">Cotizaciones / Proformas</CardTitle>
+                <CardDescription className="text-[#4a3c58]/70">Guarda propuestas sin afectar inventario y conviertelas cuando el cliente confirme.</CardDescription>
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <select
