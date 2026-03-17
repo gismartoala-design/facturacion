@@ -29,11 +29,11 @@ export function ProductModal({ isOpen, newProduct, setNewProduct, saving, onClos
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
-      <div className="w-full max-w-2xl rounded-2xl border border-slate-200 bg-white shadow-xl">
-        <div className="border-b border-slate-100 p-5">
-          <h3 className="text-lg font-semibold text-slate-900">Nuevo Producto</h3>
-          <p className="mt-1 text-sm text-slate-600">Completa la informacion base para inventario y ventas.</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#4a3c58]/30 backdrop-blur-sm p-4">
+      <div className="w-full max-w-2xl rounded-2xl border border-[#e8d5e5] bg-[#fdfcf5] shadow-xl">
+        <div className="border-b border-[#e8d5e5]/60 p-5">
+          <h3 className="text-lg font-semibold text-[#4a3c58]">Nuevo Producto</h3>
+          <p className="mt-1 text-sm text-[#4a3c58]/70">Completa la informacion base para inventario y ventas.</p>
         </div>
         <form className="grid gap-3 p-5" onSubmit={onSubmit}>
           <div>
@@ -138,11 +138,11 @@ export function EditProductModal({ isOpen, editForm, setEditForm, saving, onClos
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
-      <div className="w-full max-w-2xl rounded-2xl border border-slate-200 bg-white shadow-xl">
-        <div className="border-b border-slate-100 p-5">
-          <h3 className="text-lg font-semibold text-slate-900">Editar Producto</h3>
-          <p className="mt-1 text-sm text-slate-600">Modifica los datos del producto. El stock se gestiona desde Inventario.</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#4a3c58]/30 backdrop-blur-sm p-4">
+      <div className="w-full max-w-2xl rounded-2xl border border-[#e8d5e5] bg-[#fdfcf5] shadow-xl">
+        <div className="border-b border-[#e8d5e5]/60 p-5">
+          <h3 className="text-lg font-semibold text-[#4a3c58]">Editar Producto</h3>
+          <p className="mt-1 text-sm text-[#4a3c58]/70">Modifica los datos del producto. El stock se gestiona desde Inventario.</p>
         </div>
         <form className="grid gap-3 p-5" onSubmit={onSubmit}>
           <div>
@@ -234,15 +234,15 @@ export function DeleteProductModal({ isOpen, productName, saving, onClose, onCon
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
-      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-xl">
-        <div className="border-b border-slate-100 p-5">
-          <h3 className="text-lg font-semibold text-slate-900">Eliminar Producto</h3>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#4a3c58]/30 backdrop-blur-sm p-4">
+      <div className="w-full max-w-md rounded-2xl border border-[#e8d5e5] bg-[#fdfcf5] shadow-xl">
+        <div className="border-b border-[#e8d5e5]/60 p-5">
+          <h3 className="text-lg font-semibold text-[#4a3c58]">Eliminar Producto</h3>
         </div>
         <div className="p-5">
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-[#4a3c58]/80">
             ¿Estas seguro de que deseas desactivar el producto{" "}
-            <span className="font-semibold text-slate-900">{productName}</span>? El producto no se borrara, quedara inactivo y dejara de aparecer en el catalogo.
+            <span className="font-semibold text-[#4a3c58]">{productName}</span>? El producto no se borrara, quedara inactivo y dejara de aparecer en el catalogo.
           </p>
           <div className="mt-5 flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
@@ -293,11 +293,11 @@ export function StockAdjustmentModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
-      <div className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white shadow-xl">
-        <div className="border-b border-slate-100 p-5">
-          <h3 className="text-lg font-semibold text-slate-900">Ajuste de Stock</h3>
-          <p className="mt-1 text-sm text-slate-600">Registra entrada, salida o ajuste puntual de inventario.</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#4a3c58]/30 backdrop-blur-sm p-4">
+      <div className="w-full max-w-xl rounded-2xl border border-[#e8d5e5] bg-[#fdfcf5] shadow-xl">
+        <div className="border-b border-[#e8d5e5]/60 p-5">
+          <h3 className="text-lg font-semibold text-[#4a3c58]">Ajuste de Stock</h3>
+          <p className="mt-1 text-sm text-[#4a3c58]/70">Registra entrada, salida o ajuste puntual de inventario.</p>
         </div>
         <form className="grid gap-3 p-5" onSubmit={onSubmit}>
           <div>
@@ -390,11 +390,11 @@ export function CustomerPickerModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
-      <div className="w-full max-w-5xl rounded-2xl border border-slate-200 bg-white shadow-xl">
-        <div className="border-b border-slate-100 p-5">
-          <h3 className="text-lg font-semibold text-slate-900">Buscar cliente</h3>
-          <p className="mt-1 text-sm text-slate-600">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#4a3c58]/30 backdrop-blur-sm p-4">
+      <div className="w-full max-w-5xl rounded-2xl border border-[#e8d5e5] bg-[#fdfcf5] shadow-xl">
+        <div className="border-b border-[#e8d5e5]/60 p-5">
+          <h3 className="text-lg font-semibold text-[#4a3c58]">Buscar cliente</h3>
+          <p className="mt-1 text-sm text-[#4a3c58]/70">
             Selecciona un cliente que ya compró antes o que fue registrado en ventas anteriores.
           </p>
         </div>
@@ -494,11 +494,11 @@ export function ProductPickerModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
-      <div className="w-full max-w-4xl rounded-2xl border border-slate-200 bg-white shadow-xl">
-        <div className="border-b border-slate-100 p-5">
-          <h3 className="text-lg font-semibold text-slate-900">Seleccionar productos</h3>
-          <p className="mt-1 text-sm text-slate-600">Busca, marca los productos y agregalos al detalle de la venta.</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#4a3c58]/30 backdrop-blur-sm p-4">
+      <div className="w-full max-w-4xl rounded-2xl border border-[#e8d5e5] bg-[#fdfcf5] shadow-xl">
+        <div className="border-b border-[#e8d5e5]/60 p-5">
+          <h3 className="text-lg font-semibold text-[#4a3c58]">Seleccionar productos</h3>
+          <p className="mt-1 text-sm text-[#4a3c58]/70">Busca, marca los productos y agregalos al detalle de la venta.</p>
         </div>
         <div className="space-y-3 p-5">
           <div>
@@ -596,13 +596,13 @@ export function InvoiceDetailModal({
     : "-";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
-      <div className="flex max-h-[90vh] w-full max-w-4xl flex-col rounded-2xl border border-slate-200 bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-slate-100 p-5">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#4a3c58]/30 backdrop-blur-sm p-4">
+      <div className="flex max-h-[90vh] w-full max-w-4xl flex-col rounded-2xl border border-[#e8d5e5] bg-[#fdfcf5] shadow-xl">
+        <div className="flex items-center justify-between border-b border-[#e8d5e5]/60 p-5">
           <div>
-            <h3 className="text-lg font-semibold text-slate-900">Detalle Factura SRI</h3>
+            <h3 className="text-lg font-semibold text-[#4a3c58]">Detalle Factura SRI</h3>
             {!loading && invoice ? (
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-[#4a3c58]/70">
                 Venta #{invoice.saleNumber}
                 {invoice.secuencial ? ` · Factura ${invoice.secuencial}` : ""}
               </p>

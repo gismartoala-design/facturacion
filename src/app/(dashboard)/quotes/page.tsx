@@ -82,7 +82,7 @@ export default function QuotesPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-4 text-slate-600">
+      <div className="flex items-center gap-2 rounded-xl border border-[#e8d5e5] bg-[#fdfcf5] p-4 text-[#4a3c58]">
         <Loader2 className="h-4 w-4 animate-spin" /> Cargando cotizaciones...
       </div>
     );
@@ -90,16 +90,16 @@ export default function QuotesPage() {
 
   return (
     <div className="space-y-6">
-      <Card className="border-[#e8d5e5]/60 bg-white/80 backdrop-blur-sm">
+      <Card className="border-[#e8d5e5]/60 bg-[#fdfcf5]/50 backdrop-blur-sm">
         <CardHeader>
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <CardTitle className="text-[#4a3c58]">Cotizaciones / Proformas</CardTitle>
-              <CardDescription>Guarda propuestas sin afectar inventario y conviertelas cuando el cliente confirme.</CardDescription>
+              <CardDescription className="text-[#4a3c58]/70">Guarda propuestas sin afectar inventario y conviertelas cuando el cliente confirme.</CardDescription>
             </div>
             <div className="flex items-center gap-2">
               <select
-                className="h-10 rounded-md border border-[#e8d5e5] px-3 text-sm text-[#4a3c58]"
+                className="h-10 rounded-md border border-[#e8d5e5] bg-[#fdfcf5] px-3 text-sm text-[#4a3c58] focus:ring-2 focus:ring-[#b1a1c6] outline-none transition-all"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as QuoteFilter)}
                 disabled={saving}
@@ -119,10 +119,10 @@ export default function QuotesPage() {
 
       {message ? <p className="text-sm font-medium text-emerald-700">{message}</p> : null}
 
-      <Card>
+      <Card className="border-[#e8d5e5]/60 bg-[#fdfcf5]/50 backdrop-blur-sm">
         <CardHeader>
-          <CardTitle>Listado</CardTitle>
-          <CardDescription>{quotes.length} cotizacion{quotes.length !== 1 ? "es" : ""} ({QUOTE_STATUS_LABELS[statusFilter]})</CardDescription>
+          <CardTitle className="text-[#4a3c58]">Listado</CardTitle>
+          <CardDescription className="text-[#4a3c58]/70">{quotes.length} cotizacion{quotes.length !== 1 ? "es" : ""} ({QUOTE_STATUS_LABELS[statusFilter]})</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -141,12 +141,12 @@ export default function QuotesPage() {
               <TBody>
                 {quotes.length === 0 ? (
                   <Tr>
-                    <Td colSpan={7} className="text-center text-slate-500">No hay cotizaciones para este filtro.</Td>
+                    <Td colSpan={7} className="text-center text-[#4a3c58]/60">No hay cotizaciones para este filtro.</Td>
                   </Tr>
                 ) : (
                   quotes.map((quote) => (
-                    <Tr key={quote.id}>
-                      <Td className="font-medium">#{quote.quoteNumber}</Td>
+                    <Tr key={quote.id} className="hover:bg-[#fdfcf5] transition-colors">
+                      <Td className="font-medium text-[#4a3c58]">#{quote.quoteNumber}</Td>
                       <Td>{quote.customerName}</Td>
                       <Td>{quote.customerIdentification}</Td>
                       <Td>{quote.fechaEmision}</Td>
