@@ -478,9 +478,11 @@ type CheckoutSectionProps = {
   canResetCheckout: boolean;
   saving: boolean;
   savingQuote: boolean;
+  editingQuoteId: string | null;
   onPrintRide: () => void;
   onPrintXml: () => void;
   onSaveQuote: () => void;
+  onCancelEdit: () => void;
   onOpenQuotesModal: () => void;
   onResetCheckout: () => void;
   onCheckout: (e: FormEvent<HTMLFormElement>) => void;
@@ -504,9 +506,11 @@ export function CheckoutSection({
   canResetCheckout,
   saving,
   savingQuote,
+  editingQuoteId,
   onPrintRide,
   onPrintXml,
   onSaveQuote,
+  onCancelEdit,
   onOpenQuotesModal,
   onResetCheckout,
   onCheckout,
@@ -791,12 +795,25 @@ export function CheckoutSection({
               {savingQuote ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Guardando cotizacion...
+                  {editingQuoteId ? "Actualizando cotizacion..." : "Guardando cotizacion..."}
                 </>
+              ) : editingQuoteId ? (
+                "Actualizar cotizacion"
               ) : (
                 "Guardar cotizacion"
               )}
             </Button>
+            {editingQuoteId ? (
+              <Button
+                type="button"
+                variant="secondary"
+                className="w-full"
+                onClick={onCancelEdit}
+                disabled={saving || savingQuote}
+              >
+                Cancelar edicion
+              </Button>
+            ) : null}
             <Button
               type="button"
               variant="outline"

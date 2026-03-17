@@ -2,6 +2,7 @@
 
 import { format } from "date-fns";
 import { AlertTriangle, CheckCircle2, Info, Loader2, X } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { fetchJson } from "@/components/mvp-dashboard-api";
@@ -97,6 +98,7 @@ function CheckoutMessagePopover({
 }
 
 export default function CheckoutPage() {
+  const searchParams = useSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
@@ -119,6 +121,7 @@ export default function CheckoutPage() {
   const [isQuoteDetailOpen, setIsQuoteDetailOpen] = useState(false);
   const [quoteDetailLoading, setQuoteDetailLoading] = useState(false);
   const [selectedQuoteDetail, setSelectedQuoteDetail] = useState<QuoteDetail | null>(null);
+  const [editingQuoteId, setEditingQuoteId] = useState<string | null>(null);
 
   const [checkout, setCheckout] = useState<CheckoutForm>(buildInitialCheckoutForm);
 
@@ -203,6 +206,19 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     void loadCheckoutData();
+
+    const editId = searchParams.get("edit");
+    if (editId) {
+      void (async () => {
+        try {
+          const detail = await fetchJson<QuoteDetail>(`/api/v1/quotes/${editId}`);
+          onEditQuote(detail);
+        } catch (error) {
+          setMessage({ text: error instanceof Error ? error.message : "No se pudo cargar cotizacion para editar", tone: "error" });
+        }
+      })();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function loadCustomers(search = "") {
@@ -342,6 +358,7 @@ export default function CheckoutPage() {
     setIsCustomerPickerOpen(false);
     setIsProductPickerOpen(false);
     setAuthorizedSriInvoiceId(null);
+    setEditingQuoteId(null);
     setMessage({ text: "Formulario reiniciado correctamente.", tone: "info" });
   }
 
@@ -445,16 +462,53 @@ export default function CheckoutPage() {
 
     setSavingQuote(true);
     try {
-      const quote = await fetchJson<Quote>("/api/v1/quotes", {
-        method: "POST",
+      const url = editingQuoteId ? `/api/v1/quotes/${editingQuoteId}` : "/api/v1/quotes";
+      const method = editingQuoteId ? "PATCH" : "POST";
+      
+      const quote = await fetchJson<Quote>(url, {
+        method,
         body: JSON.stringify(buildCheckoutPayload()),
       });
-      setMessage({ text: `Cotizacion #${quote.quoteNumber} guardada correctamente`, tone: "success" });
+      setMessage({ text: `Cotizacion #${quote.quoteNumber} ${editingQuoteId ? "actualizada" : "guardada"} correctamente`, tone: "success" });
+      if (editingQuoteId) {
+        setEditingQuoteId(null);
+        setLineItems([]);
+        setCheckout(buildInitialCheckoutForm());
+      }
     } catch (error) {
       setMessage({ text: error instanceof Error ? error.message : "No se pudo guardar la cotizacion", tone: "error" });
     } finally {
       setSavingQuote(false);
     }
+  }
+
+  function onEditQuote(quote: QuoteDetail) {
+    setEditingQuoteId(quote.id);
+    setCheckout({
+      issuerId: quote.issuerId,
+      fechaEmision: quote.fechaEmision,
+      tipoIdentificacion: quote.customer.tipoIdentificacion,
+      identificacion: quote.customer.identificacion,
+      razonSocial: quote.customer.razonSocial,
+      direccion: quote.customer.direccion ?? "",
+      email: quote.customer.email ?? "",
+      telefono: quote.customer.telefono ?? "",
+      formaPago: quote.formaPago,
+    });
+    setLineItems(quote.items.map(item => ({
+      productId: item.productId,
+      cantidad: item.cantidad,
+      precioUnitario: item.precioUnitario,
+      descuento: item.descuento,
+    })));
+    setIsQuotesModalOpen(false);
+    setIsQuoteDetailOpen(false);
+    setMessage({ text: `Editando cotizacion #${quote.quoteNumber}`, tone: "info" });
+  }
+
+  function onCancelEdit() {
+    setEditingQuoteId(null);
+    onResetCheckout();
   }
 
   async function loadQuotes(filter: QuoteFilter = quotesFilter) {
@@ -566,6 +620,7 @@ export default function CheckoutPage() {
         canResetCheckout={canResetCheckout}
         saving={saving}
         savingQuote={savingQuote}
+        editingQuoteId={editingQuoteId}
         onPrintRide={() => {
           if (!authorizedSriInvoiceId) return;
           window.open(`/api/v1/sri-invoices/${authorizedSriInvoiceId}/ride`, "_blank", "noopener,noreferrer");
@@ -575,6 +630,7 @@ export default function CheckoutPage() {
           window.open(`/api/v1/sri-invoices/${authorizedSriInvoiceId}/xml`, "_blank", "noopener,noreferrer");
         }}
         onSaveQuote={() => { void onSaveQuote(); }}
+        onCancelEdit={onCancelEdit}
         onOpenQuotesModal={onOpenQuotesModal}
         onResetCheckout={onResetCheckout}
         onCheckout={onCheckout}
@@ -764,6 +820,17 @@ export default function CheckoutPage() {
                   <div className="rounded-lg bg-slate-50 p-4">
                     <h4 className="mb-2 font-medium text-slate-800">Impresion de documentos</h4>
                     <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant="default"
+                        disabled={selectedQuoteDetail.status !== "OPEN" || quotesSaving}
+                        onClick={() => {
+                          if (!selectedQuoteDetail) return;
+                          onEditQuote(selectedQuoteDetail);
+                        }}
+                      >
+                        Editar cotizacion
+                      </Button>
                       <Button
                         type="button"
                         variant="outline"

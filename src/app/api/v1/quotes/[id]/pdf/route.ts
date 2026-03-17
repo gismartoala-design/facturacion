@@ -1,6 +1,7 @@
 import { fail } from "@/lib/http";
 import { buildQuotePrintHtml } from "@/lib/quote-print-template";
 import { getQuoteDetail } from "@/modules/quotes/quote.service";
+import type { QuoteDetailItem } from "@/components/mvp-dashboard-types";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import puppeteer from "puppeteer";
@@ -45,7 +46,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
       customerName: quote.customer.razonSocial,
       customerIdentification: quote.customer.identificacion,
       customerAddress: quote.customer.direccion,
-      items: quote.items.map((item) => ({
+      items: quote.items.map((item: QuoteDetailItem) => ({
         productCode: item.productCode,
         productName: item.productName,
         cantidad: item.cantidad,

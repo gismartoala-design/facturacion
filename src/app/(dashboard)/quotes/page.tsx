@@ -165,6 +165,15 @@ export default function QuotesPage() {
                           <Button
                             type="button"
                             size="sm"
+                            variant="secondary"
+                            disabled={saving || quote.status !== "OPEN"}
+                            onClick={() => { window.location.href = `/checkout?edit=${quote.id}`; }}
+                          >
+                            Editar
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
                             variant="outline"
                             disabled={saving || quote.status !== "OPEN"}
                             onClick={() => { void onConvertQuote(quote.id); }}
