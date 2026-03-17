@@ -85,7 +85,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
     let pdfBuffer: Uint8Array;
     try {
       const page = await browser.newPage();
-      await page.setContent(html, { waitUntil: "networkidle0", timeout: 30000 });
+      await page.setContent(html, { waitUntil: "networkidle0", timeout: 60000 });
       const result = await page.pdf({
         format: "A4",
         printBackground: true,
