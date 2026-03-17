@@ -58,6 +58,7 @@ export function HelpBot() {
                 clearTimeout(stopTimer);
             };
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeSection, isOpen]);
 
     return (

@@ -7,11 +7,11 @@ export function Table({ className, ...props }: React.HTMLAttributes<HTMLTableEle
 }
 
 export function THead({ className, ...props }: React.HTMLAttributes<HTMLTableSectionElement>) {
-  return <thead className={cn("bg-slate-50", className)} {...props} />;
+  return <thead className={cn("bg-[#fdfcf5]", className)} {...props} />;
 }
 
 export function TBody({ className, ...props }: React.HTMLAttributes<HTMLTableSectionElement>) {
-  return <tbody className={cn("divide-y divide-slate-100", className)} {...props} />;
+  return <tbody className={cn("divide-y divide-[#e8d5e5]/50", className)} {...props} />;
 }
 
 export function Tr({ className, ...props }: React.HTMLAttributes<HTMLTableRowElement>) {
@@ -19,7 +19,7 @@ export function Tr({ className, ...props }: React.HTMLAttributes<HTMLTableRowEle
 }
 
 export function Th({ className, ...props }: React.ThHTMLAttributes<HTMLTableCellElement>) {
-  return <th className={cn("px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500", className)} {...props} />;
+  return <th className={cn("px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[#b1a1c6]", className)} {...props} />;
 }
 
 export function Td({ className, ...props }: React.TdHTMLAttributes<HTMLTableCellElement>) {

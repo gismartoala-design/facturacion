@@ -45,8 +45,8 @@ export function MvpDashboardNav({ userRole }: MvpDashboardNavProps) {
               className={cn(
                 "block w-full rounded-2xl border px-4 py-3.5 text-left transition-all duration-300",
                 isActive
-                  ? "border-indigo-100 bg-white shadow-md text-indigo-900 font-semibold translate-x-1"
-                  : "border-transparent bg-transparent text-slate-600 hover:bg-white/60 hover:text-slate-900",
+                  ? "border-[#e8d5e5] bg-white shadow-md text-[#4a3c58] font-semibold translate-x-1"
+                  : "border-transparent bg-transparent text-slate-600 hover:bg-white/60 hover:text-[#4a3c58]",
               )}
             >
               <div className="flex items-center gap-2">
@@ -67,8 +67,8 @@ export function MvpDashboardNav({ userRole }: MvpDashboardNavProps) {
             className={cn(
               "inline-flex h-10 items-center justify-center whitespace-nowrap rounded-xl border px-4 text-sm font-medium transition-all shadow-sm",
               pathname === item.href
-                ? "border-transparent bg-gradient-to-tr from-indigo-600 to-purple-600 text-white shadow-md"
-                : "border-slate-200 bg-white/80 text-slate-700 hover:bg-white hover:text-indigo-900 backdrop-blur-sm",
+                ? "border-transparent bg-gradient-to-tr from-[#b1a1c6] to-[#4a3c58] text-white shadow-md"
+                : "border-slate-200 bg-white/80 text-slate-700 hover:bg-white hover:text-[#4a3c58] backdrop-blur-sm",
             )}
           >
             {item.label}

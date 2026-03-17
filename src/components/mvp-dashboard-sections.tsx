@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import type { Dispatch, FormEvent, SetStateAction } from "react";
 import { useMemo, useState } from "react";
+import Image from "next/image";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -83,6 +84,12 @@ export function OverviewSection({ products, lowStockCount, pendingInvoices, chec
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center gap-4 mb-2">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm overflow-hidden p-1 border border-[#e8d5e5]/30">
+          <Image src="/logo.png" alt="Logo DOVI VELAS" width={48} height={48} className="object-contain" priority />
+        </div>
+        <h1 className="text-2xl font-bold text-[#4a3c58]">Resumen Operativo</h1>
+      </div>
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card>
           <CardHeader>
@@ -121,7 +128,7 @@ export function OverviewSection({ products, lowStockCount, pendingInvoices, chec
                 </CardDescription>
               </div>
               <div className="relative w-full md:w-72">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#b1a1c6]" />
                 <Input
                   placeholder="Buscar por codigo o producto..."
                   value={alertsQuery}
@@ -145,7 +152,7 @@ export function OverviewSection({ products, lowStockCount, pendingInvoices, chec
                 <TBody>
                   {visibleAlerts.length === 0 ? (
                     <Tr>
-                      <Td colSpan={4} className="text-slate-500">
+                      <Td colSpan={4} className="text-[#4a3c58]/60">
                         {alertsQuery ? "Sin coincidencias para tu busqueda." : "Sin alertas de stock."}
                       </Td>
                     </Tr>
@@ -185,14 +192,14 @@ export function OverviewSection({ products, lowStockCount, pendingInvoices, chec
             </CardHeader>
             <CardContent>
               {pendingPreview.length === 0 ? (
-                <p className="text-sm text-slate-500">No hay facturas pendientes por enviar.</p>
+                <p className="text-sm text-[#4a3c58]/60">No hay facturas pendientes por enviar.</p>
               ) : (
                 <div className="space-y-2">
                   {pendingPreview.map((invoice) => (
-                    <div key={invoice.id} className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2">
+                    <div key={invoice.id} className="flex items-center justify-between rounded-lg border border-[#e8d5e5]/60 bg-[#fdfcf5] px-3 py-2">
                       <div>
-                        <p className="text-sm font-semibold text-slate-800">Venta #{invoice.saleNumber}</p>
-                        <p className="text-xs text-slate-500">Intentos: {invoice.retryCount}</p>
+                        <p className="text-sm font-semibold text-[#4a3c58]">Venta #{invoice.saleNumber}</p>
+                        <p className="text-xs text-[#4a3c58]/60">Intentos: {invoice.retryCount}</p>
                       </div>
                       <Badge variant="warning">Pendiente</Badge>
                     </div>
@@ -213,21 +220,21 @@ export function OverviewSection({ products, lowStockCount, pendingInvoices, chec
               <CardTitle>Estado Rapido</CardTitle>
               <CardDescription>Semaforo operativo del sistema.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-2 text-sm">
+            <CardContent className="space-y-2 text-sm text-[#4a3c58]">
               <div className="flex items-center justify-between">
-                <span className="text-slate-600">Inventario</span>
+                <span>Inventario</span>
                 <Badge variant={lowStockCount > 0 ? "warning" : "success"}>
-                  {lowStockCount > 0 ? "Atencion" : "Estable"}
+                  {lowStockCount > 1 ? "Atencion" : "Estable"}
                 </Badge>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-slate-600">Facturacion SRI</span>
+                <span>Facturacion SRI</span>
                 <Badge variant={pendingInvoices.length > 0 ? "warning" : "success"}>
                   {pendingInvoices.length > 0 ? "Pendientes" : "Al dia"}
                 </Badge>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-slate-600">Catalogo</span>
+                <span>Catalogo</span>
                 <Badge variant={products.length > 0 ? "success" : "danger"}>
                   {products.length > 0 ? "Con datos" : "Vacio"}
                 </Badge>
@@ -300,7 +307,7 @@ export function ProductsSection({ products, onOpenProductModal, onEditProduct, o
               </CardDescription>
             </div>
             <div className="relative w-full sm:w-64">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#b1a1c6]" />
               <Input
                 placeholder="Buscar por nombre, SKU o codigo..."
                 value={search}
@@ -368,7 +375,7 @@ export function ProductsSection({ products, onOpenProductModal, onEditProduct, o
           </div>
 
           {totalPages > 1 && (
-            <div className="mt-4 flex items-center justify-between text-sm text-slate-600">
+            <div className="mt-4 flex items-center justify-between text-sm text-[#4a3c58]">
               <span>
                 Pagina {safePage} de {totalPages}
               </span>
@@ -512,16 +519,16 @@ export function CheckoutSection({
   const hasCustomerSelected = Boolean(checkout.identificacion.trim() && checkout.razonSocial.trim());
 
   return (
-    <Card className="border-emerald-100">
+    <Card className="border-[#e8d5e5]/60">
       <CardHeader>
-        <CardTitle>Facturar Venta</CardTitle>
+        <CardTitle className="text-[#4a3c58]">Facturar Venta</CardTitle>
         <CardDescription>Registrar la venta, validar cliente y emitir factura en un solo paso.</CardDescription>
       </CardHeader>
       <CardContent>
         <form className="grid gap-4 xl:grid-cols-[1.35fr_0.65fr]" onSubmit={onCheckout}>
           <div className="space-y-4">
-            <section className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">1. Documento</p>
+            <section className="rounded-xl border border-[#e8d5e5] bg-[#fdfcf5]/50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-[#b1a1c6]">1. Documento</p>
               <div className="mt-3 grid gap-3 md:grid-cols-3">
                 <div>
                   <Label htmlFor="fecha">Fecha emision</Label>
@@ -546,7 +553,7 @@ export function CheckoutSection({
                       </option>
                     ))}
                   </select>
-                  <p className="mt-1 text-xs text-slate-500">
+                  <p className="mt-1 text-xs text-[#4a3c58]/50">
                     Codigo enviado: {selectedIdentificationType?.code ?? checkout.tipoIdentificacion}
                   </p>
                 </div>
@@ -569,11 +576,11 @@ export function CheckoutSection({
               </div>
             </section>
 
-            <section className="rounded-xl border border-slate-200 bg-white p-4">
+            <section className="rounded-xl border border-[#e8d5e5]/50 bg-[#fdfcf5]/50 p-4">
               <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">2. Cliente</p>
-                  <p className="text-sm text-slate-600">Puedes buscar uno existente o capturar uno nuevo.</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#b1a1c6]">2. Cliente</p>
+                  <p className="text-sm text-[#4a3c58]/70">Puedes buscar uno existente o capturar uno nuevo.</p>
                 </div>
                 <Button type="button" variant="outline" onClick={onOpenCustomerPicker}>
                   Buscar cliente
@@ -581,11 +588,11 @@ export function CheckoutSection({
               </div>
 
               {hasCustomerSelected ? (
-                <div className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                <div className="mt-3 rounded-md border-[#e8d5e5] bg-[#b1a1c6]/10 px-3 py-2 text-sm text-[#4a3c58]">
                   Cliente activo: <span className="font-semibold">{checkout.razonSocial}</span> ({checkout.identificacion})
                 </div>
               ) : (
-                <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                <p className="mt-3 rounded-md border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
                   Aun no has seleccionado cliente.
                 </p>
               )}
@@ -635,11 +642,11 @@ export function CheckoutSection({
               </div>
             </section>
 
-            <section className="space-y-2 rounded-xl border border-slate-200 bg-white p-4">
+            <section className="space-y-2 rounded-xl border border-[#e8d5e5]/50 bg-[#fdfcf5]/50 p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">3. Detalle</p>
-                  <p className="text-sm text-slate-600">Selecciona productos y ajusta precio, cantidades y descuentos.</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#b1a1c6]">3. Detalle</p>
+                  <p className="text-sm text-[#4a3c58]/70">Selecciona productos y ajusta cantidades/descuentos.</p>
                 </div>
                 <Button type="button" variant="outline" size="sm" onClick={onOpenProductPicker}>
                   Seleccionar productos
@@ -662,13 +669,13 @@ export function CheckoutSection({
                   <TBody>
                     {linePreview.length === 0 ? (
                       <Tr>
-                        <Td colSpan={7} className="text-slate-500">
+                        <Td colSpan={7} className="text-[#4a3c58]/60">
                           Aun no hay productos en el detalle. Usa el boton Seleccionar productos.
                         </Td>
                       </Tr>
                     ) : (
                       linePreview.map((line) => (
-                        <Tr key={line.productId} className="hover:bg-slate-50">
+                        <Tr key={line.productId} className="hover:bg-[#fdfcf5] transition-colors">
                           <Td className="font-medium">{line.product.codigo}</Td>
                           <Td>{line.product.nombre}</Td>
                           <Td className="w-36">
@@ -727,18 +734,18 @@ export function CheckoutSection({
           </div>
 
           <aside className="space-y-4 xl:sticky xl:top-8 xl:self-start">
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Resumen en tiempo real</p>
+            <div className="rounded-xl border-[#e8d5e5] bg-[#b1a1c6]/10 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-[#4a3c58]">Resumen en tiempo real</p>
               <div className="mt-3 space-y-2 text-sm">
-                <div className="flex items-center justify-between text-slate-700">
+                <div className="flex items-center justify-between text-[#4a3c58]">
                   <span>Subtotal</span>
                   <span>${checkoutSubtotal.toFixed(2)}</span>
                 </div>
-                <div className="flex items-center justify-between text-slate-700">
+                <div className="flex items-center justify-between text-[#4a3c58]">
                   <span>IVA</span>
                   <span>${checkoutTax.toFixed(2)}</span>
                 </div>
-                <div className="border-t border-emerald-200 pt-2 text-base font-semibold text-emerald-900">
+                <div className="border-t border-[#e8d5e5] pt-2 text-base font-semibold text-[#4a3c58]">
                   <div className="flex items-center justify-between">
                     <span>Total</span>
                     <span>${checkoutTotal.toFixed(2)}</span>
@@ -747,8 +754,8 @@ export function CheckoutSection({
               </div>
             </div>
 
-            <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
-              <p className="font-semibold text-slate-800">Datos de emision</p>
+            <div className="rounded-xl border border-[#e8d5e5]/50 bg-[#fdfcf5]/80 p-4 text-sm text-[#4a3c58]/80">
+              <p className="font-semibold text-[#4a3c58]">Datos de emision</p>
               <p className="mt-2">Items: {linePreview.length}</p>
               <p>Identificacion: {selectedIdentificationType?.label ?? "N/A"}</p>
               <p>Pago: {selectedPaymentMethod?.label ?? "N/A"}</p>
@@ -813,7 +820,7 @@ export function CheckoutSection({
                 </Button>
               </div>
               {!canPrintDocuments ? (
-                <p className="text-xs text-slate-500">Se habilitan cuando la factura este autorizada.</p>
+                <p className="text-xs text-[#4a3c58]/50">Se habilitan cuando la factura este autorizada.</p>
               ) : null}
             </div>
           </aside>
@@ -877,7 +884,7 @@ export function SriSection({
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <select
-              className="h-9 rounded-md border border-slate-300 px-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="h-9 rounded-md border border-[#e8d5e5] bg-[#fdfcf5] px-3 text-sm text-[#4a3c58] focus:outline-none focus:ring-2 focus:ring-[#b1a1c6] transition-all"
               value={statusFilter}
               onChange={(e) => onFilterChange(e.target.value)}
               disabled={loading}
@@ -910,7 +917,7 @@ export function SriSection({
       </CardHeader>
       <CardContent>
         {loading ? (
-          <div className="flex items-center gap-2 text-slate-600">
+          <div className="flex items-center gap-2 text-[#4a3c58]/70">
             <Loader2 className="h-4 w-4 animate-spin" /> Cargando...
           </div>
         ) : (
@@ -921,15 +928,15 @@ export function SriSection({
               invoices.map((invoice) => (
                 <div
                   key={invoice.id}
-                  className="flex flex-col gap-2 rounded-lg border border-slate-200 p-3 md:flex-row md:items-center md:justify-between"
+                  className="flex flex-col gap-2 rounded-lg border border-[#e8d5e5]/60 bg-[#fdfcf5]/50 p-3 md:flex-row md:items-center md:justify-between hover:bg-[#fdfcf5] transition-colors"
                 >
                   <div>
-                    <p className="text-sm font-semibold text-slate-800">Venta #{invoice.saleNumber}</p>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-sm font-semibold text-[#4a3c58]">Venta #{invoice.saleNumber}</p>
+                    <p className="text-xs text-[#4a3c58]/60">
                       Intentos: {invoice.retryCount}
                       {invoice.saleStatus === "CANCELLED" ? " · Venta anulada" : ""}
                     </p>
-                    {invoice.lastError ? <p className="text-xs text-red-600">{invoice.lastError}</p> : null}
+                    {invoice.lastError ? <p className="text-xs text-rose-600 font-medium">{invoice.lastError}</p> : null}
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge variant={sriBadgeVariant(invoice.status)}>{SRI_STATUS_LABELS[invoice.status] ?? invoice.status}</Badge>
