@@ -199,7 +199,6 @@ export function buildQuotePrintHtml(data: QuotePrintData, autoPrint = false): st
         <div class="box" style="margin-left: 0; min-height: 200px;">
           <h2 style="margin: 0; font-size: 16px;">${escapeHtml(data.companyRazonSocial || "ARGSOFT")}</h2>
           ${data.companyNombreComercial ? `<p style="margin: 5px 0;"><strong>Nombre Comercial:</strong> ${escapeHtml(data.companyNombreComercial)}</p>` : ""}
-          ${data.companyDirMatriz ? `<p style="margin: 5px 0;"><strong>Dir Matriz:</strong> ${escapeHtml(data.companyDirMatriz)}</p>` : ""}
           <p style="margin: 5px 0;"><strong>OBLIGADO A LLEVAR CONTABILIDAD:</strong> ${escapeHtml(data.companyObligadoContabilidad || "NO")}</p>
           <p style="margin: 5px 0;"><strong>DOCUMENTO:</strong> COTIZACION / PROFORMA</p>
         </div>
@@ -223,7 +222,6 @@ export function buildQuotePrintHtml(data: QuotePrintData, autoPrint = false): st
     <p style="margin: 5px 0;"><strong>Razón Social / Nombres y Apellidos:</strong> ${escapeHtml(data.customerName)}</p>
     <p style="margin: 5px 0;"><strong>Identificación:</strong> ${escapeHtml(data.customerIdentification)}</p>
     <p style="margin: 5px 0;"><strong>Fecha Emisión:</strong> ${escapeHtml(data.fechaEmision)}</p>
-    ${data.customerAddress ? `<p style="margin: 5px 0;"><strong>Dirección:</strong> ${escapeHtml(data.customerAddress)}</p>` : ""}
   </div>
 
   <table class="details-table">
