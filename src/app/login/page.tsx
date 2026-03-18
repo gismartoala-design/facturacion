@@ -1,6 +1,7 @@
 "use client";
 
-import { Boxes, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -43,17 +44,23 @@ export default function LoginPage() {
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-50 p-4">
       {/* Background orbs */}
-      <div className="absolute left-1/4 top-0 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-indigo-200/40 blur-[100px] pointer-events-none" />
-      <div className="absolute bottom-0 right-1/4 h-[600px] w-[600px] translate-x-1/3 translate-y-1/3 rounded-full bg-purple-200/40 blur-[120px] pointer-events-none" />
+      <div className="absolute left-1/4 top-0 h-125 w-125 -translate-x-1/2 -translate-y-1/2 rounded-full bg-indigo-200/40 blur-[100px] pointer-events-none" />
+      <div className="absolute bottom-0 right-1/4 h-150 w-150 translate-x-1/3 translate-y-1/3 rounded-full bg-purple-200/40 blur-[120px] pointer-events-none" />
 
       <div className="relative z-10 w-full max-w-sm">
         <div className="rounded-3xl border border-white/60 bg-white/80 p-8 shadow-[0_8px_30px_rgb(0,0,0,0.06)] backdrop-blur-xl">
           {/* Logo */}
           <div className="mb-6 flex flex-col items-center gap-2">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-md">
-              <Boxes className="h-6 w-6" />
+            <div className="relative flex h-22 w-22 items-center justify-center overflow-hidden rounded-[28px] border border-slate-200/80 bg-white shadow-[0_14px_32px_rgba(15,23,42,0.10)]">
+              <Image
+                src="/logo-original.jpg"
+                alt="Logo de ARGSOFT"
+                fill
+                className="object-cover"
+                priority
+              />
             </div>
-            <p className="text-xs font-bold tracking-[0.2em] text-indigo-900/60 uppercase">ARGSOFT MVP</p>
+            <p className="text-xs font-bold tracking-[0.2em] text-indigo-900/60 uppercase">ARGSOFT</p>
             <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">Iniciar sesion</h1>
             <p className="text-sm text-slate-500">Ingresa tus credenciales para continuar</p>
           </div>

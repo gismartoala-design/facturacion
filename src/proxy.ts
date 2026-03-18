@@ -10,6 +10,7 @@ const PUBLIC_PREFIXES = [
   "/api/v1/auth/seed",
   "/_next",
   "/favicon.ico",
+  "/logo-original.jpg",
 ];
 
 export async function proxy(request: NextRequest) {
