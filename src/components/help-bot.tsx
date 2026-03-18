@@ -9,32 +9,32 @@ import { usePathname } from "next/navigation";
 
 const helpMessages: Record<string, { title: string; message: string }> = {
     overview: {
-        title: "¡Hola! Soy tu asistente 🤖",
+        title: "¡Hola! Soy tu asistente",
         message:
             "Aquí en el Resumen puedes ver de un vistazo el estado de tus ventas, ingresos y los productos que están con bajo stock. ¡Es tu centro de control!",
     },
     products: {
-        title: "Gestión de Productos 📦",
+        title: "Gestión de Productos",
         message:
             "En esta sección puedes buscar, crear o editar tus productos. Recuerda asignar correctamente el precio y el IVA. ¡Mantén tu catálogo al día!",
     },
     inventory: {
-        title: "Control de Inventario 📊",
+        title: "Control de Inventario",
         message:
             "Aquí controlas las entradas y salidas de mercancía. Usa el botón 'Ajustar stock' para registrar nuevos ingresos o mermas de forma manual.",
     },
     checkout: {
-        title: "Punto de Venta (Checkout) 🛒",
+        title: "Punto de Venta (Checkout)",
         message:
             "¡Hora de vender! Sigue los pasos: 1. Verifica los datos de emisión. 2. Busca o selecciona el cliente. 3. Agrega los productos al carrito. Al final, presiona Confirmar.",
     },
     quotes: {
-        title: "Cotizaciones / Proformas 📄",
+        title: "Cotizaciones / Proformas",
         message:
             "Guarda propuestas sin afectar stock y conviértelas a venta cuando el cliente confirme. También puedes anular cotizaciones que ya no apliquen.",
     },
     sri: {
-        title: "Facturación Electrónica (SRI) 🧾",
+        title: "Facturación Electrónica (SRI)",
         message:
             "Si alguna factura no pudo ser autorizada por el SRI debido a un error temporal, puedes intentar reenviarla desde aquí. ¡Asegúrate de no tener pendientes!",
     },

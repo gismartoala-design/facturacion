@@ -5,8 +5,8 @@ import { useEffect, useState } from "react";
 
 import { fetchJson } from "@/components/mvp-dashboard-api";
 import { StockAdjustmentModal } from "@/components/mvp-dashboard-modals";
-import { InventorySection } from "@/components/mvp-dashboard-sections";
 import { type Product, type StockAdjustmentForm, type StockItem } from "@/components/mvp-dashboard-types";
+import { InventorySection } from "@/features/inventory/components/inventory-section";
 
 export default function InventoryPage() {
   const [stock, setStock] = useState<StockItem[]>([]);

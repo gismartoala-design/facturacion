@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 
 import { fetchJson } from "@/components/mvp-dashboard-api";
 import { InvoiceDetailModal } from "@/components/mvp-dashboard-modals";
-import { SriSection } from "@/components/mvp-dashboard-sections";
 import { type PaginatedResult, type SriInvoice, type SriInvoiceDetail } from "@/components/mvp-dashboard-types";
+import { SriSection } from "@/features/sri/components/sri-section";
 
 export type SriStatusFilter = "NOT_AUTHORIZED" | "ALL" | "DRAFT" | "AUTHORIZED" | "PENDING_SRI" | "ERROR";
 
@@ -19,6 +19,7 @@ export default function SriPage() {
   const [selectedInvoice, setSelectedInvoice] = useState<SriInvoiceDetail | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [statusFilter, setStatusFilter] = useState<SriStatusFilter>("NOT_AUTHORIZED");
 
@@ -31,6 +32,7 @@ export default function SriPage() {
         `/api/v1/sri-invoices?page=${page}&limit=10${statusParam}`
       );
       setInvoices(result.data);
+      setTotal(result.pagination.total);
       setTotalPages(result.pagination.totalPages);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "No se pudo cargar facturas SRI");
@@ -105,7 +107,7 @@ export default function SriPage() {
       <SriSection
         loading={loading}
         invoices={invoices}
-        pagination={{ page, limit: 10, total: 0, totalPages }}
+        pagination={{ page, limit: 10, total, totalPages }}
         statusFilter={statusFilter}
         saving={saving}
         onRetry={onRetry}

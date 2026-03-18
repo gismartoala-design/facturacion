@@ -163,29 +163,34 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div>
-              <CardTitle>Gestion de Usuarios</CardTitle>
-              <CardDescription>Crea y administra los accesos al sistema.</CardDescription>
+      <div className="space-y-4 p-4">
+        <div className="space-y-1">
+          <CardTitle className="text-[#4a3c58]">Gestion de Usuarios</CardTitle>
+          <CardDescription className="max-w-2xl text-[#4a3c58]/68">
+            Crea y administra los accesos al sistema desde una sola vista.
+          </CardDescription>
+        </div>
+      </div>
+
+      {message ? <p className="text-sm font-medium text-emerald-700">{message}</p> : null}
+
+      <Card className="rounded-[28px]">
+        <CardContent>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap gap-2">
+              <span className="inline-flex items-center rounded-full border border-[#e8d5e5]/75 bg-white/85 px-3 py-1 text-xs font-medium text-[#4a3c58]/80">
+                {users.length} usuario{users.length !== 1 ? "s" : ""}
+              </span>
+              <span className="inline-flex items-center rounded-full border border-amber-200/80 bg-amber-50/85 px-3 py-1 text-xs font-medium text-amber-800">
+                {users.filter((user) => user.role === "ADMIN").length} administradores
+              </span>
             </div>
             <Button type="button" onClick={() => setIsFormOpen(true)}>
               <UserPlus className="mr-2 h-4 w-4" /> Nuevo usuario
             </Button>
           </div>
-        </CardHeader>
-      </Card>
 
-      {message ? <p className="text-sm font-medium text-emerald-700">{message}</p> : null}
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Usuarios registrados</CardTitle>
-          <CardDescription>{users.length} usuario{users.length !== 1 ? "s" : ""} en el sistema</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
+          <div className="mt-4 overflow-x-auto rounded-3xl border border-[#e8d5e5]/70 bg-white">
             <Table>
               <THead>
                 <Tr>

@@ -1,16 +1,20 @@
 "use client";
 
 import { format } from "date-fns";
-import { AlertTriangle, CheckCircle2, Info, Loader2, X } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { fetchJson } from "@/components/mvp-dashboard-api";
 import { CustomerPickerModal, ProductPickerModal } from "@/components/mvp-dashboard-modals";
-import { CheckoutSection } from "@/components/mvp-dashboard-sections";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TBody, Td, Th, THead, Tr } from "@/components/ui/table";
+import {
+  SalesMessagePopover,
+  type SalesMessage,
+} from "@/features/sales/components/sales-message-popover";
+import { SalesCheckoutSection } from "@/features/sales/components/sales-checkout-section";
 import {
   IDENTIFICATION_TYPES,
   PAYMENT_METHODS,
@@ -50,51 +54,10 @@ function buildInitialCheckoutForm(): CheckoutForm {
 
 type MessageTone = "success" | "error" | "info";
 
-type CheckoutMessage = {
-  text: string;
-  tone: MessageTone;
-};
-
 function quoteBadgeVariant(status: QuoteStatus): "default" | "success" | "warning" | "danger" {
   if (status === "OPEN") return "warning";
   if (status === "CONVERTED") return "success";
   return "danger";
-}
-
-function CheckoutMessagePopover({
-  message,
-  onClose,
-}: {
-  message: CheckoutMessage | null;
-  onClose: () => void;
-}) {
-  if (!message) return null;
-
-  const toneStyles: Record<MessageTone, string> = {
-    success: "border-emerald-200 bg-emerald-50 text-emerald-800",
-    error: "border-red-200 bg-red-50 text-red-800",
-    info: "border-indigo-200 bg-indigo-50 text-indigo-800",
-  };
-
-  const ToneIcon = message.tone === "success"
-    ? CheckCircle2
-    : message.tone === "error"
-      ? AlertTriangle
-      : Info;
-
-  return (
-    <div className="fixed right-4 top-4 z-[60] w-full max-w-sm">
-      <div className={`rounded-xl border p-3 shadow-lg ${toneStyles[message.tone]}`} role="alert" aria-live="polite">
-        <div className="flex items-start gap-2">
-          <ToneIcon className="mt-0.5 h-4 w-4 shrink-0" />
-          <p className="flex-1 text-sm font-medium">{message.text}</p>
-          <button type="button" aria-label="Cerrar mensaje" onClick={onClose} className="rounded p-0.5 hover:bg-black/5">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 export default function CheckoutPage() {
@@ -111,7 +74,7 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savingQuote, setSavingQuote] = useState(false);
-  const [message, setMessage] = useState<CheckoutMessage | null>(null);
+  const [message, setMessage] = useState<SalesMessage | null>(null);
   const [authorizedSriInvoiceId, setAuthorizedSriInvoiceId] = useState<string | null>(null);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [quotesFilter, setQuotesFilter] = useState<QuoteFilter>("ALL");
@@ -429,6 +392,7 @@ export default function CheckoutPage() {
       },
       items: linePreview.map((line) => ({
         productId: line.productId,
+        productCode: line.product.codigo,
         cantidad: line.cantidad,
         descuento: line.descuento,
         precioUnitario: line.precioUnitario,
@@ -606,8 +570,8 @@ export default function CheckoutPage() {
           </div>
         </div>
       ) : null}
-      <CheckoutMessagePopover message={message} onClose={() => setMessage(null)} />
-      <CheckoutSection
+      <SalesMessagePopover message={message} onClose={() => setMessage(null)} />
+      <SalesCheckoutSection
         checkout={checkout}
         setCheckout={setCheckout}
         linePreview={linePreview}

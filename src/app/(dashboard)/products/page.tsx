@@ -5,8 +5,8 @@ import { useEffect, useState } from "react";
 
 import { fetchJson } from "@/components/mvp-dashboard-api";
 import { DeleteProductModal, EditProductModal, ProductModal } from "@/components/mvp-dashboard-modals";
-import { ProductsSection } from "@/components/mvp-dashboard-sections";
 import { type EditProductForm, type NewProductForm, type Product } from "@/components/mvp-dashboard-types";
+import { ProductsSection } from "@/features/products/components/products-section";
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);

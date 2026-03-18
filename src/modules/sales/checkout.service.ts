@@ -1,7 +1,7 @@
 import { Prisma, ReferenceType, SriInvoiceStatus } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
-import { formatProductCode, roundMoney } from "@/lib/utils";
+import { resolveProductCode, roundMoney } from "@/lib/utils";
 import { checkoutSchema, type CheckoutInput } from "@/modules/sales/schemas";
 import { pushAndAuthorizeInvoice } from "@/modules/sri/sri.service";
 
@@ -246,7 +246,7 @@ export async function checkout(rawInput: unknown) {
         total,
       },
       lines: lineComputations.map((line) => ({
-        productCode: line.product.sku || formatProductCode(line.product.secuencial),
+        productCode: resolveProductCode(line.product.sku, line.product.secuencial),
         auxCode: `AUX${line.product.secuencial.toString()}`,
         description: line.product.nombre,
         quantity: line.quantity,

@@ -2,7 +2,7 @@ import { QuoteStatus } from "@prisma/client";
 import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
-import { formatProductCode, roundMoney } from "@/lib/utils";
+import { resolveProductCode, roundMoney } from "@/lib/utils";
 import { checkout } from "@/modules/sales/checkout.service";
 import { checkoutSchema } from "@/modules/sales/schemas";
 
@@ -231,7 +231,7 @@ export async function getQuoteDetail(quoteId: string) {
     items: quote.items.map((item) => ({
       id: item.id,
       productId: item.productId,
-      productCode: item.product.sku || formatProductCode(item.product.secuencial),
+      productCode: resolveProductCode(item.product.sku, item.product.secuencial),
       productName: item.product.nombre,
       cantidad: Number(item.cantidad),
       precioUnitario: Number(item.precioUnitario),

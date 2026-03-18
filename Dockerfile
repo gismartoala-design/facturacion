@@ -1,45 +1,34 @@
-FROM node:20-bookworm-slim AS deps
+# Etapa 1: Instalar dependencias
+FROM node:24-alpine AS deps
 ENV PUPPETEER_SKIP_DOWNLOAD=true
+RUN apk add --no-cache libc6-compat
 WORKDIR /app
-
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates openssl \
-  && rm -rf /var/lib/apt/lists/*
 
 COPY package.json package-lock.json* ./
 RUN npm ci
 
-FROM node:20-bookworm-slim AS builder
+# Etapa 2: Constructor (Builder)
+FROM node:24-alpine AS builder
 WORKDIR /app
-
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 RUN npx prisma generate
 
-ENV NEXT_TELEMETRY_DISABLED=1
+ENV NEXT_TELEMETRY_DISABLED 1
 RUN npm run build
 
-FROM node:20-bookworm-slim AS runner
+# Etapa 3: Corredor (Runner)
+FROM node:24-alpine AS runner
 WORKDIR /app
 
-ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
-ENV PORT=8080
-ENV HOSTNAME=0.0.0.0
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+ENV NODE_ENV production
+ENV NEXT_TELEMETRY_DISABLED 1
+ENV PORT 8080
+ENV HOSTNAME "0.0.0.0"
 
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends \
-    ca-certificates \
-    chromium \
-    fonts-liberation \
-    fonts-noto-color-emoji \
-    openssl \
-  && rm -rf /var/lib/apt/lists/*
-
-RUN addgroup --system --gid 1001 nodejs \
-  && adduser --system --uid 1001 --ingroup nodejs nextjs
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
 
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./

@@ -1,7 +1,7 @@
 import { MovementType, Prisma, ReferenceType } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
-import { formatProductCode } from "@/lib/utils";
+import { normalizeProductSku, resolveProductCode } from "@/lib/utils";
 import { createProductSchema, stockAdjustmentSchema, updateProductSchema } from "@/modules/inventory/schemas";
 
 const productSelect = {
@@ -26,8 +26,8 @@ function productPresenter(product: Prisma.ProductGetPayload<{ select: typeof pro
   return {
     id: product.id,
     secuencial: product.secuencial.toString(),
-    codigo: formatProductCode(product.secuencial),
-    sku: product.sku,
+    codigo: resolveProductCode(product.sku, product.secuencial),
+    sku: normalizeProductSku(product.sku),
     nombre: product.nombre,
     descripcion: product.descripcion,
     precio: Number(product.precio),
@@ -37,6 +37,23 @@ function productPresenter(product: Prisma.ProductGetPayload<{ select: typeof pro
     minStock: Number(product.stockLevel?.minQuantity ?? 0),
     createdAt: product.createdAt,
   };
+}
+
+async function ensureActiveSkuAvailable(sku: string | null, excludeProductId?: string) {
+  if (!sku) return;
+
+  const existing = await prisma.product.findFirst({
+    where: {
+      sku: { equals: sku, mode: "insensitive" },
+      activo: true,
+      ...(excludeProductId ? { NOT: { id: excludeProductId } } : {}),
+    },
+    select: { id: true },
+  });
+
+  if (existing) {
+    throw new Error(`Ya existe un producto activo con el codigo ${sku}`);
+  }
 }
 
 export async function listProducts() {
@@ -51,10 +68,13 @@ export async function listProducts() {
 
 export async function createProduct(rawInput: unknown) {
   const input = createProductSchema.parse(rawInput);
+  const normalizedSku = normalizeProductSku(input.sku);
+
+  await ensureActiveSkuAvailable(normalizedSku);
 
   const product = await prisma.product.create({
     data: {
-      sku: input.sku || null,
+      sku: normalizedSku,
       nombre: input.nombre,
       descripcion: input.descripcion || null,
       precio: input.precio,
@@ -86,11 +106,16 @@ export async function createProduct(rawInput: unknown) {
 
 export async function updateProduct(id: string, rawInput: unknown) {
   const input = updateProductSchema.parse(rawInput);
+  const normalizedSku = input.sku !== undefined ? normalizeProductSku(input.sku) : undefined;
+
+  if (normalizedSku !== undefined) {
+    await ensureActiveSkuAvailable(normalizedSku, id);
+  }
 
   const product = await prisma.product.update({
     where: { id },
     data: {
-      ...(input.sku !== undefined ? { sku: input.sku || null } : {}),
+      ...(input.sku !== undefined ? { sku: normalizedSku } : {}),
       ...(input.nombre !== undefined ? { nombre: input.nombre } : {}),
       ...(input.descripcion !== undefined ? { descripcion: input.descripcion || null } : {}),
       ...(input.precio !== undefined ? { precio: input.precio } : {}),
@@ -140,9 +165,9 @@ export async function listStock() {
   return stock.map((item) => ({
     productId: item.productId,
     productName: item.product.nombre,
-    sku: item.product.sku,
+    sku: normalizeProductSku(item.product.sku),
     secuencial: item.product.secuencial.toString(),
-    codigo: formatProductCode(item.product.secuencial),
+    codigo: resolveProductCode(item.product.sku, item.product.secuencial),
     quantity: Number(item.quantity),
     minQuantity: Number(item.minQuantity),
     lowStock: item.quantity.lte(item.minQuantity),
@@ -193,6 +218,7 @@ export async function adjustStock(rawInput: unknown) {
         product: {
           select: {
             nombre: true,
+            sku: true,
             secuencial: true,
           },
         },
@@ -212,7 +238,7 @@ export async function adjustStock(rawInput: unknown) {
     return {
       productId: updated.productId,
       productName: updated.product.nombre,
-      codigo: formatProductCode(updated.product.secuencial),
+      codigo: resolveProductCode(updated.product.sku, updated.product.secuencial),
       quantity: Number(updated.quantity),
       minQuantity: Number(updated.minQuantity),
     };

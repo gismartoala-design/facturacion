@@ -1,6 +1,6 @@
 import { fail, ok } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
-import { formatProductCode } from "@/lib/utils";
+import { resolveProductCode } from "@/lib/utils";
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -48,7 +48,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
           product: {
             ...item.product,
             secuencial: item.product.secuencial.toString(),
-            codigo: item.product.sku || formatProductCode(item.product.secuencial),
+            codigo: resolveProductCode(item.product.sku, item.product.secuencial),
             precio: Number(item.product.precio),
             tarifaIva: Number(item.product.tarifaIva),
           },
