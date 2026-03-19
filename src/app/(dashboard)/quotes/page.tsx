@@ -50,30 +50,6 @@ export default function QuotesPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter]);
 
-  async function onConvertQuote(id: string) {
-    if (!window.confirm("Se convertira la cotizacion a venta/factura. ¿Deseas continuar?")) return;
-    setSaving(true);
-    setToast(null);
-    try {
-      await fetchJson(`/api/v1/quotes/${id}/convert`, { method: "POST" });
-      setToast({
-        message: "Cotizacion convertida a venta correctamente",
-        severity: "success",
-      });
-      await loadQuotes(statusFilter);
-    } catch (error) {
-      setToast({
-        message:
-          error instanceof Error
-            ? error.message
-            : "No se pudo convertir la cotizacion",
-        severity: "error",
-      });
-    } finally {
-      setSaving(false);
-    }
-  }
-
   async function onCancelQuote(id: string) {
     if (!window.confirm("Se anulara la cotizacion. ¿Deseas continuar?")) return;
     setSaving(true);
@@ -115,15 +91,21 @@ export default function QuotesPage() {
         quotes={quotes}
         saving={saving}
         statusFilter={statusFilter}
+        onCreateQuote={() => {
+          window.location.href = "/sales?mode=quote";
+        }}
         onStatusFilterChange={setStatusFilter}
         onRefresh={() => {
           void loadQuotes(statusFilter);
         }}
         onEditQuote={(quoteId) => {
-          window.location.href = `/checkout?edit=${quoteId}`;
+          window.location.href = `/sales?mode=quote&edit=${quoteId}`;
         }}
-        onConvertQuote={(quoteId) => {
-          void onConvertQuote(quoteId);
+        onInvoiceQuote={(quoteId) => {
+          window.location.href = `/sales?quote=${quoteId}`;
+        }}
+        onPrintQuote={(quoteId) => {
+          window.open(`/api/v1/quotes/${quoteId}/pdf`, "_blank", "noopener,noreferrer");
         }}
         onCancelQuote={(quoteId) => {
           void onCancelQuote(quoteId);

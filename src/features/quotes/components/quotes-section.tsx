@@ -8,7 +8,7 @@ import Select from "@mui/material/Select";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
-import { FilePenLine, RefreshCcw, ReceiptText, XCircle } from "lucide-react";
+import { FilePenLine, FilePlus2, Printer, ReceiptText, RefreshCcw, XCircle } from "lucide-react";
 import { useMemo } from "react";
 
 import type { Quote, QuoteStatus } from "@/components/mvp-dashboard-types";
@@ -50,10 +50,12 @@ type QuotesSectionProps = {
   quotes: Quote[];
   saving: boolean;
   statusFilter: QuoteFilter;
+  onCreateQuote: () => void;
   onStatusFilterChange: (value: QuoteFilter) => void;
   onRefresh: () => void;
   onEditQuote: (quoteId: string) => void;
-  onConvertQuote: (quoteId: string) => void;
+  onInvoiceQuote: (quoteId: string) => void;
+  onPrintQuote: (quoteId: string) => void;
   onCancelQuote: (quoteId: string) => void;
 };
 
@@ -61,10 +63,12 @@ export function QuotesSection({
   quotes,
   saving,
   statusFilter,
+  onCreateQuote,
   onStatusFilterChange,
   onRefresh,
   onEditQuote,
-  onConvertQuote,
+  onInvoiceQuote,
+  onPrintQuote,
   onCancelQuote,
 }: QuotesSectionProps) {
   const columns = useMemo<GridColDef<Quote>[]>(
@@ -131,8 +135,8 @@ export function QuotesSection({
         sortable: false,
         filterable: false,
         disableColumnMenu: true,
-        minWidth: 290,
-        flex: 1.5,
+        minWidth: 400,
+        flex: 1.9,
         renderCell: (params) => (
           <div className="flex flex-wrap items-center gap-2 py-2">
             <MuiButton
@@ -150,10 +154,20 @@ export function QuotesSection({
               size="small"
               variant="outlined"
               disabled={saving || params.row.status !== "OPEN"}
-              onClick={() => onConvertQuote(params.row.id)}
+              onClick={() => onInvoiceQuote(params.row.id)}
               startIcon={<ReceiptText className="h-4 w-4" />}
+              >
+                Facturar
+              </MuiButton>
+            <MuiButton
+              type="button"
+              size="small"
+              variant="outlined"
+              disabled={saving}
+              onClick={() => onPrintQuote(params.row.id)}
+              startIcon={<Printer className="h-4 w-4" />}
             >
-              Convertir
+              Imprimir
             </MuiButton>
             <MuiButton
               type="button"
@@ -170,7 +184,7 @@ export function QuotesSection({
         ),
       },
     ],
-    [onCancelQuote, onConvertQuote, onEditQuote, saving],
+    [onCancelQuote, onEditQuote, onInvoiceQuote, onPrintQuote, saving],
   );
 
   return (
@@ -257,6 +271,14 @@ export function QuotesSection({
                 startIcon={<RefreshCcw className="h-4 w-4" />}
               >
                 Actualizar
+              </MuiButton>
+              <MuiButton
+                type="button"
+                variant="contained"
+                onClick={onCreateQuote}
+                startIcon={<FilePlus2 className="h-4 w-4" />}
+              >
+                Nueva cotizacion
               </MuiButton>
             </Stack>
           </Stack>

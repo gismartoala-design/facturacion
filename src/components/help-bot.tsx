@@ -94,7 +94,7 @@ export function HelpBot() {
             <Button
                 onClick={() => setIsOpen(!isOpen)}
                 size="icon"
-                className={`h-12 w-12 rounded-full shadow-lg transition-transform hover:scale-105 active:scale-95 ${isOpen ? "bg-slate-800 hover:bg-slate-700" : "bg-gradient-to-tr from-indigo-600 to-purple-600 hover:shadow-xl"
+                className={`h-12 w-12 rounded-full shadow-lg transition-transform hover:scale-105 active:scale-95 ${isOpen ? "bg-slate-800 hover:bg-slate-700" : "bg-linear-to-tr from-indigo-600 to-purple-600 hover:shadow-xl"
                     } text-white border-0`}
             >
                 {isOpen ? <X className="h-5 w-5" /> : <MessageCircle className="h-6 w-6" />}

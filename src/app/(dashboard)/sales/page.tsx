@@ -7,13 +7,11 @@ import { useEffect, useMemo, useState } from "react";
 
 import { fetchJson } from "@/components/mvp-dashboard-api";
 import { CustomerPickerModal, ProductPickerModal } from "@/components/mvp-dashboard-modals";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Table, TBody, Td, Th, THead, Tr } from "@/components/ui/table";
 import {
   SalesMessagePopover,
   type SalesMessage,
 } from "@/features/sales/components/sales-message-popover";
+import { OpenQuotesDialog } from "@/features/sales/components/open-quotes-dialog";
 import { SalesCheckoutSection } from "@/features/sales/components/sales-checkout-section";
 import {
   IDENTIFICATION_TYPES,
@@ -24,7 +22,6 @@ import {
   type LinePreviewItem,
   type Product,
   type QuoteDetail,
-  type QuoteStatus,
   type Quote,
 } from "@/components/mvp-dashboard-types";
 
@@ -35,8 +32,6 @@ type CheckoutResponse = {
     status: "DRAFT" | "AUTHORIZED" | "PENDING_SRI" | "ERROR";
   } | null;
 };
-
-type QuoteFilter = "ALL" | QuoteStatus;
 
 function buildInitialCheckoutForm(): CheckoutForm {
   return {
@@ -52,16 +47,12 @@ function buildInitialCheckoutForm(): CheckoutForm {
   };
 }
 
-type MessageTone = "success" | "error" | "info";
-
-function quoteBadgeVariant(status: QuoteStatus): "default" | "success" | "warning" | "danger" {
-  if (status === "OPEN") return "warning";
-  if (status === "CONVERTED") return "success";
-  return "danger";
-}
-
 export default function CheckoutPage() {
   const searchParams = useSearchParams();
+  const mode = searchParams.get("mode") === "quote" ? "quote" : "sale";
+  const quoteToEditId = searchParams.get("edit");
+  const quoteToLoadId = searchParams.get("quote");
+  const isQuoteMode = mode === "quote";
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
@@ -77,13 +68,8 @@ export default function CheckoutPage() {
   const [message, setMessage] = useState<SalesMessage | null>(null);
   const [authorizedSriInvoiceId, setAuthorizedSriInvoiceId] = useState<string | null>(null);
   const [quotes, setQuotes] = useState<Quote[]>([]);
-  const [quotesFilter, setQuotesFilter] = useState<QuoteFilter>("ALL");
   const [quotesLoading, setQuotesLoading] = useState(false);
-  const [quotesSaving, setQuotesSaving] = useState(false);
   const [isQuotesModalOpen, setIsQuotesModalOpen] = useState(false);
-  const [isQuoteDetailOpen, setIsQuoteDetailOpen] = useState(false);
-  const [quoteDetailLoading, setQuoteDetailLoading] = useState(false);
-  const [selectedQuoteDetail, setSelectedQuoteDetail] = useState<QuoteDetail | null>(null);
   const [editingQuoteId, setEditingQuoteId] = useState<string | null>(null);
 
   const [checkout, setCheckout] = useState<CheckoutForm>(buildInitialCheckoutForm);
@@ -169,20 +155,68 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     void loadCheckoutData();
-
-    const editId = searchParams.get("edit");
-    if (editId) {
-      void (async () => {
-        try {
-          const detail = await fetchJson<QuoteDetail>(`/api/v1/quotes/${editId}`);
-          onEditQuote(detail);
-        } catch (error) {
-          setMessage({ text: error instanceof Error ? error.message : "No se pudo cargar cotizacion para editar", tone: "error" });
-        }
-      })();
+    if (isQuoteMode && quoteToEditId) {
+      void loadQuoteById(quoteToEditId, true);
+    } else if (!isQuoteMode && quoteToLoadId) {
+      void loadQuoteById(quoteToLoadId, false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function applyQuoteToForm(quote: QuoteDetail, editing: boolean) {
+    setEditingQuoteId(editing ? quote.id : null);
+    setAuthorizedSriInvoiceId(null);
+    setCheckout({
+      issuerId: quote.issuerId,
+      fechaEmision: quote.fechaEmision,
+      tipoIdentificacion: quote.customer.tipoIdentificacion,
+      identificacion: quote.customer.identificacion,
+      razonSocial: quote.customer.razonSocial,
+      direccion: quote.customer.direccion ?? "",
+      email: quote.customer.email ?? "",
+      telefono: quote.customer.telefono ?? "",
+      formaPago: quote.formaPago,
+    });
+    setLineItems(
+      quote.items.map((item) => ({
+        productId: item.productId,
+        cantidad: item.cantidad,
+        precioUnitario: item.precioUnitario,
+        descuento: item.descuento,
+      })),
+    );
+    setIsQuotesModalOpen(false);
+    setMessage({
+      text: editing
+        ? `Editando cotizacion #${quote.quoteNumber}`
+        : `Cotizacion #${quote.quoteNumber} cargada para facturar`,
+      tone: "info",
+    });
+  }
+
+  async function loadQuoteById(quoteId: string, editing: boolean) {
+    try {
+      const detail = await fetchJson<QuoteDetail>(`/api/v1/quotes/${quoteId}`);
+      if (!editing && detail.status !== "OPEN") {
+        setMessage({
+          text: "Solo se pueden cargar cotizaciones abiertas para facturar.",
+          tone: "error",
+        });
+        return;
+      }
+      applyQuoteToForm(detail, editing);
+    } catch (error) {
+      setMessage({
+        text:
+          error instanceof Error
+            ? error.message
+            : editing
+              ? "No se pudo cargar cotizacion para editar"
+              : "No se pudo cargar cotizacion para facturar",
+        tone: "error",
+      });
+    }
+  }
 
   async function loadCustomers(search = "") {
     setCustomerLoading(true);
@@ -322,7 +356,12 @@ export default function CheckoutPage() {
     setIsProductPickerOpen(false);
     setAuthorizedSriInvoiceId(null);
     setEditingQuoteId(null);
-    setMessage({ text: "Formulario reiniciado correctamente.", tone: "info" });
+    setMessage({
+      text: isQuoteMode
+        ? "Formulario de cotizacion reiniciado correctamente."
+        : "Formulario reiniciado correctamente.",
+      tone: "info",
+    });
   }
 
   function validateIdentification(tipoIdentificacion: string, identificacion: string): string | null {
@@ -433,12 +472,11 @@ export default function CheckoutPage() {
         method,
         body: JSON.stringify(buildCheckoutPayload()),
       });
-      setMessage({ text: `Cotizacion #${quote.quoteNumber} ${editingQuoteId ? "actualizada" : "guardada"} correctamente`, tone: "success" });
-      if (editingQuoteId) {
-        setEditingQuoteId(null);
-        setLineItems([]);
-        setCheckout(buildInitialCheckoutForm());
-      }
+      setEditingQuoteId(quote.id);
+      setMessage({
+        text: `Cotizacion #${quote.quoteNumber} ${editingQuoteId ? "actualizada" : "guardada"} correctamente`,
+        tone: "success",
+      });
     } catch (error) {
       setMessage({ text: error instanceof Error ? error.message : "No se pudo guardar la cotizacion", tone: "error" });
     } finally {
@@ -446,43 +484,24 @@ export default function CheckoutPage() {
     }
   }
 
-  function onEditQuote(quote: QuoteDetail) {
-    setEditingQuoteId(quote.id);
-    setCheckout({
-      issuerId: quote.issuerId,
-      fechaEmision: quote.fechaEmision,
-      tipoIdentificacion: quote.customer.tipoIdentificacion,
-      identificacion: quote.customer.identificacion,
-      razonSocial: quote.customer.razonSocial,
-      direccion: quote.customer.direccion ?? "",
-      email: quote.customer.email ?? "",
-      telefono: quote.customer.telefono ?? "",
-      formaPago: quote.formaPago,
-    });
-    setLineItems(quote.items.map(item => ({
-      productId: item.productId,
-      cantidad: item.cantidad,
-      precioUnitario: item.precioUnitario,
-      descuento: item.descuento,
-    })));
-    setIsQuotesModalOpen(false);
-    setIsQuoteDetailOpen(false);
-    setMessage({ text: `Editando cotizacion #${quote.quoteNumber}`, tone: "info" });
-  }
-
   function onCancelEdit() {
     setEditingQuoteId(null);
     onResetCheckout();
   }
 
-  async function loadQuotes(filter: QuoteFilter = quotesFilter) {
+  async function loadOpenQuotes() {
     setQuotesLoading(true);
     try {
-      const query = filter === "ALL" ? "" : `?status=${filter}`;
-      const result = await fetchJson<Quote[]>(`/api/v1/quotes${query}`);
+      const result = await fetchJson<Quote[]>(`/api/v1/quotes?status=OPEN`);
       setQuotes(result);
     } catch (error) {
-      setMessage({ text: error instanceof Error ? error.message : "No se pudo cargar cotizaciones", tone: "error" });
+      setMessage({
+        text:
+          error instanceof Error
+            ? error.message
+            : "No se pudo cargar cotizaciones abiertas",
+        tone: "error",
+      });
     } finally {
       setQuotesLoading(false);
     }
@@ -490,67 +509,8 @@ export default function CheckoutPage() {
 
   function onOpenQuotesModal() {
     setIsQuotesModalOpen(true);
-    void loadQuotes(quotesFilter);
+    void loadOpenQuotes();
   }
-
-  async function onViewQuoteDetail(quoteId: string) {
-    setIsQuoteDetailOpen(true);
-    setQuoteDetailLoading(true);
-    setSelectedQuoteDetail(null);
-    try {
-      const detail = await fetchJson<QuoteDetail>(`/api/v1/quotes/${quoteId}`);
-      setSelectedQuoteDetail(detail);
-    } catch (error) {
-      setMessage({ text: error instanceof Error ? error.message : "No se pudo cargar detalle de cotizacion", tone: "error" });
-      setIsQuoteDetailOpen(false);
-    } finally {
-      setQuoteDetailLoading(false);
-    }
-  }
-
-  async function onConvertQuote(quoteId: string) {
-    if (!window.confirm("Se convertira la cotizacion a venta/factura. ¿Deseas continuar?")) return;
-
-    setQuotesSaving(true);
-    setMessage(null);
-    try {
-      await fetchJson(`/api/v1/quotes/${quoteId}/convert`, { method: "POST" });
-      setMessage({ text: "Cotizacion convertida a venta correctamente", tone: "success" });
-      setIsQuoteDetailOpen(false);
-      await loadQuotes(quotesFilter);
-    } catch (error) {
-      setMessage({ text: error instanceof Error ? error.message : "No se pudo convertir la cotizacion", tone: "error" });
-    } finally {
-      setQuotesSaving(false);
-    }
-  }
-
-  async function onCancelQuote(quoteId: string) {
-    if (!window.confirm("Se anulara la cotizacion. ¿Deseas continuar?")) return;
-
-    setQuotesSaving(true);
-    setMessage(null);
-    try {
-      await fetchJson(`/api/v1/quotes/${quoteId}/cancel`, { method: "POST" });
-      setMessage({ text: "Cotizacion anulada correctamente", tone: "info" });
-      setIsQuoteDetailOpen(false);
-      await loadQuotes(quotesFilter);
-    } catch (error) {
-      setMessage({ text: error instanceof Error ? error.message : "No se pudo anular la cotizacion", tone: "error" });
-    } finally {
-      setQuotesSaving(false);
-    }
-  }
-
-  const printableQuoteInvoiceId =
-    selectedQuoteDetail?.convertedInvoice?.externalInvoiceId ??
-    selectedQuoteDetail?.convertedInvoice?.sriInvoiceId ??
-    null;
-  const canPrintQuotePdf = selectedQuoteDetail?.status === "OPEN";
-  const canPrintConvertedQuote =
-    selectedQuoteDetail?.status === "CONVERTED" &&
-    selectedQuoteDetail?.convertedInvoice?.status === "AUTHORIZED" &&
-    Boolean(printableQuoteInvoiceId);
 
   if (loading) {
     return (
@@ -563,15 +523,18 @@ export default function CheckoutPage() {
   return (
     <>
       {saving ? (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-[1px]">
+        <div className="fixed inset-0 z-70 flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-[1px]">
           <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-xl">
             <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
-            Registrando venta y procesando factura...
+            {isQuoteMode
+              ? "Guardando cotizacion..."
+              : "Registrando venta y procesando factura..."}
           </div>
         </div>
       ) : null}
       <SalesMessagePopover message={message} onClose={() => setMessage(null)} />
       <SalesCheckoutSection
+        mode={mode}
         checkout={checkout}
         setCheckout={setCheckout}
         linePreview={linePreview}
@@ -581,6 +544,7 @@ export default function CheckoutPage() {
         selectedIdentificationType={selectedIdentificationType}
         selectedPaymentMethod={selectedPaymentMethod}
         canPrintDocuments={Boolean(authorizedSriInvoiceId)}
+        canPrintQuote={isQuoteMode && Boolean(editingQuoteId)}
         canResetCheckout={canResetCheckout}
         saving={saving}
         savingQuote={savingQuote}
@@ -593,11 +557,21 @@ export default function CheckoutPage() {
           if (!authorizedSriInvoiceId) return;
           window.open(`/api/v1/sri-invoices/${authorizedSriInvoiceId}/xml`, "_blank", "noopener,noreferrer");
         }}
-        onSaveQuote={() => { void onSaveQuote(); }}
+        onPrintQuote={() => {
+          if (!editingQuoteId) return;
+          window.open(`/api/v1/quotes/${editingQuoteId}/pdf`, "_blank", "noopener,noreferrer");
+        }}
         onCancelEdit={onCancelEdit}
         onOpenQuotesModal={onOpenQuotesModal}
         onResetCheckout={onResetCheckout}
-        onCheckout={onCheckout}
+        onSubmit={(e) => {
+          if (isQuoteMode) {
+            e.preventDefault();
+            void onSaveQuote();
+            return;
+          }
+          void onCheckout(e);
+        }}
         onOpenCustomerPicker={openCustomerPicker}
         onOpenProductPicker={openProductPicker}
         incrementLineQuantity={incrementLineQuantity}
@@ -605,247 +579,16 @@ export default function CheckoutPage() {
         removeLine={removeLine}
       />
 
-      {isQuotesModalOpen ? (
-        <div className="fixed inset-0 z-[65] flex items-center justify-center bg-slate-950/35 p-4">
-          <div className="flex max-h-[90vh] w-full max-w-5xl flex-col rounded-2xl border border-slate-200 bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-slate-100 p-5">
-              <div>
-                <h3 className="text-lg font-semibold text-slate-900">Cotizaciones / Proformas</h3>
-                <p className="text-sm text-slate-500">Consulta, convierte y anula desde la opcion de venta.</p>
-              </div>
-              <Button type="button" variant="outline" onClick={() => setIsQuotesModalOpen(false)}>
-                Cerrar
-              </Button>
-            </div>
-            <div className="space-y-4 overflow-y-auto p-5">
-              <div className="flex flex-wrap items-center gap-2">
-                <select
-                  className="h-10 rounded-md border border-slate-300 px-3 text-sm"
-                  value={quotesFilter}
-                  onChange={(e) => {
-                    const next = e.target.value as QuoteFilter;
-                    setQuotesFilter(next);
-                    void loadQuotes(next);
-                  }}
-                  disabled={quotesLoading || quotesSaving}
-                >
-                  <option value="ALL">Todas</option>
-                  <option value="OPEN">Abiertas</option>
-                  <option value="CONVERTED">Convertidas</option>
-                  <option value="CANCELLED">Anuladas</option>
-                </select>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => { void loadQuotes(quotesFilter); }}
-                  disabled={quotesLoading || quotesSaving}
-                >
-                  Actualizar
-                </Button>
-              </div>
-
-              {quotesLoading ? (
-                <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-4 text-slate-600">
-                  <Loader2 className="h-4 w-4 animate-spin" /> Cargando cotizaciones...
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <THead>
-                      <Tr>
-                        <Th>No.</Th>
-                        <Th>Cliente</Th>
-                        <Th>Fecha</Th>
-                        <Th>Total</Th>
-                        <Th>Estado</Th>
-                        <Th>Acciones</Th>
-                      </Tr>
-                    </THead>
-                    <TBody>
-                      {quotes.length === 0 ? (
-                        <Tr>
-                          <Td colSpan={6} className="text-center text-slate-500">No hay cotizaciones para este filtro.</Td>
-                        </Tr>
-                      ) : (
-                        quotes.map((quote) => (
-                          <Tr key={quote.id}>
-                            <Td className="font-medium">#{quote.quoteNumber}</Td>
-                            <Td>{quote.customerName}</Td>
-                            <Td>{quote.fechaEmision}</Td>
-                            <Td>${quote.total.toFixed(2)}</Td>
-                            <Td><Badge variant={quoteBadgeVariant(quote.status)}>{quote.status}</Badge></Td>
-                            <Td>
-                              <div className="flex flex-wrap gap-2">
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="secondary"
-                                  onClick={() => { void onViewQuoteDetail(quote.id); }}
-                                  disabled={quotesSaving}
-                                >
-                                  Ver detalle
-                                </Button>
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => { void onConvertQuote(quote.id); }}
-                                  disabled={quotesSaving || quote.status !== "OPEN"}
-                                >
-                                  Convertir
-                                </Button>
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="destructive"
-                                  onClick={() => { void onCancelQuote(quote.id); }}
-                                  disabled={quotesSaving || quote.status !== "OPEN"}
-                                >
-                                  Anular
-                                </Button>
-                              </div>
-                            </Td>
-                          </Tr>
-                        ))
-                      )}
-                    </TBody>
-                  </Table>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {isQuoteDetailOpen ? (
-        <div className="fixed inset-0 z-[66] flex items-center justify-center bg-slate-950/35 p-4">
-          <div className="flex max-h-[90vh] w-full max-w-4xl flex-col rounded-2xl border border-slate-200 bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-slate-100 p-5">
-              <div>
-                <h3 className="text-lg font-semibold text-slate-900">Detalle Cotizacion</h3>
-                {selectedQuoteDetail ? <p className="text-sm text-slate-500">Cotizacion #{selectedQuoteDetail.quoteNumber}</p> : null}
-              </div>
-              <Button type="button" variant="outline" onClick={() => setIsQuoteDetailOpen(false)}>Cerrar</Button>
-            </div>
-            <div className="overflow-y-auto p-6">
-              {quoteDetailLoading || !selectedQuoteDetail ? (
-                <div className="flex min-h-[220px] items-center justify-center gap-2 text-slate-600">
-                  <Loader2 className="h-4 w-4 animate-spin" /> Cargando detalle...
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="rounded-lg border border-slate-100 bg-slate-50 p-4 text-sm">
-                      <p><span className="text-slate-500">Cliente:</span> {selectedQuoteDetail.customer.razonSocial}</p>
-                      <p><span className="text-slate-500">Identificacion:</span> {selectedQuoteDetail.customer.identificacion}</p>
-                      <p><span className="text-slate-500">Fecha:</span> {selectedQuoteDetail.fechaEmision}</p>
-                    </div>
-                    <div className="rounded-lg border border-slate-100 bg-white p-4 text-sm">
-                      <p>
-                        <span className="text-slate-500">Estado:</span>{" "}
-                        <Badge variant={quoteBadgeVariant(selectedQuoteDetail.status)}>{selectedQuoteDetail.status}</Badge>
-                      </p>
-                      <p className="mt-2"><span className="text-slate-500">Forma pago:</span> {selectedQuoteDetail.formaPago}</p>
-                      <p><span className="text-slate-500">Moneda:</span> {selectedQuoteDetail.moneda}</p>
-                    </div>
-                  </div>
-
-                  <div className="overflow-x-auto rounded-lg border border-slate-200">
-                    <Table>
-                      <THead>
-                        <Tr>
-                          <Th>Codigo</Th>
-                          <Th>Producto</Th>
-                          <Th>Cantidad</Th>
-                          <Th>Precio</Th>
-                          <Th>Total</Th>
-                        </Tr>
-                      </THead>
-                      <TBody>
-                        {selectedQuoteDetail.items.map((item) => (
-                          <Tr key={item.id}>
-                            <Td className="font-medium">{item.productCode}</Td>
-                            <Td>{item.productName}</Td>
-                            <Td>{item.cantidad.toFixed(3)}</Td>
-                            <Td>${item.precioUnitario.toFixed(2)}</Td>
-                            <Td>${item.total.toFixed(2)}</Td>
-                          </Tr>
-                        ))}
-                      </TBody>
-                    </Table>
-                  </div>
-
-                  <div className="flex flex-col items-end gap-1 text-sm">
-                    <div className="flex w-full max-w-xs justify-between"><span className="text-slate-500">Subtotal:</span><span>${selectedQuoteDetail.subtotal.toFixed(2)}</span></div>
-                    <div className="flex w-full max-w-xs justify-between"><span className="text-slate-500">IVA:</span><span>${selectedQuoteDetail.taxTotal.toFixed(2)}</span></div>
-                    <div className="flex w-full max-w-xs justify-between font-semibold text-emerald-700"><span>Total:</span><span>${selectedQuoteDetail.total.toFixed(2)}</span></div>
-                  </div>
-
-                  <div className="rounded-lg bg-slate-50 p-4">
-                    <h4 className="mb-2 font-medium text-slate-800">Impresion de documentos</h4>
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        type="button"
-                        variant="default"
-                        disabled={selectedQuoteDetail.status !== "OPEN" || quotesSaving}
-                        onClick={() => {
-                          if (!selectedQuoteDetail) return;
-                          onEditQuote(selectedQuoteDetail);
-                        }}
-                      >
-                        Editar cotizacion
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        disabled={!canPrintQuotePdf}
-                        onClick={() => {
-                          if (!selectedQuoteDetail) return;
-                          window.open(`/api/v1/quotes/${selectedQuoteDetail.id}/pdf`, "_blank", "noopener,noreferrer");
-                        }}
-                      >
-                        Descargar PDF cotizacion
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        disabled={!canPrintConvertedQuote}
-                        onClick={() => {
-                          if (!printableQuoteInvoiceId) return;
-                          window.open(`/api/v1/sri-invoices/${printableQuoteInvoiceId}/ride`, "_blank", "noopener,noreferrer");
-                        }}
-                      >
-                        Descargar Ride
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        disabled={!canPrintConvertedQuote}
-                        onClick={() => {
-                          if (!printableQuoteInvoiceId) return;
-                          window.open(`/api/v1/sri-invoices/${printableQuoteInvoiceId}/xml`, "_blank", "noopener,noreferrer");
-                        }}
-                      >
-                        Descargar XML
-                      </Button>
-                    </div>
-                    {!canPrintQuotePdf ? (
-                      <p className="mt-2 text-xs text-slate-500">
-                        Disponible solo en cotizaciones OPEN.
-                      </p>
-                    ) : null}
-                    {!canPrintConvertedQuote ? (
-                      <p className="mt-1 text-xs text-slate-500">
-                        Solo disponible en cotizaciones convertidas con factura autorizada.
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <OpenQuotesDialog
+        isOpen={isQuotesModalOpen}
+        loading={quotesLoading}
+        saving={saving}
+        quotes={quotes}
+        onClose={() => setIsQuotesModalOpen(false)}
+        onLoadQuote={(quoteId) => {
+          void loadQuoteById(quoteId, false);
+        }}
+      />
 
       <CustomerPickerModal
         isOpen={isCustomerPickerOpen}

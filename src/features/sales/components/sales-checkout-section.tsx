@@ -9,7 +9,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Table, TBody, Td, Th, THead, Tr } from "@/components/ui/table";
 import {
   IDENTIFICATION_TYPES,
@@ -22,10 +21,13 @@ import {
 } from "@/components/mvp-dashboard-types";
 import { DocumentWorkspaceHeader } from "@/features/shared/document-composer/components/document-workspace-header";
 import Box from "@mui/material/Box";
+import MenuItem from "@mui/material/MenuItem";
 import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 
 export type SalesCheckoutSectionProps = {
+  mode: "sale" | "quote";
   checkout: CheckoutForm;
   setCheckout: Dispatch<SetStateAction<CheckoutForm>>;
   linePreview: LinePreviewItem[];
@@ -35,17 +37,18 @@ export type SalesCheckoutSectionProps = {
   selectedIdentificationType?: IdentificationTypeOption;
   selectedPaymentMethod?: PaymentMethodOption;
   canPrintDocuments: boolean;
+  canPrintQuote: boolean;
   canResetCheckout: boolean;
   saving: boolean;
   savingQuote: boolean;
   editingQuoteId: string | null;
   onPrintRide: () => void;
   onPrintXml: () => void;
-  onSaveQuote: () => void;
-  onCancelEdit: () => void;
-  onOpenQuotesModal: () => void;
+  onPrintQuote?: () => void;
+  onCancelEdit?: () => void;
+  onOpenQuotesModal?: () => void;
   onResetCheckout: () => void;
-  onCheckout: (e: FormEvent<HTMLFormElement>) => void;
+  onSubmit: (e: FormEvent<HTMLFormElement>) => void;
   onOpenCustomerPicker: () => void;
   onOpenProductPicker: () => void;
   incrementLineQuantity: (productId: string, delta: number) => void;
@@ -54,6 +57,7 @@ export type SalesCheckoutSectionProps = {
 };
 
 export function SalesCheckoutSection({
+  mode,
   checkout,
   setCheckout,
   linePreview,
@@ -63,17 +67,18 @@ export function SalesCheckoutSection({
   selectedIdentificationType,
   selectedPaymentMethod,
   canPrintDocuments,
+  canPrintQuote,
   canResetCheckout,
   saving,
   savingQuote,
   editingQuoteId,
   onPrintRide,
   onPrintXml,
-  onSaveQuote,
+  onPrintQuote,
   onCancelEdit,
   onOpenQuotesModal,
   onResetCheckout,
-  onCheckout,
+  onSubmit,
   onOpenCustomerPicker,
   onOpenProductPicker,
   incrementLineQuantity,
@@ -83,6 +88,18 @@ export function SalesCheckoutSection({
   const hasCustomerSelected = Boolean(
     checkout.identificacion.trim() && checkout.razonSocial.trim(),
   );
+  const isQuoteMode = mode === "quote";
+  const primaryBusy = isQuoteMode ? savingQuote : saving;
+  const primaryLabel = isQuoteMode
+    ? editingQuoteId
+      ? "Actualizar cotizacion"
+      : "Guardar cotizacion"
+    : "Registrar venta";
+  const processingLabel = isQuoteMode
+    ? editingQuoteId
+      ? "Actualizando cotizacion..."
+      : "Guardando cotizacion..."
+    : "Procesando...";
 
   return (
     <div className="space-y-6">
@@ -92,7 +109,7 @@ export function SalesCheckoutSection({
             variant="h5"
             sx={{ color: "#4a3c58", fontWeight: 700, lineHeight: 1.15 }}
           >
-            Facturar Venta
+            {isQuoteMode ? "Gestionar Cotización" : "Facturar Venta"}
           </Typography>
           <Typography
             sx={{
@@ -101,51 +118,33 @@ export function SalesCheckoutSection({
               fontSize: 14,
             }}
           >
-            Registrar la venta, validar cliente y emitir factura en un solo
-            paso.
+            {isQuoteMode
+              ? "Arma la propuesta, ajusta productos y guarda la cotizacion sin afectar inventario."
+              : "Registrar la venta, validar cliente y emitir factura en un solo paso."}
           </Typography>
         </Stack>
       </Box>
       <Card className="border-[#e8d5e5]/60">
         <CardContent>
-          <form className="space-y-5" onSubmit={onCheckout}>
+          <form className="space-y-5" onSubmit={onSubmit}>
             <section className="rounded-2xl border border-[#e8d5e5]/70 bg-white/80 p-4">
               <div className="flexs gap-4 flex-row xl:items-start xl:justify-between">
                 <div className="flex flex-wrap gap-2 ">
                   <Button
-                    disabled={saving || linePreview.length === 0}
+                    disabled={primaryBusy || linePreview.length === 0}
                     type="submit"
                     className="bg-[#4a3c58] text-white hover:bg-[#3d3249]"
                   >
-                    {saving ? (
+                    {primaryBusy ? (
                       <>
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        Procesando...
+                        {processingLabel}
                       </>
                     ) : (
                       <>
                         <ShoppingCart className="h-4 w-4" />
-                        Registrar venta
+                        {primaryLabel}
                       </>
-                    )}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={onSaveQuote}
-                    disabled={saving || savingQuote || linePreview.length === 0}
-                  >
-                    {savingQuote ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        {editingQuoteId
-                          ? "Actualizando cotizacion..."
-                          : "Guardando cotizacion..."}
-                      </>
-                    ) : editingQuoteId ? (
-                      "Actualizar cotizacion"
-                    ) : (
-                      "Guardar cotizacion"
                     )}
                   </Button>
                   {editingQuoteId ? (
@@ -158,14 +157,16 @@ export function SalesCheckoutSection({
                       Cancelar edicion
                     </Button>
                   ) : null}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={onOpenQuotesModal}
-                    disabled={saving || savingQuote}
-                  >
-                    Ver cotizaciones
-                  </Button>
+                  {!isQuoteMode && onOpenQuotesModal ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={onOpenQuotesModal}
+                      disabled={saving || savingQuote}
+                    >
+                      Cargar cotizacion abierta
+                    </Button>
+                  ) : null}
                   <Button
                     type="button"
                     variant="secondary"
@@ -175,22 +176,35 @@ export function SalesCheckoutSection({
                     <RefreshCcw className="h-4 w-4" />
                     Resetear
                   </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={!canPrintDocuments}
-                    onClick={onPrintRide}
-                  >
-                    Descargar PDF
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={!canPrintDocuments}
-                    onClick={onPrintXml}
-                  >
-                    Descargar XML
-                  </Button>
+                  {!isQuoteMode ? (
+                    <>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={!canPrintDocuments}
+                        onClick={onPrintRide}
+                      >
+                        Descargar PDF
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={!canPrintDocuments}
+                        onClick={onPrintXml}
+                      >
+                        Descargar XML
+                      </Button>
+                    </>
+                  ) : canPrintQuote && onPrintQuote ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={onPrintQuote}
+                      disabled={savingQuote}
+                    >
+                      Descargar PDF cotizacion
+                    </Button>
+                  ) : null}
                 </div>
               </div>
               <div className="space-y-2">
@@ -201,10 +215,14 @@ export function SalesCheckoutSection({
                     </span>
                   ) : null}
                 </div>
-                {!canPrintDocuments ? (
+                {!isQuoteMode && !canPrintDocuments ? (
                   <p className="text-xs text-[#4a3c58]/50">
                     Los documentos de impresion se habilitan cuando la factura
                     este autorizada.
+                  </p>
+                ) : isQuoteMode && !canPrintQuote ? (
+                  <p className="text-xs text-[#4a3c58]/50">
+                    El PDF se habilita cuando la cotizacion ya fue guardada.
                   </p>
                 ) : null}
               </div>
@@ -232,60 +250,54 @@ export function SalesCheckoutSection({
                 </div>
 
                 <div className="mt-4 grid gap-3 md:grid-cols-3">
-                  <div>
-                    <Label htmlFor="fecha">Fecha emision</Label>
-                    <Input
-                      id="fecha"
-                      value={checkout.fechaEmision}
-                      onChange={(e) =>
-                        setCheckout((prev) => ({
-                          ...prev,
-                          fechaEmision: e.target.value,
-                        }))
-                      }
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="tipoId">Tipo identificacion</Label>
-                    <select
-                      id="tipoId"
-                      className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm"
-                      value={checkout.tipoIdentificacion}
-                      onChange={(e) =>
-                        setCheckout((prev) => ({
-                          ...prev,
-                          tipoIdentificacion: e.target.value,
-                        }))
-                      }
-                    >
-                      {IDENTIFICATION_TYPES.map((type) => (
-                        <option key={type.code} value={type.code}>
-                          {type.label} ({type.code})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <Label htmlFor="formaPago">Forma pago</Label>
-                    <select
-                      id="formaPago"
-                      className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm"
-                      value={checkout.formaPago}
-                      onChange={(e) =>
-                        setCheckout((prev) => ({
-                          ...prev,
-                          formaPago: e.target.value,
-                        }))
-                      }
-                    >
-                      {PAYMENT_METHODS.map((method) => (
-                        <option key={method.code} value={method.code}>
-                          {method.label} ({method.code})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  <TextField
+                    id="fecha"
+                    label="Fecha emision"
+                    value={checkout.fechaEmision}
+                    onChange={(e) =>
+                      setCheckout((prev) => ({
+                        ...prev,
+                        fechaEmision: e.target.value,
+                      }))
+                    }
+                    required
+                  />
+                  <TextField
+                    select
+                    id="tipoId"
+                    label="Tipo identificacion"
+                    value={checkout.tipoIdentificacion}
+                    onChange={(e) =>
+                      setCheckout((prev) => ({
+                        ...prev,
+                        tipoIdentificacion: e.target.value,
+                      }))
+                    }
+                  >
+                    {IDENTIFICATION_TYPES.map((type) => (
+                      <MenuItem key={type.code} value={type.code}>
+                        {type.label} ({type.code})
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                  <TextField
+                    select
+                    id="formaPago"
+                    label="Forma pago"
+                    value={checkout.formaPago}
+                    onChange={(e) =>
+                      setCheckout((prev) => ({
+                        ...prev,
+                        formaPago: e.target.value,
+                      }))
+                    }
+                  >
+                    {PAYMENT_METHODS.map((method) => (
+                      <MenuItem key={method.code} value={method.code}>
+                        {method.label} ({method.code})
+                      </MenuItem>
+                    ))}
+                  </TextField>
                 </div>
 
                 {hasCustomerSelected ? (
@@ -303,76 +315,68 @@ export function SalesCheckoutSection({
                 )}
 
                 <div className="mt-4 grid gap-3 md:grid-cols-2">
-                  <div>
-                    <Label htmlFor="identificacion">Identificacion</Label>
-                    <Input
-                      id="identificacion"
-                      value={checkout.identificacion}
-                      onChange={(e) =>
-                        setCheckout((prev) => ({
-                          ...prev,
-                          identificacion: e.target.value,
-                        }))
-                      }
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="razon">Razon social</Label>
-                    <Input
-                      id="razon"
-                      value={checkout.razonSocial}
-                      onChange={(e) =>
-                        setCheckout((prev) => ({
-                          ...prev,
-                          razonSocial: e.target.value,
-                        }))
-                      }
-                      required
-                    />
-                  </div>
+                  <TextField
+                    id="identificacion"
+                    label="Identificacion"
+                    value={checkout.identificacion}
+                    onChange={(e) =>
+                      setCheckout((prev) => ({
+                        ...prev,
+                        identificacion: e.target.value,
+                      }))
+                    }
+                    required
+                  />
+                  <TextField
+                    id="razon"
+                    label="Razon social"
+                    value={checkout.razonSocial}
+                    onChange={(e) =>
+                      setCheckout((prev) => ({
+                        ...prev,
+                        razonSocial: e.target.value,
+                      }))
+                    }
+                    required
+                  />
                 </div>
 
                 <div className="mt-3 grid gap-3 md:grid-cols-3">
-                  <div>
-                    <Label htmlFor="direccion">Direccion</Label>
-                    <Input
-                      id="direccion"
-                      value={checkout.direccion}
-                      onChange={(e) =>
-                        setCheckout((prev) => ({
-                          ...prev,
-                          direccion: e.target.value,
-                        }))
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      value={checkout.email}
-                      onChange={(e) =>
-                        setCheckout((prev) => ({
-                          ...prev,
-                          email: e.target.value,
-                        }))
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="telefono">Telefono</Label>
-                    <Input
-                      id="telefono"
-                      value={checkout.telefono}
-                      onChange={(e) =>
-                        setCheckout((prev) => ({
-                          ...prev,
-                          telefono: e.target.value,
-                        }))
-                      }
-                    />
-                  </div>
+                  <TextField
+                    id="direccion"
+                    label="Direccion"
+                    value={checkout.direccion}
+                    onChange={(e) =>
+                      setCheckout((prev) => ({
+                        ...prev,
+                        direccion: e.target.value,
+                      }))
+                    }
+                  />
+                  <TextField
+                    id="email"
+                    label="Email"
+                    type="email"
+                    value={checkout.email}
+                    onChange={(e) =>
+                      setCheckout((prev) => ({
+                        ...prev,
+                        email: e.target.value,
+                      }))
+                    }
+                  />
+                  <TextField
+                    id="telefono"
+                    label="Telefono"
+                    type="tel"
+                    value={checkout.telefono}
+                    onChange={(e) =>
+                      setCheckout((prev) => ({
+                        ...prev,
+                        telefono: e.target.value,
+                      }))
+                    }
+                  />
                 </div>
               </section>
             </div>

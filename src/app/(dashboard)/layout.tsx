@@ -1,6 +1,5 @@
 import { DashboardUserMenu } from "@/components/dashboard-user-menu";
 import { MvpDashboardNav } from "@/components/mvp-dashboard-nav";
-import { HelpBot } from "@/components/help-bot";
 import { getSession } from "@/lib/auth";
 
 export default async function DashboardLayout({
@@ -37,13 +36,10 @@ export default async function DashboardLayout({
 
         <div className="min-w-0 lg:ml-76 xl:ml-82">
           <section className="min-w-0">
-            <div className="flex flex-col">
-              {children}
-            </div>
+            <div className="flex flex-col">{children}</div>
           </section>
         </div>
       </div>
-      <HelpBot />
     </main>
   );
 }
