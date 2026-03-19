@@ -51,7 +51,6 @@ export default function OverviewPage() {
 
   return (
     <>
-      {message ? <p className="text-sm font-medium text-emerald-700">{message}</p> : null}
       <OverviewSection
         products={products}
         lowStockCount={lowStockCount}

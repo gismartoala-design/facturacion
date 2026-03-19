@@ -1,6 +1,10 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
+import Alert from "@mui/material/Alert";
+import CircularProgress from "@mui/material/CircularProgress";
+import Paper from "@mui/material/Paper";
+import Snackbar from "@mui/material/Snackbar";
+import Stack from "@mui/material/Stack";
 import { useEffect, useState } from "react";
 
 import { fetchJson } from "@/components/mvp-dashboard-api";
@@ -10,12 +14,17 @@ import {
   type QuoteFilter,
 } from "@/features/quotes/components/quotes-section";
 
+type QuotesToast = {
+  message: string;
+  severity: "success" | "error" | "info";
+};
+
 export default function QuotesPage() {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [statusFilter, setStatusFilter] = useState<QuoteFilter>("ALL");
-  const [message, setMessage] = useState("");
+  const [toast, setToast] = useState<QuotesToast | null>(null);
 
   async function loadQuotes(filter: QuoteFilter = statusFilter) {
     setLoading(true);
@@ -24,7 +33,13 @@ export default function QuotesPage() {
       const result = await fetchJson<Quote[]>(`/api/v1/quotes${query}`);
       setQuotes(result);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "No se pudo cargar cotizaciones");
+      setToast({
+        message:
+          error instanceof Error
+            ? error.message
+            : "No se pudo cargar cotizaciones",
+        severity: "error",
+      });
     } finally {
       setLoading(false);
     }
@@ -38,13 +53,22 @@ export default function QuotesPage() {
   async function onConvertQuote(id: string) {
     if (!window.confirm("Se convertira la cotizacion a venta/factura. ¿Deseas continuar?")) return;
     setSaving(true);
-    setMessage("");
+    setToast(null);
     try {
       await fetchJson(`/api/v1/quotes/${id}/convert`, { method: "POST" });
-      setMessage("Cotizacion convertida a venta correctamente");
+      setToast({
+        message: "Cotizacion convertida a venta correctamente",
+        severity: "success",
+      });
       await loadQuotes(statusFilter);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "No se pudo convertir la cotizacion");
+      setToast({
+        message:
+          error instanceof Error
+            ? error.message
+            : "No se pudo convertir la cotizacion",
+        severity: "error",
+      });
     } finally {
       setSaving(false);
     }
@@ -53,13 +77,22 @@ export default function QuotesPage() {
   async function onCancelQuote(id: string) {
     if (!window.confirm("Se anulara la cotizacion. ¿Deseas continuar?")) return;
     setSaving(true);
-    setMessage("");
+    setToast(null);
     try {
       await fetchJson(`/api/v1/quotes/${id}/cancel`, { method: "POST" });
-      setMessage("Cotizacion anulada correctamente");
+      setToast({
+        message: "Cotizacion anulada correctamente",
+        severity: "success",
+      });
       await loadQuotes(statusFilter);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "No se pudo anular la cotizacion");
+      setToast({
+        message:
+          error instanceof Error
+            ? error.message
+            : "No se pudo anular la cotizacion",
+        severity: "error",
+      });
     } finally {
       setSaving(false);
     }
@@ -67,15 +100,17 @@ export default function QuotesPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 rounded-xl border border-[#e8d5e5] bg-[#fdfcf5] p-4 text-[#4a3c58]">
-        <Loader2 className="h-4 w-4 animate-spin" /> Cargando cotizaciones...
-      </div>
+      <Paper sx={{ borderRadius: "20px", px: 3, py: 2.5 }}>
+        <Stack direction="row" spacing={1.5} alignItems="center" sx={{ color: "#4a3c58" }}>
+          <CircularProgress size={18} thickness={5} />
+          <span className="text-sm font-medium">Cargando cotizaciones...</span>
+        </Stack>
+      </Paper>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {message ? <p className="text-sm font-medium text-emerald-700">{message}</p> : null}
+    <>
       <QuotesSection
         quotes={quotes}
         saving={saving}
@@ -94,6 +129,29 @@ export default function QuotesPage() {
           void onCancelQuote(quoteId);
         }}
       />
-    </div>
+      <Snackbar
+        open={Boolean(toast)}
+        autoHideDuration={4200}
+        onClose={(_, reason) => {
+          if (reason === "clickaway") return;
+          setToast(null);
+        }}
+        anchorOrigin={{ vertical: "top", horizontal: "right" }}
+      >
+        <Alert
+          elevation={0}
+          variant="filled"
+          severity={toast?.severity ?? "info"}
+          onClose={() => setToast(null)}
+          sx={{
+            minWidth: 280,
+            borderRadius: "16px",
+            boxShadow: "0 18px 38px rgba(74, 60, 88, 0.18)",
+          }}
+        >
+          {toast?.message ?? ""}
+        </Alert>
+      </Snackbar>
+    </>
   );
 }

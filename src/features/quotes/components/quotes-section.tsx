@@ -1,11 +1,17 @@
-import { RefreshCcw } from "lucide-react";
+import Box from "@mui/material/Box";
+import MuiButton from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
+import FormControl from "@mui/material/FormControl";
+import MenuItem from "@mui/material/MenuItem";
+import Paper from "@mui/material/Paper";
+import Select from "@mui/material/Select";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
+import { DataGrid, type GridColDef } from "@mui/x-data-grid";
+import { FilePenLine, RefreshCcw, ReceiptText, XCircle } from "lucide-react";
+import { useMemo } from "react";
 
 import type { Quote, QuoteStatus } from "@/components/mvp-dashboard-types";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Table, TBody, Td, Th, THead, Tr } from "@/components/ui/table";
-import { DocumentWorkspaceHeader } from "@/features/shared/document-composer/components/document-workspace-header";
 
 export type QuoteFilter = "ALL" | QuoteStatus;
 
@@ -16,12 +22,28 @@ const QUOTE_STATUS_LABELS: Record<QuoteFilter, string> = {
   CANCELLED: "Anuladas",
 };
 
-function quoteBadgeVariant(
-  status: QuoteStatus,
-): "default" | "success" | "warning" | "danger" {
-  if (status === "OPEN") return "warning";
-  if (status === "CONVERTED") return "success";
-  return "danger";
+function quoteStatusChipStyles(status: QuoteStatus) {
+  if (status === "OPEN") {
+    return {
+      backgroundColor: "#fff7ed",
+      color: "#c2410c",
+      border: "1px solid #fdba74",
+    };
+  }
+
+  if (status === "CONVERTED") {
+    return {
+      backgroundColor: "#ecfdf3",
+      color: "#15803d",
+      border: "1px solid #86efac",
+    };
+  }
+
+  return {
+    backgroundColor: "#fef2f2",
+    color: "#b91c1c",
+    border: "1px solid #fca5a5",
+  };
 }
 
 type QuotesSectionProps = {
@@ -45,120 +67,236 @@ export function QuotesSection({
   onConvertQuote,
   onCancelQuote,
 }: QuotesSectionProps) {
-  return (
-    <div className="space-y-6">
-      <DocumentWorkspaceHeader
-        title="Cotizaciones"
-        description="Guarda propuestas sin afectar inventario y conviertelas cuando el cliente confirme."
-      />
+  const columns = useMemo<GridColDef<Quote>[]>(
+    () => [
+      {
+        field: "quoteNumber",
+        headerName: "No.",
+        minWidth: 120,
+        flex: 0.7,
+        renderCell: (params) => (
+          <span className="font-semibold text-[#4a3c58]">
+            #{params.row.quoteNumber}
+          </span>
+        ),
+      },
+      {
+        field: "customerName",
+        headerName: "Cliente",
+        minWidth: 220,
+        flex: 1.3,
+      },
+      {
+        field: "customerIdentification",
+        headerName: "Identificacion",
+        minWidth: 160,
+        flex: 1,
+      },
+      {
+        field: "fechaEmision",
+        headerName: "Fecha",
+        minWidth: 130,
+        flex: 0.8,
+      },
+      {
+        field: "total",
+        headerName: "Total",
+        type: "number",
+        minWidth: 120,
+        flex: 0.7,
+        align: "right",
+        headerAlign: "right",
+        valueFormatter: (value) => `$${Number(value).toFixed(2)}`,
+      },
+      {
+        field: "status",
+        headerName: "Estado",
+        minWidth: 150,
+        flex: 0.9,
+        renderCell: (params) => (
+          <Chip
+            label={QUOTE_STATUS_LABELS[params.row.status]}
+            size="small"
+            sx={{
+              borderRadius: "999px",
+              fontWeight: 700,
+              ...quoteStatusChipStyles(params.row.status),
+            }}
+          />
+        ),
+      },
+      {
+        field: "actions",
+        headerName: "Acciones",
+        sortable: false,
+        filterable: false,
+        disableColumnMenu: true,
+        minWidth: 290,
+        flex: 1.5,
+        renderCell: (params) => (
+          <div className="flex flex-wrap items-center gap-2 py-2">
+            <MuiButton
+              type="button"
+              size="small"
+              variant="contained"
+              disabled={saving || params.row.status !== "OPEN"}
+              onClick={() => onEditQuote(params.row.id)}
+              startIcon={<FilePenLine className="h-4 w-4" />}
+            >
+              Editar
+            </MuiButton>
+            <MuiButton
+              type="button"
+              size="small"
+              variant="outlined"
+              disabled={saving || params.row.status !== "OPEN"}
+              onClick={() => onConvertQuote(params.row.id)}
+              startIcon={<ReceiptText className="h-4 w-4" />}
+            >
+              Convertir
+            </MuiButton>
+            <MuiButton
+              type="button"
+              size="small"
+              variant="contained"
+              color="error"
+              disabled={saving || params.row.status !== "OPEN"}
+              onClick={() => onCancelQuote(params.row.id)}
+              startIcon={<XCircle className="h-4 w-4" />}
+            >
+              Anular
+            </MuiButton>
+          </div>
+        ),
+      },
+    ],
+    [onCancelQuote, onConvertQuote, onEditQuote, saving],
+  );
 
-      <Card className="border-[#e8d5e5]/60 bg-[#fdfcf5]/50 backdrop-blur-sm">
-        <CardContent className="space-y-4">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div className="flex flex-wrap gap-2">
-              <span className="inline-flex items-center rounded-full border border-[#e8d5e5]/75 bg-white/85 px-3 py-1 text-xs font-medium text-[#4a3c58]/80">
-                {quotes.length} cotizacion{quotes.length !== 1 ? "es" : ""}
-              </span>
-              <span className="inline-flex items-center rounded-full border border-[#e8d5e5]/75 bg-[#fdfcf5]/85 px-3 py-1 text-xs font-medium text-[#4a3c58]/72">
-                {QUOTE_STATUS_LABELS[statusFilter]}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <select
-                className="h-10 rounded-md border border-[#e8d5e5] bg-[#fdfcf5] px-3 text-sm text-[#4a3c58] outline-none transition-all focus:ring-2 focus:ring-[#b1a1c6]"
-                value={statusFilter}
-                onChange={(e) => onStatusFilterChange(e.target.value as QuoteFilter)}
-                disabled={saving}
-              >
-                <option value="ALL">{QUOTE_STATUS_LABELS.ALL}</option>
-                <option value="OPEN">{QUOTE_STATUS_LABELS.OPEN}</option>
-                <option value="CONVERTED">{QUOTE_STATUS_LABELS.CONVERTED}</option>
-                <option value="CANCELLED">{QUOTE_STATUS_LABELS.CANCELLED}</option>
-              </select>
-              <Button
+  return (
+    <Stack spacing={3}>
+      <Box sx={{ px: { xs: 1, sm: 2 }, pt: { xs: 1, sm: 2 } }}>
+        <Stack spacing={0.75}>
+          <Typography
+            variant="h5"
+            sx={{ color: "#4a3c58", fontWeight: 700, lineHeight: 1.15 }}
+          >
+            Cotizaciones
+          </Typography>
+          <Typography
+            sx={{
+              maxWidth: 720,
+              color: "rgba(74, 60, 88, 0.68)",
+              fontSize: 14,
+            }}
+          >
+            Guarda propuestas sin afectar inventario y conviertelas cuando el
+            cliente confirme.
+          </Typography>
+        </Stack>
+      </Box>
+
+      <Paper sx={{ borderRadius: "28px", px: { xs: 2, sm: 3 }, py: { xs: 2, sm: 3 } }}>
+        <Stack spacing={2.5}>
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={2}
+            alignItems={{ xs: "flex-start", sm: "center" }}
+            justifyContent="space-between"
+          >
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+              <Chip
+                label={`${quotes.length} cotizacion${quotes.length !== 1 ? "es" : ""}`}
+                size="small"
+                sx={{
+                  borderRadius: "999px",
+                  fontWeight: 600,
+                  color: "#4a3c58",
+                  backgroundColor: "rgba(255,255,255,0.88)",
+                  border: "1px solid rgba(232, 213, 229, 0.78)",
+                }}
+              />
+              <Chip
+                label={QUOTE_STATUS_LABELS[statusFilter]}
+                size="small"
+                sx={{
+                  borderRadius: "999px",
+                  fontWeight: 600,
+                  color: "rgba(74, 60, 88, 0.8)",
+                  backgroundColor: "rgba(253, 252, 245, 0.9)",
+                  border: "1px solid rgba(232, 213, 229, 0.78)",
+                }}
+              />
+            </Stack>
+
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
+              <FormControl size="small" sx={{ minWidth: 190 }}>
+                <Select
+                  value={statusFilter}
+                  onChange={(e) =>
+                    onStatusFilterChange(e.target.value as QuoteFilter)
+                  }
+                  disabled={saving}
+                >
+                  <MenuItem value="ALL">{QUOTE_STATUS_LABELS.ALL}</MenuItem>
+                  <MenuItem value="OPEN">{QUOTE_STATUS_LABELS.OPEN}</MenuItem>
+                  <MenuItem value="CONVERTED">
+                    {QUOTE_STATUS_LABELS.CONVERTED}
+                  </MenuItem>
+                  <MenuItem value="CANCELLED">
+                    {QUOTE_STATUS_LABELS.CANCELLED}
+                  </MenuItem>
+                </Select>
+              </FormControl>
+
+              <MuiButton
                 type="button"
-                variant="outline"
-                className="border-[#e8d5e5] text-[#4a3c58] hover:bg-[#b1a1c6]/10"
+                variant="outlined"
                 onClick={onRefresh}
                 disabled={saving}
+                startIcon={<RefreshCcw className="h-4 w-4" />}
               >
-                <RefreshCcw className="h-4 w-4" /> Actualizar
-              </Button>
-            </div>
-          </div>
+                Actualizar
+              </MuiButton>
+            </Stack>
+          </Stack>
 
-          <div className="overflow-x-auto rounded-3xl border border-[#e8d5e5]/70 bg-white">
-            <Table>
-              <THead>
-                <Tr>
-                  <Th>No.</Th>
-                  <Th>Cliente</Th>
-                  <Th>Identificacion</Th>
-                  <Th>Fecha</Th>
-                  <Th>Total</Th>
-                  <Th>Estado</Th>
-                  <Th>Acciones</Th>
-                </Tr>
-              </THead>
-              <TBody>
-                {quotes.length === 0 ? (
-                  <Tr>
-                    <Td colSpan={7} className="text-center text-[#4a3c58]/60">
-                      No hay cotizaciones para este filtro.
-                    </Td>
-                  </Tr>
-                ) : (
-                  quotes.map((quote) => (
-                    <Tr key={quote.id} className="transition-colors hover:bg-[#fdfcf5]">
-                      <Td className="font-medium text-[#4a3c58]">#{quote.quoteNumber}</Td>
-                      <Td>{quote.customerName}</Td>
-                      <Td>{quote.customerIdentification}</Td>
-                      <Td>{quote.fechaEmision}</Td>
-                      <Td>${quote.total.toFixed(2)}</Td>
-                      <Td>
-                        <Badge variant={quoteBadgeVariant(quote.status)}>
-                          {quote.status}
-                        </Badge>
-                      </Td>
-                      <Td>
-                        <div className="flex gap-2">
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="secondary"
-                            disabled={saving || quote.status !== "OPEN"}
-                            onClick={() => onEditQuote(quote.id)}
-                          >
-                            Editar
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            disabled={saving || quote.status !== "OPEN"}
-                            onClick={() => onConvertQuote(quote.id)}
-                          >
-                            Convertir
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="destructive"
-                            disabled={saving || quote.status !== "OPEN"}
-                            onClick={() => onCancelQuote(quote.id)}
-                          >
-                            Anular
-                          </Button>
-                        </div>
-                      </Td>
-                    </Tr>
-                  ))
-                )}
-              </TBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+          <Box
+            sx={{
+              overflow: "hidden",
+              borderRadius: "24px",
+              border: "1px solid rgba(232, 213, 229, 0.7)",
+              backgroundColor: "#fff",
+            }}
+          >
+            <DataGrid
+              rows={quotes}
+              columns={columns}
+              getRowId={(row) => row.id}
+              disableRowSelectionOnClick
+              disableColumnMenu
+              pageSizeOptions={[8, 15, 25]}
+              initialState={{
+                pagination: {
+                  paginationModel: { page: 0, pageSize: 8 },
+                },
+              }}
+              localeText={{
+                noRowsLabel: "No hay cotizaciones para este filtro.",
+              }}
+              sx={{
+                minHeight: 520,
+                "& .MuiDataGrid-cell": {
+                  fontSize: 13,
+                },
+                "& .MuiDataGrid-columnHeaderTitle": {
+                  fontSize: 13,
+                },
+              }}
+            />
+          </Box>
+        </Stack>
+      </Paper>
+    </Stack>
   );
 }

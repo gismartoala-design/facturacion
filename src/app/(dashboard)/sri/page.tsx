@@ -1,5 +1,7 @@
 "use client";
 
+import Alert from "@mui/material/Alert";
+import Snackbar from "@mui/material/Snackbar";
 import { useEffect, useState } from "react";
 
 import { fetchJson } from "@/components/mvp-dashboard-api";
@@ -9,13 +11,18 @@ import { SriSection } from "@/features/sri/components/sri-section";
 
 export type SriStatusFilter = "NOT_AUTHORIZED" | "ALL" | "DRAFT" | "AUTHORIZED" | "PENDING_SRI" | "ERROR";
 
+type SriToast = {
+  message: string;
+  severity: "success" | "error" | "info";
+};
+
 export default function SriPage() {
   const [invoices, setInvoices] = useState<SriInvoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailCancelling, setDetailCancelling] = useState(false);
-  const [message, setMessage] = useState("");
+  const [toast, setToast] = useState<SriToast | null>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<SriInvoiceDetail | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [page, setPage] = useState(1);
@@ -35,7 +42,13 @@ export default function SriPage() {
       setTotal(result.pagination.total);
       setTotalPages(result.pagination.totalPages);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "No se pudo cargar facturas SRI");
+      setToast({
+        message:
+          error instanceof Error
+            ? error.message
+            : "No se pudo cargar facturas SRI",
+        severity: "error",
+      });
     } finally {
       setLoading(false);
     }
@@ -53,21 +66,25 @@ export default function SriPage() {
 
   async function onRetry(invoiceId: string) {
     setSaving(true);
-    setMessage("");
+    setToast(null);
 
     try {
       await fetchJson(`/api/v1/sri-invoices/${invoiceId}/retry`, { method: "POST" });
-      setMessage("Reintento ejecutado");
+      setToast({ message: "Reintento ejecutado", severity: "success" });
       await loadInvoices();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "No se pudo reintentar");
+      setToast({
+        message:
+          error instanceof Error ? error.message : "No se pudo reintentar",
+        severity: "error",
+      });
     } finally {
       setSaving(false);
     }
   }
 
   async function onViewDetails(invoiceId: string) {
-    setMessage("");
+    setToast(null);
     setSelectedInvoice(null);
     setIsDetailOpen(true);
     setDetailLoading(true);
@@ -75,7 +92,13 @@ export default function SriPage() {
       const detail = await fetchJson<SriInvoiceDetail>(`/api/v1/sri-invoices/${invoiceId}`);
       setSelectedInvoice(detail);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "No se pudo cargar detalle de factura");
+      setToast({
+        message:
+          error instanceof Error
+            ? error.message
+            : "No se pudo cargar detalle de factura",
+        severity: "error",
+      });
     } finally {
       setDetailLoading(false);
     }
@@ -87,15 +110,24 @@ export default function SriPage() {
     }
 
     setDetailCancelling(true);
-    setMessage("");
+    setToast(null);
     try {
       await fetchJson(`/api/v1/sri-invoices/${invoiceId}/cancel`, { method: "POST" });
       setIsDetailOpen(false);
       setSelectedInvoice(null);
-      setMessage("Venta/factura anulada correctamente");
+      setToast({
+        message: "Venta/factura anulada correctamente",
+        severity: "success",
+      });
       await loadInvoices();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "No se pudo anular la venta/factura");
+      setToast({
+        message:
+          error instanceof Error
+            ? error.message
+            : "No se pudo anular la venta/factura",
+        severity: "error",
+      });
     } finally {
       setDetailCancelling(false);
     }
@@ -103,7 +135,6 @@ export default function SriPage() {
 
   return (
     <>
-      {message ? <p className="text-sm font-medium text-emerald-700">{message}</p> : null}
       <SriSection
         loading={loading}
         invoices={invoices}
@@ -128,6 +159,29 @@ export default function SriPage() {
           setSelectedInvoice(null);
         }}
       />
+      <Snackbar
+        open={Boolean(toast)}
+        autoHideDuration={4200}
+        onClose={(_, reason) => {
+          if (reason === "clickaway") return;
+          setToast(null);
+        }}
+        anchorOrigin={{ vertical: "top", horizontal: "right" }}
+      >
+        <Alert
+          elevation={0}
+          variant="filled"
+          severity={toast?.severity ?? "info"}
+          onClose={() => setToast(null)}
+          sx={{
+            minWidth: 280,
+            borderRadius: "16px",
+            boxShadow: "0 18px 38px rgba(74, 60, 88, 0.18)",
+          }}
+        >
+          {toast?.message ?? ""}
+        </Alert>
+      </Snackbar>
     </>
   );
 }

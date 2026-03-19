@@ -1,16 +1,28 @@
+import Box from "@mui/material/Box";
 import MuiButton from "@mui/material/Button";
+import CircularProgress from "@mui/material/CircularProgress";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
 import DialogTitle from "@mui/material/DialogTitle";
+import MenuItem from "@mui/material/MenuItem";
+import Paper from "@mui/material/Paper";
+import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import { DataGrid, type GridColDef, type GridRowSelectionModel } from "@mui/x-data-grid";
-import { Loader2 } from "lucide-react";
+import {
+  Ban,
+  Check,
+  Download,
+  FileCode2,
+  Loader2,
+  Save,
+  UserCheck,
+  X,
+} from "lucide-react";
 import { useMemo, type Dispatch, type FormEvent, type SetStateAction } from "react";
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import type {
   Customer,
   EditProductForm,
@@ -21,36 +33,24 @@ import type {
 } from "@/components/mvp-dashboard-types";
 
 const modalDataGridSx = {
-  border: 0,
   minHeight: 320,
-  backgroundColor: "transparent",
-  color: "#4a3c58",
-  "--DataGrid-containerBackground": "#fdf7fb",
-  "& .MuiDataGrid-columnHeaders": {
-    borderBottom: "1px solid rgba(232, 213, 229, 0.65)",
-    minHeight: "40px !important",
-  },
   "& .MuiDataGrid-columnHeaderTitle": {
-    fontWeight: 700,
-    letterSpacing: "0.08em",
-    textTransform: "uppercase",
-    fontSize: 12,
-  },
-  "& .MuiDataGrid-cell": {
-    borderColor: "rgba(232, 213, 229, 0.65)",
     fontSize: 13,
   },
-  "& .MuiDataGrid-row:hover": {
-    backgroundColor: "#fffafc",
-  },
-  "& .MuiDataGrid-footerContainer": {
-    borderTop: "1px solid rgba(232, 213, 229, 0.65)",
+  "& .MuiDataGrid-cell": {
+    fontSize: 13,
   },
   "& .MuiDataGrid-cell:focus, & .MuiDataGrid-cell:focus-within, & .MuiDataGrid-columnHeader:focus, & .MuiDataGrid-columnHeader:focus-within": {
     outline: "none",
   },
-  "& .MuiTablePagination-root, & .MuiDataGrid-selectedRowCount": {
-    color: "#4a3c58",
+} as const;
+
+const dialogBackdropProps = {
+  backdrop: {
+    sx: {
+      backgroundColor: "rgba(74, 60, 88, 0.30)",
+      backdropFilter: "blur(4px)",
+    },
   },
 } as const;
 
@@ -70,14 +70,7 @@ export function ProductModal({ isOpen, newProduct, setNewProduct, saving, onClos
       onClose={saving ? undefined : onClose}
       fullWidth
       maxWidth="md"
-      slotProps={{
-        backdrop: {
-          sx: {
-            backgroundColor: "rgba(74, 60, 88, 0.30)",
-            backdropFilter: "blur(4px)",
-          },
-        },
-      }}
+      slotProps={dialogBackdropProps}
     >
       <DialogTitle>Nuevo Producto</DialogTitle>
       <DialogContent>
@@ -179,6 +172,7 @@ export function ProductModal({ isOpen, newProduct, setNewProduct, saving, onClos
       </DialogContent>
       <DialogActions>
         <MuiButton type="button" variant="outlined" onClick={onClose} disabled={saving}>
+          <X className="mr-2 h-4 w-4" />
           Cancelar
         </MuiButton>
         <MuiButton type="submit" form="new-product-form" variant="contained" disabled={saving}>
@@ -187,7 +181,10 @@ export function ProductModal({ isOpen, newProduct, setNewProduct, saving, onClos
               <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Guardando...
             </>
           ) : (
-            "Guardar"
+            <>
+              <Save className="mr-2 h-4 w-4" />
+              Guardar
+            </>
           )}
         </MuiButton>
       </DialogActions>
@@ -211,14 +208,7 @@ export function EditProductModal({ isOpen, editForm, setEditForm, saving, onClos
       onClose={saving ? undefined : onClose}
       fullWidth
       maxWidth="md"
-      slotProps={{
-        backdrop: {
-          sx: {
-            backgroundColor: "rgba(74, 60, 88, 0.30)",
-            backdropFilter: "blur(4px)",
-          },
-        },
-      }}
+      slotProps={dialogBackdropProps}
     >
       <DialogTitle>Editar Producto</DialogTitle>
       <DialogContent>
@@ -300,6 +290,7 @@ export function EditProductModal({ isOpen, editForm, setEditForm, saving, onClos
       </DialogContent>
       <DialogActions>
         <MuiButton type="button" variant="outlined" onClick={onClose} disabled={saving}>
+          <X className="mr-2 h-4 w-4" />
           Cancelar
         </MuiButton>
         <MuiButton type="submit" form="edit-product-form" variant="contained" disabled={saving}>
@@ -308,7 +299,10 @@ export function EditProductModal({ isOpen, editForm, setEditForm, saving, onClos
               <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Guardando...
             </>
           ) : (
-            "Guardar cambios"
+            <>
+              <Save className="mr-2 h-4 w-4" />
+              Guardar cambios
+            </>
           )}
         </MuiButton>
       </DialogActions>
@@ -331,14 +325,7 @@ export function DeleteProductModal({ isOpen, productName, saving, onClose, onCon
       onClose={saving ? undefined : onClose}
       fullWidth
       maxWidth="xs"
-      slotProps={{
-        backdrop: {
-          sx: {
-            backgroundColor: "rgba(74, 60, 88, 0.30)",
-            backdropFilter: "blur(4px)",
-          },
-        },
-      }}
+      slotProps={dialogBackdropProps}
     >
       <DialogTitle>Eliminar Producto</DialogTitle>
       <DialogContent>
@@ -349,6 +336,7 @@ export function DeleteProductModal({ isOpen, productName, saving, onClose, onCon
       </DialogContent>
       <DialogActions>
         <MuiButton type="button" variant="outlined" onClick={onClose} disabled={saving}>
+          <X className="mr-2 h-4 w-4" />
           Cancelar
         </MuiButton>
         <MuiButton
@@ -363,7 +351,10 @@ export function DeleteProductModal({ isOpen, productName, saving, onClose, onCon
               <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Eliminando...
             </>
           ) : (
-            "Desactivar"
+            <>
+              <Ban className="mr-2 h-4 w-4" />
+              Desactivar
+            </>
           )}
         </MuiButton>
       </DialogActions>
@@ -390,81 +381,100 @@ export function StockAdjustmentModal({
   onClose,
   onSubmit,
 }: StockAdjustmentModalProps) {
-  if (!isOpen) {
-    return null;
-  }
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#4a3c58]/30 backdrop-blur-sm p-4">
-      <div className="w-full max-w-xl rounded-2xl border border-[#e8d5e5] bg-[#fdfcf5] shadow-xl">
-        <div className="border-b border-[#e8d5e5]/60 p-5">
-          <h3 className="text-lg font-semibold text-[#4a3c58]">Ajuste de Stock</h3>
-          <p className="mt-1 text-sm text-[#4a3c58]/70">Registra entrada, salida o ajuste puntual de inventario.</p>
-        </div>
-        <form className="grid gap-3 p-5" onSubmit={onSubmit}>
-          <div>
-            <Label htmlFor="modal-stock-product">Producto</Label>
-            <select
-              id="modal-stock-product"
-              className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm"
-              value={adjustment.productId}
-              onChange={(e) => setAdjustment((prev) => ({ ...prev, productId: e.target.value }))}
-              required
-            >
-              <option value="">Selecciona producto</option>
-              {products.map((product) => (
-                <option key={product.id} value={product.id}>
-                  {product.codigo} - {product.nombre}
-                </option>
-              ))}
-            </select>
-          </div>
+    <Dialog
+      open={isOpen}
+      onClose={saving ? undefined : onClose}
+      fullWidth
+      maxWidth="sm"
+      slotProps={dialogBackdropProps}
+    >
+      <DialogTitle>Ajuste de Stock</DialogTitle>
+      <DialogContent>
+        <DialogContentText sx={{ mb: 3, color: "rgba(74, 60, 88, 0.7)" }}>
+          Registra entrada, salida o ajuste puntual de inventario.
+        </DialogContentText>
+        <form id="stock-adjustment-form" className="grid gap-3" onSubmit={onSubmit}>
+          <TextField
+            select
+            id="modal-stock-product"
+            label="Producto"
+            value={adjustment.productId}
+            onChange={(e) =>
+              setAdjustment((prev) => ({ ...prev, productId: e.target.value }))
+            }
+            required
+          >
+            <MenuItem value="">Selecciona producto</MenuItem>
+            {products.map((product) => (
+              <MenuItem key={product.id} value={product.id}>
+                {product.codigo} - {product.nombre}
+              </MenuItem>
+            ))}
+          </TextField>
+
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label htmlFor="modal-stock-movement">Tipo</Label>
-              <select
-                id="modal-stock-movement"
-                className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm"
-                value={adjustment.movementType}
-                onChange={(e) =>
-                  setAdjustment((prev) => ({ ...prev, movementType: e.target.value as StockAdjustmentForm["movementType"] }))
-                }
-              >
-                <option value="IN">Entrada</option>
-                <option value="OUT">Salida</option>
-                <option value="ADJUSTMENT">Ajuste</option>
-              </select>
-            </div>
-            <div>
-              <Label htmlFor="modal-stock-qty">Cantidad</Label>
-              <Input
-                id="modal-stock-qty"
-                type="number"
-                min="0"
-                step="0.001"
-                value={adjustment.quantity}
-                onChange={(e) => setAdjustment((prev) => ({ ...prev, quantity: e.target.value }))}
-                required
-              />
-            </div>
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={saving}>
-              {saving ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Procesando...
-                </>
-              ) : (
-                "Guardar Movimiento"
-              )}
-            </Button>
+            <TextField
+              select
+              id="modal-stock-movement"
+              label="Tipo"
+              value={adjustment.movementType}
+              onChange={(e) =>
+                setAdjustment((prev) => ({
+                  ...prev,
+                  movementType:
+                    e.target.value as StockAdjustmentForm["movementType"],
+                }))
+              }
+            >
+              <MenuItem value="IN">Entrada</MenuItem>
+              <MenuItem value="OUT">Salida</MenuItem>
+              <MenuItem value="ADJUSTMENT">Ajuste</MenuItem>
+            </TextField>
+            <TextField
+              id="modal-stock-qty"
+              label="Cantidad"
+              type="number"
+              value={adjustment.quantity}
+              onChange={(e) =>
+                setAdjustment((prev) => ({ ...prev, quantity: e.target.value }))
+              }
+              required
+              slotProps={{
+                htmlInput: {
+                  min: 0,
+                  step: "0.001",
+                },
+              }}
+            />
           </div>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+      <DialogActions>
+        <MuiButton type="button" variant="outlined" onClick={onClose}>
+          <X className="mr-2 h-4 w-4" />
+          Cancelar
+        </MuiButton>
+        <MuiButton
+          type="submit"
+          form="stock-adjustment-form"
+          variant="contained"
+          disabled={saving}
+        >
+          {saving ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Procesando...
+            </>
+          ) : (
+            <>
+              <Save className="mr-2 h-4 w-4" />
+              Guardar Movimiento
+            </>
+          )}
+        </MuiButton>
+      </DialogActions>
+    </Dialog>
   );
 }
 
@@ -487,10 +497,6 @@ export function CustomerPickerModal({
   onSelectCustomer,
   onClose,
 }: CustomerPickerModalProps) {
-  if (!isOpen) {
-    return null;
-  }
-
   const customerColumns: GridColDef<Customer>[] = [
     {
       field: "tipoIdentificacion",
@@ -551,6 +557,7 @@ export function CustomerPickerModal({
           variant="contained"
           onClick={() => onSelectCustomer(params.row)}
         >
+          <UserCheck className="mr-1.5 h-4 w-4" />
           Seleccionar
         </MuiButton>
       ),
@@ -558,27 +565,29 @@ export function CustomerPickerModal({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#4a3c58]/30 backdrop-blur-sm p-4">
-      <div className="w-full max-w-5xl rounded-2xl border border-[#e8d5e5] bg-[#fdfcf5] shadow-xl">
-        <div className="border-b border-[#e8d5e5]/60 p-5">
-          <h3 className="text-lg font-semibold text-[#4a3c58]">Buscar cliente</h3>
-          <p className="mt-1 text-sm text-[#4a3c58]/70">
-            Selecciona un cliente que ya compró antes o que fue registrado en ventas anteriores.
-          </p>
-        </div>
+    <Dialog
+      open={isOpen}
+      onClose={onClose}
+      fullWidth
+      maxWidth="lg"
+      slotProps={dialogBackdropProps}
+    >
+      <DialogTitle>Buscar cliente</DialogTitle>
+      <DialogContent>
+        <DialogContentText sx={{ mb: 3, color: "rgba(74, 60, 88, 0.7)" }}>
+          Selecciona un cliente que ya compró antes o que fue registrado en ventas anteriores.
+        </DialogContentText>
 
-        <div className="space-y-3 p-5">
-          <div>
-            <Label htmlFor="customer-search">Buscar por identificacion, nombre, email o telefono</Label>
-            <Input
-              id="customer-search"
-              placeholder="Ej: 0950..., GISMAR, cliente@correo.com"
-              value={customerSearch}
-              onChange={(e) => setCustomerSearch(e.target.value)}
-            />
-          </div>
+        <Stack spacing={3}>
+          <TextField
+            id="customer-search"
+            label="Buscar por identificacion, nombre, email o telefono"
+            placeholder="Ej: 0950..., GISMAR, cliente@correo.com"
+            value={customerSearch}
+            onChange={(e) => setCustomerSearch(e.target.value)}
+          />
 
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+          <Box sx={{ overflow: "hidden", borderRadius: "16px", border: "1px solid rgba(203, 213, 225, 0.8)", backgroundColor: "#fff" }}>
             <DataGrid
               rows={customers}
               columns={customerColumns}
@@ -600,16 +609,17 @@ export function CustomerPickerModal({
                 height: 430,
               }}
             />
-          </div>
-        </div>
+          </Box>
+        </Stack>
+      </DialogContent>
 
-        <div className="flex justify-end border-t border-slate-100 p-5">
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cerrar
-          </Button>
-        </div>
-      </div>
-    </div>
+      <DialogActions>
+        <MuiButton type="button" variant="outlined" onClick={onClose}>
+          <X className="mr-2 h-4 w-4" />
+          Cerrar
+        </MuiButton>
+      </DialogActions>
+    </Dialog>
   );
 }
 
@@ -634,10 +644,6 @@ export function ProductPickerModal({
   onCancel,
   onConfirm,
 }: ProductPickerModalProps) {
-  if (!isOpen) {
-    return null;
-  }
-
   const selectionModel = useMemo<GridRowSelectionModel>(
     () => ({
       type: "include",
@@ -697,24 +703,28 @@ export function ProductPickerModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#4a3c58]/30 backdrop-blur-sm p-4">
-      <div className="w-full max-w-4xl rounded-2xl border border-[#e8d5e5] bg-[#fdfcf5] shadow-xl">
-        <div className="border-b border-[#e8d5e5]/60 p-5">
-          <h3 className="text-lg font-semibold text-[#4a3c58]">Seleccionar productos</h3>
-          <p className="mt-1 text-sm text-[#4a3c58]/70">Busca, marca los productos y agregalos al detalle de la venta.</p>
-        </div>
-        <div className="space-y-3 p-5">
-          <div>
-            <Label htmlFor="picker-search">Buscar producto</Label>
-            <Input
-              id="picker-search"
-              placeholder="Busca por codigo o nombre"
-              value={productSearch}
-              onChange={(e) => setProductSearch(e.target.value)}
-            />
-          </div>
+    <Dialog
+      open={isOpen}
+      onClose={onCancel}
+      fullWidth
+      maxWidth="lg"
+      slotProps={dialogBackdropProps}
+    >
+      <DialogTitle>Seleccionar productos</DialogTitle>
+      <DialogContent>
+        <DialogContentText sx={{ mb: 3, color: "rgba(74, 60, 88, 0.7)" }}>
+          Busca, marca los productos y agregalos al detalle de la venta.
+        </DialogContentText>
+        <Stack spacing={3}>
+          <TextField
+            id="picker-search"
+            label="Buscar producto"
+            placeholder="Busca por codigo o nombre"
+            value={productSearch}
+            onChange={(e) => setProductSearch(e.target.value)}
+          />
 
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+          <Box sx={{ overflow: "hidden", borderRadius: "16px", border: "1px solid rgba(203, 213, 225, 0.8)", backgroundColor: "#fff" }}>
             <DataGrid
               rows={filteredProducts}
               columns={productColumns}
@@ -737,21 +747,25 @@ export function ProductPickerModal({
                 height: 430,
               }}
             />
-          </div>
-        </div>
-        <div className="flex items-center justify-between border-t border-slate-100 p-5">
-          <p className="text-sm text-slate-600">Seleccionados: {selectedProductIds.length}</p>
-          <div className="flex gap-2">
-            <Button type="button" variant="outline" onClick={onCancel}>
-              Cancelar
-            </Button>
-            <Button type="button" onClick={onConfirm}>
-              Agregar al detalle
-            </Button>
-          </div>
-        </div>
-      </div>
-    </div>
+          </Box>
+        </Stack>
+      </DialogContent>
+      <DialogActions sx={{ justifyContent: "space-between" }}>
+        <Box sx={{ px: 1, color: "rgba(74, 60, 88, 0.72)", fontSize: 14 }}>
+          Seleccionados: {selectedProductIds.length}
+        </Box>
+        <Box sx={{ display: "flex", gap: 1.25 }}>
+          <MuiButton type="button" variant="outlined" onClick={onCancel}>
+            <X className="mr-2 h-4 w-4" />
+            Cancelar
+          </MuiButton>
+          <MuiButton type="button" variant="contained" onClick={onConfirm}>
+            <Check className="mr-2 h-4 w-4" />
+            Agregar al detalle
+          </MuiButton>
+        </Box>
+      </DialogActions>
+    </Dialog>
   );
 }
 
@@ -772,7 +786,6 @@ export function InvoiceDetailModal({
   onCancelSaleAndInvoice,
   onClose,
 }: InvoiceDetailModalProps) {
-  if (!isOpen) return null;
   const serviceInvoiceId = invoice?.externalInvoiceId ?? invoice?.id ?? "";
   const isAuthorized = invoice?.status === "AUTHORIZED";
   const isCancelled = invoice?.sale?.status === "CANCELLED";
@@ -841,38 +854,48 @@ export function InvoiceDetailModal({
     : 220;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#4a3c58]/30 backdrop-blur-sm p-4">
-      <div className="flex max-h-[90vh] w-full max-w-4xl flex-col rounded-2xl border border-[#e8d5e5] bg-[#fdfcf5] shadow-xl">
-        <div className="flex items-center justify-between border-b border-[#e8d5e5]/60 p-5">
-          <div>
-            <h3 className="text-lg font-semibold text-[#4a3c58]">Detalle Factura SRI</h3>
+    <Dialog
+      open={isOpen}
+      onClose={loading || cancelling ? undefined : onClose}
+      fullWidth
+      maxWidth="lg"
+      slotProps={dialogBackdropProps}
+    >
+      <DialogTitle>
+        <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={2}>
+          <Box>
+            <Box sx={{ fontSize: 20, fontWeight: 700, color: "#4a3c58", lineHeight: 1.2 }}>
+              Detalle Factura SRI
+            </Box>
             {!loading && invoice ? (
-              <p className="text-sm text-[#4a3c58]/70">
+              <Box sx={{ mt: 0.5, fontSize: 14, color: "rgba(74, 60, 88, 0.7)" }}>
                 Venta #{invoice.saleNumber}
                 {invoice.secuencial ? ` · Factura ${invoice.secuencial}` : ""}
-              </p>
+              </Box>
             ) : null}
-          </div>
-          <Button variant="outline" size="sm" onClick={onClose}>
+          </Box>
+          <MuiButton variant="outlined" size="small" onClick={onClose}>
+            <X className="mr-2 h-4 w-4" />
             Cerrar
-          </Button>
-        </div>
-
+          </MuiButton>
+        </Stack>
+      </DialogTitle>
+      <DialogContent dividers sx={{ p: 0, borderTop: 0, borderBottom: 0 }}>
         {loading ? (
-          <div className="flex min-h-[260px] items-center justify-center p-6">
-            <div className="flex items-center gap-2 text-slate-600">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Cargando detalle de factura...
-            </div>
-          </div>
+          <Box sx={{ minHeight: 260, display: "flex", alignItems: "center", justifyContent: "center", p: 6 }}>
+            <Stack direction="row" spacing={1.5} alignItems="center" sx={{ color: "#4a3c58" }}>
+              <CircularProgress size={18} thickness={5} />
+              <span className="text-sm font-medium">Cargando detalle de factura...</span>
+            </Stack>
+          </Box>
         ) : !invoice ? (
-          <div className="flex min-h-[260px] items-center justify-center p-6 text-sm text-slate-500">
+          <Box sx={{ minHeight: 260, display: "flex", alignItems: "center", justifyContent: "center", p: 6, color: "#64748b", fontSize: 14 }}>
             No se pudo cargar el detalle de la factura.
-          </div>
+          </Box>
         ) : (
-          <div className="overflow-y-auto p-6">
+          <Box sx={{ overflowY: "auto", p: 3 }}>
           <div className="grid gap-6 md:grid-cols-2">
-            <section className="space-y-3 rounded-lg border border-slate-100 bg-slate-50 p-4">
+            <Paper className="space-y-3 rounded-lg border border-slate-100 bg-slate-50 p-4" elevation={0}>
               <h4 className="font-medium text-slate-800">Estado SRI</h4>
               <div className="space-y-1 text-sm">
                 <div className="flex justify-between">
@@ -901,12 +924,12 @@ export function InvoiceDetailModal({
                   <span className="text-slate-500">Fecha autorizacion:</span>
                   <span>{formattedAuthorizedAt}</span>
                 </div>
-                {invoice.authorizationNumber && (
+                {/* {invoice.authorizationNumber && (
                   <div className="flex flex-col gap-1">
                     <span className="text-slate-500">No. Autorizacion:</span>
                     <span className="break-all font-mono text-xs">{invoice.authorizationNumber}</span>
                   </div>
-                )}
+                )} */}
                 {invoice.claveAcceso && (
                   <div className="flex flex-col gap-1">
                     <span className="text-slate-500">Clave Acceso:</span>
@@ -919,9 +942,9 @@ export function InvoiceDetailModal({
                   </div>
                 )}
               </div>
-            </section>
+            </Paper>
 
-            <section className="space-y-3 rounded-lg border border-slate-100 bg-white p-4">
+            <Paper className="space-y-3 rounded-lg border border-slate-100 bg-white p-4" elevation={0}>
               <h4 className="font-medium text-slate-800">Cliente</h4>
               <div className="space-y-1 text-sm">
                 <div className="flex justify-between">
@@ -941,7 +964,7 @@ export function InvoiceDetailModal({
                   <span className="text-right">{invoice.sale.customer.direccion || "-"}</span>
                 </div>
               </div>
-            </section>
+            </Paper>
           </div>
 
           <section className="mt-6">
@@ -981,43 +1004,46 @@ export function InvoiceDetailModal({
             </div>
           </section>
 
-          <section className="mt-6 rounded-lg bg-slate-50 p-4">
+          <Paper className="mt-6 rounded-lg bg-slate-50 p-4" elevation={0}>
             <h4 className="mb-2 font-medium text-slate-800">Reimpresion de Comprobantes</h4>
             <div className="flex flex-wrap gap-2">
-              <Button
+              <MuiButton
                 type="button"
-                variant="outline"
+                variant="outlined"
                 disabled={!canDownloadRide}
                 onClick={() => {
                   if (!canDownloadRide) return;
                   window.open(`/api/v1/sri-invoices/${serviceInvoiceId}/ride`, "_blank", "noopener,noreferrer");
                 }}
               >
+                <Download className="h-4 w-4" />
                 Descargar PDF
-              </Button>
-              <Button
+              </MuiButton>
+              <MuiButton
                 type="button"
-                variant="outline"
+                variant="outlined"
                 disabled={!canDownloadXml}
                 onClick={() => {
                   if (!canDownloadXml) return;
                   window.open(`/api/v1/sri-invoices/${serviceInvoiceId}/xml`, "_blank", "noopener,noreferrer");
                 }}
               >
+                <FileCode2 className="h-4 w-4" />
                 Descargar XML
-              </Button>
+              </MuiButton>
             </div>
             {!isAuthorized ? (
               <p className="mt-2 text-xs text-slate-500">Se habilitan cuando la factura esta autorizada.</p>
             ) : null}
-          </section>
-          </div>
+          </Paper>
+          </Box>
         )}
-        
-        <div className="flex items-center justify-between border-t border-slate-100 p-4">
-          <Button
+      </DialogContent>
+      <DialogActions sx={{ justifyContent: "space-between" }}>
+        <MuiButton
             type="button"
-            variant="destructive"
+            color="error"
+            variant="contained"
             disabled={loading || !invoice || isCancelled || cancelling}
             onClick={() => {
               if (!invoice) return;
@@ -1032,12 +1058,17 @@ export function InvoiceDetailModal({
             ) : isCancelled ? (
               "Venta anulada"
             ) : (
-              "Anular venta/factura"
+              <>
+                <Ban className="mr-2 h-4 w-4" />
+                Anular venta/factura
+              </>
             )}
-          </Button>
-          <Button onClick={onClose}>Cerrar Detalle</Button>
-        </div>
-      </div>
-    </div>
+          </MuiButton>
+          <MuiButton onClick={onClose} variant="outlined">
+            <X className="mr-2 h-4 w-4" />
+            Cerrar Detalle
+          </MuiButton>
+      </DialogActions>
+    </Dialog>
   );
 }

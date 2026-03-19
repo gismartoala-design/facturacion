@@ -19,7 +19,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/overview", label: "Resumen", hint: "Vista operativa", icon: Boxes },
   { href: "/products", label: "Productos", hint: "Catalogo", icon: ClipboardList },
   { href: "/inventory", label: "Inventario", hint: "Stock y ajustes", icon: PackageSearch },
-  { href: "/checkout", label: "Facturar Venta", hint: "Venta + SRI", icon: ShoppingCart },
+  { href: "/sales", label: "Facturar Venta", hint: "Venta + SRI", icon: ShoppingCart },
   { href: "/quotes", label: "Cotizaciones", hint: "Proformas y conversion", icon: FileText },
   { href: "/sri", label: "Facturacion", hint: "Reintentos", icon: WalletCards },
   { href: "/users", label: "Usuarios", hint: "Gestion de accesos", icon: Users, adminOnly: true },
@@ -36,7 +36,7 @@ export function MvpDashboardNav({ userRole }: MvpDashboardNavProps) {
   return (
     <>
       <aside className="hidden h-full w-full rounded-[30px] border border-white/60 bg-white/72 p-4 shadow-[0_12px_40px_rgb(0,0,0,0.05)] backdrop-blur-xl lg:flex lg:flex-col lg:overflow-hidden">
-        <div className="rounded-[24px] border border-[#e8d5e5]/60 bg-white/85 p-3 shadow-[0_8px_24px_rgb(0,0,0,0.04)]">
+        <div className="rounded-3xl border border-[#e8d5e5]/60 bg-white/85 p-3 shadow-[0_8px_24px_rgb(0,0,0,0.04)]">
           <div className="flex items-center gap-3">
             <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[#e8d5e5]/40 bg-white p-1 shadow-[0_2px_10px_rgba(0,0,0,0.05)]">
               <Image src="/logo.png" alt="Logo DOVI VELAS" width={56} height={56} className="object-contain" priority unoptimized />
@@ -100,7 +100,7 @@ export function MvpDashboardNav({ userRole }: MvpDashboardNavProps) {
               className={cn(
                 "inline-flex h-10 items-center justify-center whitespace-nowrap rounded-xl border px-4 text-sm font-medium transition-all shadow-sm",
                 pathname === item.href
-                  ? "border-transparent bg-gradient-to-tr from-[#b1a1c6] to-[#4a3c58] text-white shadow-md"
+                  ? "border-transparent bg-linear-to-tr from-[#b1a1c6] to-[#4a3c58] text-white shadow-md"
                   : "border-slate-200 bg-white/80 text-slate-700 backdrop-blur-sm hover:bg-white hover:text-[#4a3c58]",
               )}
             >

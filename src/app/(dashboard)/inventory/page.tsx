@@ -1,12 +1,21 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
+import Alert from "@mui/material/Alert";
+import CircularProgress from "@mui/material/CircularProgress";
+import Paper from "@mui/material/Paper";
+import Snackbar from "@mui/material/Snackbar";
+import Stack from "@mui/material/Stack";
 import { useEffect, useState } from "react";
 
 import { fetchJson } from "@/components/mvp-dashboard-api";
-import { StockAdjustmentModal } from "@/components/mvp-dashboard-modals";
 import { type Product, type StockAdjustmentForm, type StockItem } from "@/components/mvp-dashboard-types";
+import { InventoryAdjustmentModal } from "@/features/inventory/components/inventory-adjustment-modal";
 import { InventorySection } from "@/features/inventory/components/inventory-section";
+
+type InventoryToast = {
+  message: string;
+  severity: "success" | "error" | "info";
+};
 
 export default function InventoryPage() {
   const [stock, setStock] = useState<StockItem[]>([]);
@@ -14,7 +23,7 @@ export default function InventoryPage() {
   const [isStockModalOpen, setIsStockModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState("");
+  const [toast, setToast] = useState<InventoryToast | null>(null);
   const [adjustment, setAdjustment] = useState<StockAdjustmentForm>({
     productId: "",
     movementType: "IN",
@@ -33,7 +42,13 @@ export default function InventoryPage() {
       setStock(stockRes);
       setProducts(productsRes);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "No se pudo cargar inventario");
+      setToast({
+        message:
+          error instanceof Error
+            ? error.message
+            : "No se pudo cargar inventario",
+        severity: "error",
+      });
     } finally {
       setLoading(false);
     }
@@ -43,10 +58,24 @@ export default function InventoryPage() {
     void loadData();
   }, []);
 
+  function openStockModal() {
+    setAdjustment({
+      productId: "",
+      movementType: "IN",
+      quantity: "0",
+    });
+    setIsStockModalOpen(true);
+  }
+
+  function closeStockModal() {
+    if (saving) return;
+    setIsStockModalOpen(false);
+  }
+
   async function onAdjustStock(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSaving(true);
-    setMessage("");
+    setToast(null);
 
     try {
       await fetchJson("/api/v1/stock/adjustments", {
@@ -59,10 +88,19 @@ export default function InventoryPage() {
       });
 
       setIsStockModalOpen(false);
-      setMessage("Stock actualizado");
+      setToast({
+        message: "Stock actualizado",
+        severity: "success",
+      });
       await loadData();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "No se pudo ajustar stock");
+      setToast({
+        message:
+          error instanceof Error
+            ? error.message
+            : "No se pudo ajustar stock",
+        severity: "error",
+      });
     } finally {
       setSaving(false);
     }
@@ -70,25 +108,50 @@ export default function InventoryPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-4 text-slate-600">
-        <Loader2 className="h-4 w-4 animate-spin" /> Cargando inventario...
-      </div>
+      <Paper sx={{ borderRadius: "20px", px: 3, py: 2.5 }}>
+        <Stack direction="row" spacing={1.5} alignItems="center" sx={{ color: "#4a3c58" }}>
+          <CircularProgress size={18} thickness={5} />
+          <span className="text-sm font-medium">Cargando inventario...</span>
+        </Stack>
+      </Paper>
     );
   }
 
   return (
     <>
-      {message ? <p className="text-sm font-medium text-emerald-700">{message}</p> : null}
-      <InventorySection stock={stock} onOpenStockModal={() => setIsStockModalOpen(true)} />
-      <StockAdjustmentModal
+      <InventorySection stock={stock} onOpenStockModal={openStockModal} />
+      <InventoryAdjustmentModal
         isOpen={isStockModalOpen}
         products={products}
         adjustment={adjustment}
         setAdjustment={setAdjustment}
         saving={saving}
-        onClose={() => setIsStockModalOpen(false)}
+        onClose={closeStockModal}
         onSubmit={onAdjustStock}
       />
+      <Snackbar
+        open={Boolean(toast)}
+        autoHideDuration={4200}
+        onClose={(_, reason) => {
+          if (reason === "clickaway") return;
+          setToast(null);
+        }}
+        anchorOrigin={{ vertical: "top", horizontal: "right" }}
+      >
+        <Alert
+          elevation={0}
+          variant="filled"
+          severity={toast?.severity ?? "info"}
+          onClose={() => setToast(null)}
+          sx={{
+            minWidth: 280,
+            borderRadius: "16px",
+            boxShadow: "0 18px 38px rgba(74, 60, 88, 0.18)",
+          }}
+        >
+          {toast?.message ?? ""}
+        </Alert>
+      </Snackbar>
     </>
   );
 }

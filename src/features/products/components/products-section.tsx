@@ -1,13 +1,6 @@
 import IconButton from "@mui/material/IconButton";
-import Paper from "@mui/material/Paper";
-import Table from "@mui/material/Table";
-import TableBody from "@mui/material/TableBody";
-import TableCell from "@mui/material/TableCell";
-import TableContainer from "@mui/material/TableContainer";
-import TableHead from "@mui/material/TableHead";
-import TablePagination from "@mui/material/TablePagination";
-import TableRow from "@mui/material/TableRow";
-import { Pencil, Search, Trash2 } from "lucide-react";
+import { DataGrid, type GridColDef } from "@mui/x-data-grid";
+import { PackagePlus, Pencil, Search, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -19,6 +12,9 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import type { Product } from "@/components/mvp-dashboard-types";
+import Box from "@mui/material/Box";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
 
 type ProductsSectionProps = {
   products: Product[];
@@ -29,12 +25,6 @@ type ProductsSectionProps = {
 
 const PRODUCTS_PAGE_SIZE = 9;
 
-const tableCellSx = {
-  borderColor: "rgba(232, 213, 229, 0.65)",
-  color: "#4a3c58",
-  fontSize: 13,
-} as const;
-
 export function ProductsSection({
   products,
   onOpenProductModal,
@@ -42,7 +32,6 @@ export function ProductsSection({
   onDeleteProduct,
 }: ProductsSectionProps) {
   const [search, setSearch] = useState("");
-  const [page, setPage] = useState(0);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -55,27 +44,118 @@ export function ProductsSection({
     );
   }, [products, search]);
 
-  const paginated = filtered.slice(
-    page * PRODUCTS_PAGE_SIZE,
-    page * PRODUCTS_PAGE_SIZE + PRODUCTS_PAGE_SIZE,
-  );
-
   function handleSearch(value: string) {
     setSearch(value);
-    setPage(0);
   }
 
+  const columns = useMemo<GridColDef<Product>[]>(
+    () => [
+      {
+        field: "codigo",
+        headerName: "Codigo",
+        minWidth: 150,
+        flex: 0.9,
+        renderCell: (params) => (
+          <span className="font-semibold text-[#4a3c58]">{params.row.codigo}</span>
+        ),
+      },
+      {
+        field: "nombre",
+        headerName: "Nombre",
+        minWidth: 260,
+        flex: 1.6,
+      },
+      {
+        field: "precio",
+        headerName: "Precio",
+        type: "number",
+        minWidth: 120,
+        flex: 0.7,
+        align: "right",
+        headerAlign: "right",
+        valueFormatter: (value) => `$${Number(value).toFixed(2)}`,
+      },
+      {
+        field: "tarifaIva",
+        headerName: "IVA",
+        type: "number",
+        minWidth: 110,
+        flex: 0.55,
+        align: "right",
+        headerAlign: "right",
+        valueFormatter: (value) => `${Number(value)}%`,
+      },
+      {
+        field: "stock",
+        headerName: "Stock",
+        type: "number",
+        minWidth: 120,
+        flex: 0.7,
+        align: "right",
+        headerAlign: "right",
+        valueFormatter: (value) => Number(value).toFixed(3),
+      },
+      {
+        field: "actions",
+        headerName: "Acciones",
+        sortable: false,
+        filterable: false,
+        disableColumnMenu: true,
+        minWidth: 140,
+        flex: 0.85,
+        renderCell: (params) => (
+          <div className="flex items-center gap-1">
+            <IconButton
+              size="small"
+              onClick={() => onEditProduct(params.row)}
+              sx={{
+                border: "1px solid rgba(232, 213, 229, 0.85)",
+                borderRadius: "10px",
+                color: "#4a3c58",
+              }}
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </IconButton>
+            <IconButton
+              size="small"
+              onClick={() => onDeleteProduct(params.row)}
+              sx={{
+                border: "1px solid rgba(254, 202, 202, 1)",
+                borderRadius: "10px",
+                color: "#b91c1c",
+              }}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </IconButton>
+          </div>
+        ),
+      },
+    ],
+    [onDeleteProduct, onEditProduct],
+  );
+
   return (
-    <div className="space-y-6">
-      <div className="space-y-4 p-4">
-        <div className="space-y-1">
-          <CardTitle className="text-[#4a3c58]">Productos</CardTitle>
-          <CardDescription className="max-w-2xl text-[#4a3c58]/68">
+    <Stack spacing={3}>
+      <Box sx={{ px: { xs: 1, sm: 2 }, pt: { xs: 1, sm: 2 } }}>
+        <Stack spacing={0.75}>
+          <Typography
+            variant="h5"
+            sx={{ color: "#4a3c58", fontWeight: 700, lineHeight: 1.15 }}
+          >
+            Productos
+          </Typography>
+          <Typography
+            sx={{
+              maxWidth: 720,
+              color: "rgba(74, 60, 88, 0.68)",
+              fontSize: 14,
+            }}
+          >
             Administra catalogo, precios y referencias de venta desde un solo
             lugar.
-          </CardDescription>
-        </div>
-      </div>
+          </Typography>
+        </Stack>
+      </Box>
 
       <Card className="rounded-[28px]">
         <CardContent>
@@ -106,142 +186,36 @@ export function ProductsSection({
                 onClick={onOpenProductModal}
                 className="bg-[#4a3c58] text-white hover:bg-[#3d3249]"
               >
+                <PackagePlus className="h-4 w-4" />
                 Nuevo producto
               </Button>
             </div>
           </div>
 
           <div className="mt-4 overflow-hidden rounded-3xl border border-[#e8d5e5]/70 bg-white">
-            <TableContainer
-              component={Paper}
-              elevation={0}
-              sx={{ backgroundColor: "transparent", maxHeight: 580 }}
-            >
-              <Table size="small" aria-label="Tabla de productos">
-                <TableHead>
-                  <TableRow>
-                    {[
-                      "Codigo",
-                      "Nombre",
-                      "Precio",
-                      "IVA",
-                      "Stock",
-                      "Acciones",
-                    ].map((label) => (
-                      <TableCell
-                        key={label}
-                        sx={{
-                          ...tableCellSx,
-                          backgroundColor: "#fdf7fb",
-                          fontWeight: 700,
-                          letterSpacing: "0.08em",
-                          textTransform: "uppercase",
-                        }}
-                        align={
-                          label === "Precio" ||
-                          label === "IVA" ||
-                          label === "Stock"
-                            ? "right"
-                            : "left"
-                        }
-                      >
-                        {label}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {paginated.length === 0 ? (
-                    <TableRow>
-                      <TableCell
-                        colSpan={6}
-                        sx={{
-                          ...tableCellSx,
-                          py: 5,
-                          textAlign: "center",
-                          color: "#64748b",
-                        }}
-                      >
-                        {search
-                          ? `Sin resultados para "${search}".`
-                          : "Sin productos aun."}
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    paginated.map((product) => (
-                      <TableRow
-                        key={product.id}
-                        hover
-                        sx={{
-                          "&:last-child td": { borderBottom: 0 },
-                          "&:hover td": { backgroundColor: "#fffafc" },
-                        }}
-                      >
-                        <TableCell sx={{ ...tableCellSx, fontWeight: 700 }}>
-                          {product.codigo}
-                        </TableCell>
-                        <TableCell sx={tableCellSx}>{product.nombre}</TableCell>
-                        <TableCell align="right" sx={tableCellSx}>
-                          ${product.precio.toFixed(2)}
-                        </TableCell>
-                        <TableCell align="right" sx={tableCellSx}>
-                          {product.tarifaIva}%
-                        </TableCell>
-                        <TableCell align="right" sx={tableCellSx}>
-                          {product.stock.toFixed(3)}
-                        </TableCell>
-                        <TableCell sx={tableCellSx}>
-                          <div className="flex items-center gap-1">
-                            <IconButton
-                              size="small"
-                              onClick={() => onEditProduct(product)}
-                              sx={{
-                                border: "1px solid rgba(232, 213, 229, 0.85)",
-                                borderRadius: "10px",
-                                color: "#4a3c58",
-                              }}
-                            >
-                              <Pencil className="h-3.5 w-3.5" />
-                            </IconButton>
-                            <IconButton
-                              size="small"
-                              onClick={() => onDeleteProduct(product)}
-                              sx={{
-                                border: "1px solid rgba(254, 202, 202, 1)",
-                                borderRadius: "10px",
-                                color: "#b91c1c",
-                              }}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </IconButton>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-
-            <TablePagination
-              component="div"
-              count={filtered.length}
-              page={page}
-              onPageChange={(_, nextPage) => setPage(nextPage)}
-              rowsPerPage={PRODUCTS_PAGE_SIZE}
-              rowsPerPageOptions={[PRODUCTS_PAGE_SIZE]}
-              labelRowsPerPage="Filas por pagina:"
-              labelDisplayedRows={({ from, to, count }) =>
-                `${from}-${to} de ${count !== -1 ? count : `mas de ${to}`}`
-              }
-              sx={{
-                borderTop: "1px solid rgba(232, 213, 229, 0.65)",
-                color: "#4a3c58",
-                ".MuiTablePagination-toolbar": {
-                  minHeight: 56,
-                  paddingInline: 16,
+            <DataGrid
+              rows={filtered}
+              columns={columns}
+              getRowId={(row) => row.id}
+              disableRowSelectionOnClick
+              disableColumnMenu
+              pageSizeOptions={[PRODUCTS_PAGE_SIZE, 15, 25]}
+              initialState={{
+                pagination: {
+                  paginationModel: { page: 0, pageSize: PRODUCTS_PAGE_SIZE },
                 },
-                ".MuiSelect-select, .MuiTablePagination-displayedRows": {
+              }}
+              localeText={{
+                noRowsLabel: search
+                  ? `Sin resultados para "${search}".`
+                  : "Sin productos aun.",
+              }}
+              sx={{
+                minHeight: 520,
+                "& .MuiDataGrid-cell": {
+                  fontSize: 13,
+                },
+                "& .MuiDataGrid-columnHeaderTitle": {
                   fontSize: 13,
                 },
               }}
@@ -249,6 +223,6 @@ export function ProductsSection({
           </div>
         </CardContent>
       </Card>
-    </div>
+    </Stack>
   );
 }

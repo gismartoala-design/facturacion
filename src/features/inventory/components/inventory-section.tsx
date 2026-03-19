@@ -1,14 +1,13 @@
+import Box from "@mui/material/Box";
+import MuiButton from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
+import Paper from "@mui/material/Paper";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
+import { ArrowLeftRight } from "lucide-react";
 import { useMemo } from "react";
 
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardTitle,
-} from "@/components/ui/card";
 import type { StockItem } from "@/components/mvp-dashboard-types";
 
 type InventorySectionProps = {
@@ -94,89 +93,98 @@ export function InventorySection({
   );
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-4 p-2">
-        <div className="space-y-1">
-          <CardTitle className="text-[#4a3c58]">Inventario</CardTitle>
-          <CardDescription className="max-w-2xl text-[#4a3c58]/68">
-            Entradas, salidas y ajustes manuales con trazabilidad en tiempo real.
-          </CardDescription>
-        </div>
-      </div>
+    <Stack spacing={3}>
+      <Box sx={{ px: { xs: 1, sm: 2 }, pt: { xs: 1, sm: 2 } }}>
+        <Stack spacing={0.75}>
+          <Typography
+            variant="h5"
+            sx={{ color: "#4a3c58", fontWeight: 700, lineHeight: 1.15 }}
+          >
+            Inventario
+          </Typography>
+          <Typography
+            sx={{
+              maxWidth: 720,
+              color: "rgba(74, 60, 88, 0.68)",
+              fontSize: 14,
+            }}
+          >
+            Entradas, salidas y ajustes manuales con trazabilidad en tiempo
+            real.
+          </Typography>
+        </Stack>
+      </Box>
 
-      <Card className="rounded-[28px]">
-        <CardContent>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-wrap gap-2">
-              <span className="inline-flex items-center rounded-full border border-[#e8d5e5]/75 bg-white/85 px-3 py-1 text-xs font-medium text-[#4a3c58]/80">
-                {stock.length} registros
-              </span>
-              <span className="inline-flex items-center rounded-full border border-amber-200/80 bg-amber-50/85 px-3 py-1 text-xs font-medium text-amber-800">
-                {lowStockCount} con stock bajo
-              </span>
-            </div>
-            <Button
+      <Paper sx={{ borderRadius: "28px", px: { xs: 2, sm: 3 }, py: { xs: 2, sm: 3 } }}>
+        <Stack spacing={2.5}>
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={2}
+            alignItems={{ xs: "flex-start", sm: "center" }}
+            justifyContent="space-between"
+          >
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+              <Chip
+                label={`${stock.length} registros`}
+                size="small"
+                sx={{
+                  borderRadius: "999px",
+                  fontWeight: 600,
+                  color: "#4a3c58",
+                  backgroundColor: "rgba(255,255,255,0.88)",
+                  border: "1px solid rgba(232, 213, 229, 0.78)",
+                }}
+              />
+              <Chip
+                label={`${lowStockCount} con stock bajo`}
+                size="small"
+                sx={{
+                  borderRadius: "999px",
+                  fontWeight: 700,
+                  color: "#b45309",
+                  backgroundColor: "rgba(255, 247, 237, 0.92)",
+                  border: "1px solid rgba(252, 211, 77, 0.85)",
+                }}
+              />
+            </Stack>
+
+            <MuiButton
               type="button"
-              variant="secondary"
+              variant="contained"
               onClick={onOpenStockModal}
+              startIcon={<ArrowLeftRight className="h-4 w-4" />}
             >
               Ajustar stock
-            </Button>
-          </div>
+            </MuiButton>
+          </Stack>
 
-          <div className="mt-4 overflow-hidden rounded-2xl border border-[#e8d5e5]/70 bg-white">
+          <Box
+            sx={{
+              overflow: "hidden",
+              borderRadius: "24px",
+              border: "1px solid rgba(232, 213, 229, 0.7)",
+              backgroundColor: "#fff",
+            }}
+          >
             <DataGrid
               rows={stock}
               columns={columns}
               getRowId={(row) => row.productId}
               disableRowSelectionOnClick
               disableColumnMenu
-              pageSizeOptions={[8, 25, 50]}
+              pageSizeOptions={[9, 25, 50]}
               initialState={{
                 pagination: {
-                  paginationModel: { page: 0, pageSize: 8 },
+                  paginationModel: { page: 0, pageSize: 9 },
                 },
                 sorting: {
                   sortModel: [{ field: "lowStock", sort: "desc" }],
                 },
               }}
-              sx={{
-                border: 0,
-                minHeight: 400,
-                backgroundColor: "transparent",
-                color: "#4a3c58",
-                "--DataGrid-containerBackground": "#fdf7fb",
-                "& .MuiDataGrid-columnHeaders": {
-                  borderBottom: "1px solid rgba(232, 213, 229, 0.65)",
-                  minHeight: "40px !important",
-                },
-                "& .MuiDataGrid-columnHeaderTitle": {
-                  fontWeight: 700,
-                  letterSpacing: "0.08em",
-                  textTransform: "uppercase",
-                  fontSize: 12,
-                },
-                "& .MuiDataGrid-cell": {
-                  borderColor: "rgba(232, 213, 229, 0.65)",
-                  fontSize: 12,
-                },
-                "& .MuiDataGrid-row:hover": {
-                  backgroundColor: "#fffafc",
-                },
-                "& .MuiDataGrid-footerContainer": {
-                  borderTop: "1px solid rgba(232, 213, 229, 0.65)",
-                },
-                "& .MuiTablePagination-root, & .MuiDataGrid-selectedRowCount": {
-                  color: "#4a3c58",
-                },
-                "& .MuiCheckbox-root": {
-                  color: "#b1a1c6",
-                },
-              }}
             />
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+          </Box>
+        </Stack>
+      </Paper>
+    </Stack>
   );
 }

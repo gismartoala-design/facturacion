@@ -21,6 +21,9 @@ import {
   type PaymentMethodOption,
 } from "@/components/mvp-dashboard-types";
 import { DocumentWorkspaceHeader } from "@/features/shared/document-composer/components/document-workspace-header";
+import Box from "@mui/material/Box";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
 
 export type SalesCheckoutSectionProps = {
   checkout: CheckoutForm;
@@ -83,10 +86,26 @@ export function SalesCheckoutSection({
 
   return (
     <div className="space-y-6">
-      <DocumentWorkspaceHeader
-        title="Facturar Venta"
-        description="Registrar la venta, validar cliente y emitir factura en un solo paso."
-      />
+      <Box sx={{ px: { xs: 1, sm: 2 }, pt: { xs: 1, sm: 2 } }}>
+        <Stack spacing={0.75}>
+          <Typography
+            variant="h5"
+            sx={{ color: "#4a3c58", fontWeight: 700, lineHeight: 1.15 }}
+          >
+            Facturar Venta
+          </Typography>
+          <Typography
+            sx={{
+              maxWidth: 720,
+              color: "rgba(74, 60, 88, 0.68)",
+              fontSize: 14,
+            }}
+          >
+            Registrar la venta, validar cliente y emitir factura en un solo
+            paso.
+          </Typography>
+        </Stack>
+      </Box>
       <Card className="border-[#e8d5e5]/60">
         <CardContent>
           <form className="space-y-5" onSubmit={onCheckout}>

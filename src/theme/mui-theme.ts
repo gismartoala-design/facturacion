@@ -1,3 +1,4 @@
+import type {} from "@mui/x-data-grid/themeAugmentation";
 import { alpha, createTheme } from "@mui/material/styles";
 
 export const muiTheme = createTheme({
@@ -29,7 +30,8 @@ export const muiTheme = createTheme({
     borderRadius: 16,
   },
   typography: {
-    fontFamily: 'var(--font-sans), "Outfit", "Avenir Next", "Segoe UI", sans-serif',
+    fontFamily:
+      'var(--font-sans), "Outfit", "Avenir Next", "Segoe UI", sans-serif',
     h1: {
       fontWeight: 800,
     },
@@ -174,7 +176,8 @@ export const muiTheme = createTheme({
           borderRadius: 14,
           backgroundColor: "rgba(253, 252, 245, 0.76)",
           color: "#4a3c58",
-          transition: "border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease",
+          transition:
+            "border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease",
           "& .MuiOutlinedInput-notchedOutline": {
             borderColor: alpha("#e8d5e5", 0.85),
           },
@@ -216,6 +219,89 @@ export const muiTheme = createTheme({
         },
         body: {
           backgroundColor: "transparent",
+        },
+      },
+    },
+    MuiDataGrid: {
+      styleOverrides: {
+        root: {
+          borderRadius: 0,
+          border: "1px solid transparent",
+          backgroundColor: "transparent",
+          color: "#4a3c58",
+          "& .MuiDataGrid-columnHeaders": {
+            backgroundColor: "#dfe5ec !important",
+            borderRadius: "16px",
+            boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.32)",
+          },
+          "& .MuiDataGrid-columnHeader": {
+            backgroundColor: "transparent !important",
+          },
+          "& .MuiTablePagination-root": {
+            borderTop: 0,
+          },
+          "& .MuiDataGrid-main": {
+            borderRadius: "18px",
+          },
+          "& .MuiDataGrid-toolbarContainer": {
+            padding: "12px 14px 10px",
+            backgroundColor: alpha("#ffffff", 0.55),
+            "& .MuiButton-root": {
+              marginRight: 10,
+              color: "#4a3c58",
+              "&:hover": {
+                backgroundColor: alpha("#b1a1c6", 0.08),
+              },
+            },
+          },
+          "& .MuiDataGrid-columnHeader[data-field='__check__']": {
+            padding: 0,
+          },
+          "& .MuiDataGrid-columnSeparator": {
+            color: alpha("#8b96a8", 0.42),
+            opacity: 1,
+          },
+          "& .MuiDataGrid-cell:focus, & .MuiDataGrid-cell:focus-within, & .MuiDataGrid-columnHeader:focus, & .MuiDataGrid-columnHeader:focus-within":
+            {
+              outline: "none",
+            },
+        },
+        columnHeaders: {
+          backgroundColor: "#dfe5ec",
+          borderBottom: 0,
+          borderRadius: 18,
+          minHeight: "52px !important",
+          maxHeight: "52px !important",
+          marginBottom: "6px",
+          overflow: "hidden",
+          boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.32)",
+        },
+        columnHeaderTitle: {
+          color: "#344050",
+          fontWeight: 600,
+          fontSize: 14,
+          letterSpacing: 0,
+          textTransform: "none",
+        },
+        cell: {
+          borderBottom: 0,
+          fontSize: 14,
+          paddingInline: 18,
+        },
+        row: {
+          minHeight: "50px !important",
+          maxHeight: "50px !important",
+          transition: "background-color 140ms ease",
+          "&:hover": {
+            backgroundColor: alpha("#f6e6da", 0.32),
+          },
+        },
+        footerContainer: {
+          borderTop: 0,
+          minHeight: 50,
+        },
+        selectedRowCount: {
+          color: "#4a3c58",
         },
       },
     },

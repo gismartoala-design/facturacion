@@ -1,22 +1,16 @@
+import Box from "@mui/material/Box";
+import MuiButton from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
+import FormControl from "@mui/material/FormControl";
+import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
-import Skeleton from "@mui/material/Skeleton";
-import Table from "@mui/material/Table";
-import TableBody from "@mui/material/TableBody";
-import TableCell from "@mui/material/TableCell";
-import TableContainer from "@mui/material/TableContainer";
-import TableHead from "@mui/material/TableHead";
-import TablePagination from "@mui/material/TablePagination";
-import TableRow from "@mui/material/TableRow";
-import { RefreshCcw } from "lucide-react";
+import Select from "@mui/material/Select";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
+import { DataGrid, type GridColDef, type GridPaginationModel } from "@mui/x-data-grid";
+import { Eye, RefreshCcw } from "lucide-react";
+import { useMemo } from "react";
 
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardTitle,
-} from "@/components/ui/card";
 import type {
   PaginationMeta,
   SriInvoice,
@@ -42,14 +36,6 @@ type SriSectionProps = {
   onPageChange: (page: number) => void;
   onFilterChange: (value: string) => void;
 };
-
-const tableCellSx = {
-  borderColor: "rgba(232, 213, 229, 0.65)",
-  color: "#4a3c58",
-  fontSize: 13,
-} as const;
-
-const SRI_LOADING_ROWS = 5;
 
 function statusChipStyles(status: string) {
   if (status === "AUTHORIZED") {
@@ -98,263 +84,201 @@ export function SriSection({
     (invoice.status === "PENDING_SRI" || invoice.status === "ERROR") &&
     invoice.saleStatus !== "CANCELLED";
 
+  const columns = useMemo<GridColDef<SriInvoice>[]>(
+    () => [
+      {
+        field: "saleNumber",
+        headerName: "Venta",
+        minWidth: 140,
+        flex: 0.8,
+        renderCell: (params) => (
+          <span className="font-semibold text-[#4a3c58]">
+            Venta #{params.row.saleNumber}
+          </span>
+        ),
+      },
+      {
+        field: "status",
+        headerName: "Estado",
+        minWidth: 170,
+        flex: 0.9,
+        renderCell: (params) => (
+          <Chip
+            label={SRI_STATUS_LABELS[params.row.status] ?? params.row.status}
+            size="small"
+            sx={{
+              borderRadius: "999px",
+              fontWeight: 700,
+              ...statusChipStyles(params.row.status),
+            }}
+          />
+        ),
+      },
+      {
+        field: "retryCount",
+        headerName: "Intentos",
+        minWidth: 130,
+        flex: 0.65,
+        renderCell: (params) => (
+          <span className="text-[#4a3c58]">
+            {params.row.retryCount}
+            {params.row.saleStatus === "CANCELLED" ? " · Anulada" : ""}
+          </span>
+        ),
+      },
+      {
+        field: "lastError",
+        headerName: "Observacion",
+        minWidth: 260,
+        flex: 1.6,
+        valueGetter: (_, row) => row.lastError || "Sin novedades",
+      },
+      {
+        field: "actions",
+        headerName: "Acciones",
+        sortable: false,
+        filterable: false,
+        disableColumnMenu: true,
+        minWidth: 220,
+        flex: 1.1,
+        renderCell: (params) => (
+          <div className="flex flex-wrap items-center gap-2 py-2">
+            {canRetry(params.row) ? (
+              <MuiButton
+                size="small"
+                variant="outlined"
+                onClick={() => onRetry(params.row.id)}
+                disabled={saving}
+                startIcon={<RefreshCcw className="h-4 w-4" />}
+              >
+                Reintentar
+              </MuiButton>
+            ) : null}
+            <MuiButton
+              size="small"
+              variant="contained"
+              onClick={() => onViewDetails(params.row.id)}
+              startIcon={<Eye className="h-4 w-4" />}
+            >
+              Ver
+            </MuiButton>
+          </div>
+        ),
+      },
+    ],
+    [onRetry, onViewDetails, saving],
+  );
+
+  function handlePaginationModelChange(model: GridPaginationModel) {
+    if (model.page + 1 !== pagination.page) {
+      onPageChange(model.page + 1);
+    }
+  }
+
   return (
-    <div className="space-y-6">
-      <div className="space-y-4 p-4">
-        <div className="space-y-1">
-          <CardTitle className="text-[#4a3c58]">Facturas SRI</CardTitle>
-          <CardDescription className="max-w-2xl text-[#4a3c58]/68">
+    <Stack spacing={3}>
+      <Box sx={{ px: { xs: 1, sm: 2 }, pt: { xs: 1, sm: 2 } }}>
+        <Stack spacing={0.75}>
+          <Typography
+            variant="h5"
+            sx={{ color: "#4a3c58", fontWeight: 700, lineHeight: 1.15 }}
+          >
+            Facturas SRI
+          </Typography>
+          <Typography
+            sx={{
+              maxWidth: 720,
+              color: "rgba(74, 60, 88, 0.68)",
+              fontSize: 14,
+            }}
+          >
             Seguimiento de documentos, errores y reintentos de facturacion
             electronica.
-          </CardDescription>
-        </div>
-      </div>
+          </Typography>
+        </Stack>
+      </Box>
 
-      <Card className="rounded-[28px]">
-        <CardContent>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-wrap gap-2">
-              <span className="inline-flex items-center rounded-full border border-[#e8d5e5]/75 bg-white/85 px-3 py-1 text-xs font-medium text-[#4a3c58]/80">
-                {SRI_STATUS_LABELS[statusFilter] ?? statusFilter}
-              </span>
-              <span className="inline-flex items-center rounded-full border border-[#e8d5e5]/75 bg-[#fdfcf5]/85 px-3 py-1 text-xs font-medium text-[#4a3c58]/72">
-                Pagina {pagination.page} de {pagination.totalPages || 1}
-              </span>
-            </div>
+      <Paper sx={{ borderRadius: "28px", px: { xs: 2, sm: 3 }, py: { xs: 2, sm: 3 } }}>
+        <Stack spacing={2.5}>
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={2}
+            alignItems={{ xs: "flex-start", sm: "center" }}
+            justifyContent="space-between"
+          >
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+              <Chip
+                label={SRI_STATUS_LABELS[statusFilter] ?? statusFilter}
+                size="small"
+                sx={{
+                  borderRadius: "999px",
+                  fontWeight: 600,
+                  color: "#4a3c58",
+                  backgroundColor: "rgba(255,255,255,0.88)",
+                  border: "1px solid rgba(232, 213, 229, 0.78)",
+                }}
+              />
+              <Chip
+                label={`Pagina ${pagination.page} de ${pagination.totalPages || 1}`}
+                size="small"
+                sx={{
+                  borderRadius: "999px",
+                  fontWeight: 600,
+                  color: "rgba(74, 60, 88, 0.8)",
+                  backgroundColor: "rgba(253, 252, 245, 0.9)",
+                  border: "1px solid rgba(232, 213, 229, 0.78)",
+                }}
+              />
+            </Stack>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <select
-                className="h-9 rounded-md border border-[#e8d5e5] bg-[#fdfcf5] px-3 text-sm text-[#4a3c58] transition-all focus:outline-none focus:ring-2 focus:ring-[#b1a1c6]"
+            <FormControl size="small" sx={{ minWidth: 210 }}>
+              <Select
                 value={statusFilter}
                 onChange={(e) => onFilterChange(e.target.value)}
                 disabled={loading}
               >
-                <option value="NOT_AUTHORIZED">No autorizadas</option>
-                <option value="ALL">Todas</option>
-                <option value="DRAFT">Borrador</option>
-                <option value="PENDING_SRI">Pendiente SRI</option>
-                <option value="AUTHORIZED">Autorizadas</option>
-                <option value="ERROR">Con error</option>
-              </select>
-            </div>
-          </div>
+                <MenuItem value="NOT_AUTHORIZED">No autorizadas</MenuItem>
+                <MenuItem value="ALL">Todas</MenuItem>
+                <MenuItem value="DRAFT">Borrador</MenuItem>
+                <MenuItem value="PENDING_SRI">Pendiente SRI</MenuItem>
+                <MenuItem value="AUTHORIZED">Autorizadas</MenuItem>
+                <MenuItem value="ERROR">Con error</MenuItem>
+              </Select>
+            </FormControl>
+          </Stack>
 
-          <div className="mt-4 overflow-hidden rounded-3xl border border-[#e8d5e5]/70 bg-white">
-            <TableContainer
-              component={Paper}
-              elevation={0}
-              sx={{ backgroundColor: "transparent" }}
-            >
-              <Table size="small" aria-label="Tabla de facturas SRI">
-                <TableHead>
-                  <TableRow>
-                    <TableCell
-                      sx={{
-                        ...tableCellSx,
-                        backgroundColor: "#fdf7fb",
-                        fontWeight: 700,
-                        letterSpacing: "0.08em",
-                        textTransform: "uppercase",
-                      }}
-                    >
-                      Venta
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        ...tableCellSx,
-                        backgroundColor: "#fdf7fb",
-                        fontWeight: 700,
-                        letterSpacing: "0.08em",
-                        textTransform: "uppercase",
-                      }}
-                    >
-                      Estado
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        ...tableCellSx,
-                        backgroundColor: "#fdf7fb",
-                        fontWeight: 700,
-                        letterSpacing: "0.08em",
-                        textTransform: "uppercase",
-                      }}
-                    >
-                      Intentos
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        ...tableCellSx,
-                        backgroundColor: "#fdf7fb",
-                        fontWeight: 700,
-                        letterSpacing: "0.08em",
-                        textTransform: "uppercase",
-                      }}
-                    >
-                      Observacion
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        ...tableCellSx,
-                        backgroundColor: "#fdf7fb",
-                        fontWeight: 700,
-                        letterSpacing: "0.08em",
-                        textTransform: "uppercase",
-                      }}
-                    >
-                      Acciones
-                    </TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {loading
-                    ? Array.from({ length: SRI_LOADING_ROWS }).map((_, index) => (
-                        <TableRow key={`sri-loading-${index}`}>
-                          <TableCell sx={tableCellSx}>
-                            <Skeleton
-                              variant="text"
-                              width="70%"
-                              sx={{ bgcolor: "#f3e8f0" }}
-                            />
-                          </TableCell>
-                          <TableCell sx={tableCellSx}>
-                            <Skeleton
-                              variant="rounded"
-                              width={110}
-                              height={28}
-                              sx={{ bgcolor: "#f3e8f0" }}
-                            />
-                          </TableCell>
-                          <TableCell sx={tableCellSx}>
-                            <Skeleton
-                              variant="text"
-                              width={40}
-                              sx={{ bgcolor: "#f3e8f0" }}
-                            />
-                          </TableCell>
-                          <TableCell sx={tableCellSx}>
-                            <Skeleton
-                              variant="text"
-                              width="85%"
-                              sx={{ bgcolor: "#f3e8f0" }}
-                            />
-                          </TableCell>
-                          <TableCell sx={tableCellSx}>
-                            <div className="flex gap-2">
-                              <Skeleton
-                                variant="rounded"
-                                width={100}
-                                height={32}
-                                sx={{ bgcolor: "#f3e8f0" }}
-                              />
-                              <Skeleton
-                                variant="rounded"
-                                width={72}
-                                height={32}
-                                sx={{ bgcolor: "#f3e8f0" }}
-                              />
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    : invoices.length === 0
-                      ? (
-                          <TableRow>
-                            <TableCell
-                              colSpan={5}
-                              sx={{
-                                ...tableCellSx,
-                                py: 5,
-                                textAlign: "center",
-                                color: "#64748b",
-                              }}
-                            >
-                              No hay facturas para este filtro.
-                            </TableCell>
-                          </TableRow>
-                        )
-                      : invoices.map((invoice) => (
-                          <TableRow
-                            key={invoice.id}
-                            hover
-                            sx={{
-                              "&:last-child td": { borderBottom: 0 },
-                              "&:hover td": { backgroundColor: "#fffafc" },
-                            }}
-                          >
-                            <TableCell sx={{ ...tableCellSx, fontWeight: 700 }}>
-                              Venta #{invoice.saleNumber}
-                            </TableCell>
-                            <TableCell sx={tableCellSx}>
-                              <Chip
-                                label={
-                                  SRI_STATUS_LABELS[invoice.status] ??
-                                  invoice.status
-                                }
-                                size="small"
-                                sx={{
-                                  borderRadius: "999px",
-                                  fontWeight: 700,
-                                  ...statusChipStyles(invoice.status),
-                                }}
-                              />
-                            </TableCell>
-                            <TableCell sx={tableCellSx}>
-                              {invoice.retryCount}
-                              {invoice.saleStatus === "CANCELLED"
-                                ? " · Anulada"
-                                : ""}
-                            </TableCell>
-                            <TableCell sx={tableCellSx}>
-                              {invoice.lastError || "Sin novedades"}
-                            </TableCell>
-                            <TableCell sx={tableCellSx}>
-                              <div className="flex flex-wrap items-center gap-2">
-                                {canRetry(invoice) ? (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => onRetry(invoice.id)}
-                                    disabled={saving}
-                                  >
-                                    <RefreshCcw className="h-4 w-4" /> Reintentar
-                                  </Button>
-                                ) : null}
-                                <Button
-                                  size="sm"
-                                  variant="secondary"
-                                  onClick={() => onViewDetails(invoice.id)}
-                                >
-                                  Ver
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                </TableBody>
-              </Table>
-              <TablePagination
-                component="div"
-                count={pagination.total}
-                page={Math.max(0, pagination.page - 1)}
-                onPageChange={(_, nextPage) => onPageChange(nextPage + 1)}
-                rowsPerPage={pagination.limit}
-                rowsPerPageOptions={[pagination.limit]}
-                labelRowsPerPage="Filas por pagina:"
-                labelDisplayedRows={({ from, to, count }) =>
-                  `${from}-${to} de ${count !== -1 ? count : `mas de ${to}`}`
-                }
-                sx={{
-                  borderTop: "1px solid rgba(232, 213, 229, 0.65)",
-                  color: "#4a3c58",
-                  ".MuiSelect-select, .MuiTablePagination-displayedRows": {
-                    fontSize: 13,
-                  },
-                }}
-              />
-            </TableContainer>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+          <Box sx={{ overflow: "hidden", borderRadius: "24px", border: "1px solid rgba(232, 213, 229, 0.7)", backgroundColor: "#fff" }}>
+            <DataGrid
+              rows={invoices}
+              columns={columns}
+              getRowId={(row) => row.id}
+              loading={loading}
+              disableRowSelectionOnClick
+              disableColumnMenu
+              paginationMode="server"
+              rowCount={pagination.total}
+              pageSizeOptions={[pagination.limit]}
+              paginationModel={{
+                page: Math.max(0, pagination.page - 1),
+                pageSize: pagination.limit,
+              }}
+              onPaginationModelChange={handlePaginationModelChange}
+              localeText={{
+                noRowsLabel: "No hay facturas para este filtro.",
+              }}
+              sx={{
+                minHeight: 520,
+                "& .MuiDataGrid-cell": {
+                  fontSize: 13,
+                },
+                "& .MuiDataGrid-columnHeaderTitle": {
+                  fontSize: 13,
+                },
+              }}
+            />
+          </Box>
+        </Stack>
+      </Paper>
+    </Stack>
   );
 }
