@@ -2,8 +2,8 @@ import { Prisma, ReferenceType, SriInvoiceStatus } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { resolveProductCode, roundMoney } from "@/lib/utils";
-import { checkoutSchema, type CheckoutInput } from "@/modules/sales/schemas";
-import { pushAndAuthorizeInvoice } from "@/modules/sri/sri.service";
+import { checkoutSchema, type CheckoutInput } from "@/services/sales/schemas";
+import { pushAndAuthorizeInvoice } from "@/services/sri/sri.service";
 
 function sriTaxCode(tarifa: number) {
   if (tarifa === 15) {

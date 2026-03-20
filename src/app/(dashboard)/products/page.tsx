@@ -153,14 +153,6 @@ export default function ProductsPage() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-4 text-slate-600">
-        <Loader2 className="h-4 w-4 animate-spin" /> Cargando productos...
-      </div>
-    );
-  }
-
   return (
     <>
       {message ? <p className="text-sm font-medium text-emerald-700">{message}</p> : null}

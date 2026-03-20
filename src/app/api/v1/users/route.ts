@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { getSession } from "@/lib/auth";
 import { fail, ok } from "@/lib/http";
-import { createUser, listUsers } from "@/modules/auth/auth.service";
+import { createUser, listUsers } from "@/services/auth/auth.service";
 
 export async function GET() {
   try {

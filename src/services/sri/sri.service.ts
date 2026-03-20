@@ -1,7 +1,7 @@
 import { Prisma, SaleStatus, SriInvoiceStatus } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
-import { authorizeInvoice, createInvoice } from "@/modules/sri/sri.client";
+import { authorizeInvoice, createInvoice } from "@/services/sri/sri.client";
 
 export async function logIntegration(params: {
   operation: "CREATE" | "AUTHORIZE" | "RETRY";

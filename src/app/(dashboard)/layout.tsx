@@ -11,14 +11,7 @@ export default async function DashboardLayout({
   const roleLabel = session?.role === "ADMIN" ? "Administrador" : "Vendedor";
 
   return (
-    <main className="relative min-h-screen overflow-x-hidden bg-[#fdfcf5] p-3 md:p-4 xl:p-6">
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        {/* Background elegant orbs - Themed to DOVI VELAS (Lavender/Rose) */}
-        <div className="absolute left-1/4 top-0 h-90 w-90s -translate-x-1/2 -translate-y-1/2 rounded-full bg-purple-200/30 blur-[90px]" />
-        <div className="absolute bottom-0 right-1/4 h-105 w-105 translate-x-1/3 translate-y-1/3 rounded-full bg-rose-200/30 blur-[100px]" />
-        <div className="absolute left-1/2 top-1/2 h-70 w-70 -translate-x-1/2 -translate-y-1/2 rounded-full bg-purple-100/20 blur-[90px]" />
-      </div>
-
+    <main className="relative min-h-screen overflow-x-hidden p-3 md:p-4 xl:p-6">
       <div className="relative mx-auto max-w-400">
         <div className="lg:hidden">
           <MvpDashboardNav userRole={session?.role} />

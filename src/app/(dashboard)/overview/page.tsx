@@ -54,17 +54,6 @@ export default function OverviewPage() {
     void loadData();
   }, []);
 
-  if (loading) {
-    return (
-      <Paper sx={{ borderRadius: "20px", px: 3, py: 2.5 }}>
-        <Stack direction="row" spacing={1.5} alignItems="center" sx={{ color: "#4a3c58" }}>
-          <CircularProgress size={18} thickness={5} />
-          <span className="text-sm font-medium">Cargando centro operativo...</span>
-        </Stack>
-      </Paper>
-    );
-  }
-
   return (
     <Stack spacing={2}>
       {message ? (

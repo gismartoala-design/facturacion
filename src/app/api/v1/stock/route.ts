@@ -1,5 +1,5 @@
 import { fail, ok } from "@/lib/http";
-import { listStock } from "@/modules/inventory/inventory.service";
+import { listStock } from "@/services/inventory/inventory.service";
 
 export async function GET() {
   try {

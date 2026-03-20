@@ -2,7 +2,7 @@ import { MovementType, Prisma, ReferenceType } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { normalizeProductSku, resolveProductCode } from "@/lib/utils";
-import { createProductSchema, stockAdjustmentSchema, updateProductSchema } from "@/modules/inventory/schemas";
+import { createProductSchema, stockAdjustmentSchema, updateProductSchema } from "@/services/inventory/schemas";
 
 const productSelect = {
   id: true,

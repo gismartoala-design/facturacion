@@ -106,17 +106,6 @@ export default function InventoryPage() {
     }
   }
 
-  if (loading) {
-    return (
-      <Paper sx={{ borderRadius: "20px", px: 3, py: 2.5 }}>
-        <Stack direction="row" spacing={1.5} alignItems="center" sx={{ color: "#4a3c58" }}>
-          <CircularProgress size={18} thickness={5} />
-          <span className="text-sm font-medium">Cargando inventario...</span>
-        </Stack>
-      </Paper>
-    );
-  }
-
   return (
     <>
       <InventorySection stock={stock} onOpenStockModal={openStockModal} />

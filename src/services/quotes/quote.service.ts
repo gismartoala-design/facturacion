@@ -3,8 +3,8 @@ import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
 import { resolveProductCode, roundMoney } from "@/lib/utils";
-import { checkout } from "@/modules/sales/checkout.service";
-import { checkoutSchema } from "@/modules/sales/schemas";
+import { checkout } from "@/services/sales/checkout.service";
+import { checkoutSchema } from "@/services/sales/schemas";
 
 const createQuoteSchema = checkoutSchema.extend({
   notes: z.string().trim().max(500).optional(),
