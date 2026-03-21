@@ -67,7 +67,7 @@ export function buildPosTicketHtml(
         body {
           margin: 0;
           padding: 16px;
-          font-family: "IBM Plex Mono", "Courier New", monospace;
+          font-family: Arial, Helvetica, sans-serif;
           background: #fff;
           color: #111827;
         }

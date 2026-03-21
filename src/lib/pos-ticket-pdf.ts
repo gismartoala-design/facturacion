@@ -100,8 +100,8 @@ export async function buildPosTicketPdfBase64(data: PosTicketData) {
 
   const pdf = await PDFDocument.create();
   const page = pdf.addPage([PAGE_WIDTH, pageHeight]);
-  const font = await pdf.embedFont(StandardFonts.Courier);
-  const boldFont = await pdf.embedFont(StandardFonts.CourierBold);
+  const font = await pdf.embedFont(StandardFonts.Helvetica);
+  const boldFont = await pdf.embedFont(StandardFonts.HelveticaBold);
 
   let cursorY = pageHeight - PAGE_PADDING - 8;
 
