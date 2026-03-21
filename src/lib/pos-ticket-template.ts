@@ -9,6 +9,7 @@ type PosTicketData = {
   businessName: string;
   operatorName: string;
   saleNumber: string;
+  documentNumber: string | null;
   createdAt: string;
   customerName: string;
   paymentMethodLabel: string;
@@ -120,6 +121,11 @@ export function buildPosTicketHtml(data: PosTicketData) {
         <div class="center">
           <h1>${escapeHtml(data.businessName)}</h1>
           <p class="muted">${escapeHtml(data.documentLabel)}</p>
+          ${
+            data.documentNumber
+              ? `<p><strong>Documento:</strong> ${escapeHtml(data.documentNumber)}</p>`
+              : ""
+          }
           <p>Venta #${escapeHtml(data.saleNumber)}</p>
         </div>
         <div class="divider"></div>

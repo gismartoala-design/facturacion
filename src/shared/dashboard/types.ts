@@ -40,6 +40,7 @@ export type SriInvoice = {
   id: string;
   externalInvoiceId?: string | null;
   secuencial?: string | null;
+  documentFullNumber?: string | null;
   createdAt?: string;
   authorizedAt?: string | null;
   saleStatus?: "COMPLETED" | "CANCELLED";
@@ -103,6 +104,7 @@ export type SriInvoiceDetail = SriInvoice & {
     xmlAuthorizedPath?: string | null;
     ridePdfPath?: string | null;
   } | null;
+  documentFullNumber?: string | null;
   claveAcceso?: string | null;
   authorizationNumber?: string | null;
   sriReceptionStatus?: string | null;

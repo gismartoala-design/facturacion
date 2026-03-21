@@ -121,7 +121,7 @@ export default function LoginPage() {
                 color: "primary.main",
               }}
             >
-              ARGSOFT
+              INTUIT
             </Typography>
 
             <Typography

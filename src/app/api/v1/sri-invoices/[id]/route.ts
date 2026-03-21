@@ -11,6 +11,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
         sale: {
           include: {
             customer: true,
+            document: true,
             items: {
               include: {
                 product: true,
@@ -29,6 +30,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
 
     const formattedInvoice = {
       ...invoice,
+      documentFullNumber: invoice.sale.document?.fullNumber ?? null,
       sale: {
         ...invoice.sale,
         saleNumber: invoice.sale.saleNumber.toString(),

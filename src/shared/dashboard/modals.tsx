@@ -968,7 +968,11 @@ export function InvoiceDetailModal({
             {!loading && invoice ? (
               <Box sx={{ mt: 0.5, fontSize: 14, color: "rgba(74, 60, 88, 0.7)" }}>
                 Venta #{invoice.saleNumber}
-                {invoice.secuencial ? ` · Factura ${invoice.secuencial}` : ""}
+                {invoice.documentFullNumber
+                  ? ` · Factura ${invoice.documentFullNumber}`
+                  : invoice.secuencial
+                    ? ` · Factura ${invoice.secuencial}`
+                    : ""}
               </Box>
             ) : null}
           </Box>
@@ -1009,6 +1013,12 @@ export function InvoiceDetailModal({
                 <div className="flex justify-between">
                   <span className="text-slate-500">Intentos:</span>
                   <span>{invoice.retryCount}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Documento:</span>
+                  <span className="font-semibold">
+                    {invoice.documentFullNumber ?? "-"}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-500">Secuencial:</span>

@@ -71,6 +71,13 @@ enum ProductType {
   SERVICIO
 }
 
+enum DocumentSeriesType {
+  INVOICE
+  SALES_NOTE
+  CREDIT_NOTE
+  DEBIT_NOTE
+}
+
 model Business {
   id          String            @id @default(uuid()) @db.Uuid
   name        String
@@ -84,6 +91,7 @@ model Business {
   users       User[]
   features    BusinessFeature[]
   taxProfile  TaxProfile?
+  documentIssuers DocumentIssuer[]
   posCashSessions PosCashSession[]
   posHeldSales PosHeldSale[]
   createdAt   DateTime          @default(now())
@@ -116,6 +124,41 @@ model TaxProfile {
   issuerId                   String?   @db.Uuid
   createdAt                  DateTime  @default(now())
   updatedAt                  DateTime  @updatedAt
+}
+
+model DocumentIssuer {
+  id          String             @id @default(uuid()) @db.Uuid
+  businessId  String             @db.Uuid
+  business    Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  code        String
+  name        String
+  legalName   String?
+  ruc         String?
+  environment String             @default("PRUEBAS")
+  active      Boolean            @default(true)
+  series      DocumentSeries[]
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@unique([businessId, code])
+  @@index([businessId, active])
+}
+
+model DocumentSeries {
+  id                  String             @id @default(uuid()) @db.Uuid
+  issuerId            String             @db.Uuid
+  issuer              DocumentIssuer     @relation(fields: [issuerId], references: [id], onDelete: Cascade)
+  documentType        DocumentSeriesType
+  establishmentCode   String
+  emissionPointCode   String
+  nextSequence        Int                @default(1)
+  active              Boolean            @default(true)
+  saleDocuments       SaleDocument[]
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  @@unique([issuerId, documentType, establishmentCode, emissionPointCode])
+  @@index([issuerId, documentType, active])
 }
 
 model User {
@@ -325,20 +368,27 @@ model SalePayment {
 }
 
 model SaleDocument {
-  id          String             @id @default(uuid()) @db.Uuid
-  saleId      String             @unique @db.Uuid
-  sale        Sale               @relation(fields: [saleId], references: [id], onDelete: Cascade)
-  type        SaleDocumentType
-  status      SaleDocumentStatus
-  issuerId    String?            @db.Uuid
-  issuedAt    DateTime?
-  metadata    Json?
-  sriInvoiceId String?           @unique @db.Uuid
-  sriInvoice  SriInvoice?        @relation(fields: [sriInvoiceId], references: [id], onDelete: SetNull)
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
+  id                String             @id @default(uuid()) @db.Uuid
+  saleId            String             @unique @db.Uuid
+  sale              Sale               @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  type              SaleDocumentType
+  status            SaleDocumentStatus
+  issuerId          String?            @db.Uuid
+  documentSeriesId  String?            @db.Uuid
+  documentSeries    DocumentSeries?    @relation(fields: [documentSeriesId], references: [id], onDelete: SetNull)
+  establishmentCode String?
+  emissionPointCode String?
+  sequenceNumber    Int?
+  fullNumber        String?
+  issuedAt          DateTime?
+  metadata          Json?
+  sriInvoiceId      String?            @unique @db.Uuid
+  sriInvoice        SriInvoice?        @relation(fields: [sriInvoiceId], references: [id], onDelete: SetNull)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 
   @@index([type, status, createdAt])
+  @@unique([documentSeriesId, sequenceNumber])
 }
 
 model SriInvoice {

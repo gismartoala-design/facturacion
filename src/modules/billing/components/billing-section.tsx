@@ -87,14 +87,19 @@ export function BillingSection({
   const columns = useMemo<GridColDef<SriInvoice>[]>(
     () => [
       {
-        field: "saleNumber",
-        headerName: "Venta",
-        minWidth: 140,
-        flex: 0.8,
+        field: "documentFullNumber",
+        headerName: "Documento",
+        minWidth: 210,
+        flex: 1,
         renderCell: (params) => (
-          <span className="font-semibold text-[#4a3c58]">
-            Venta #{params.row.saleNumber}
-          </span>
+          <Stack spacing={0.1} sx={{ py: 0.6 }}>
+            <Typography sx={{ fontSize: 13, fontWeight: 700, color: "#4a3c58" }}>
+              {params.row.documentFullNumber ?? params.row.secuencial ?? "-"}
+            </Typography>
+            <Typography sx={{ fontSize: 11.5, color: "text.secondary" }}>
+              Venta #{params.row.saleNumber}
+            </Typography>
+          </Stack>
         ),
       },
       {

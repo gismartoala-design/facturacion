@@ -27,15 +27,31 @@ import {
 
 type CheckoutResponse = {
   saleNumber: string;
+  document: {
+    saleDocumentId: string;
+    type: "NONE" | "INVOICE";
+    status: "NOT_REQUIRED" | "PENDING" | "ISSUED" | "ERROR" | "VOIDED";
+    fullNumber: string | null;
+    establishmentCode: string | null;
+    emissionPointCode: string | null;
+    sequenceNumber: number | null;
+    issuedAt: string | null;
+  };
   invoice: {
     sriInvoiceId: string;
     status: "DRAFT" | "AUTHORIZED" | "PENDING_SRI" | "ERROR";
   } | null;
 };
 
-function buildInitialCheckoutForm(): CheckoutForm {
+type BusinessCheckoutConfig = {
+  taxProfile: {
+    issuerId: string | null;
+  } | null;
+};
+
+function buildInitialCheckoutForm(defaultIssuerId = ""): CheckoutForm {
   return {
-    issuerId: "5fc1d44c-9a58-4383-b475-2c3adb49afc9",
+    issuerId: defaultIssuerId,
     fechaEmision: format(new Date(), "dd/MM/yyyy"),
     tipoIdentificacion: "04",
     identificacion: "",
@@ -71,8 +87,9 @@ export default function CheckoutPage() {
   const [quotesLoading, setQuotesLoading] = useState(false);
   const [isQuotesModalOpen, setIsQuotesModalOpen] = useState(false);
   const [editingQuoteId, setEditingQuoteId] = useState<string | null>(null);
+  const [defaultIssuerId, setDefaultIssuerId] = useState("");
 
-  const [checkout, setCheckout] = useState<CheckoutForm>(buildInitialCheckoutForm);
+  const [checkout, setCheckout] = useState<CheckoutForm>(() => buildInitialCheckoutForm());
 
   const linePreview = useMemo<LinePreviewItem[]>(() => {
     return lineItems
@@ -141,13 +158,20 @@ export default function CheckoutPage() {
     setLoading(true);
 
     try {
-      const [productsRes, customersRes] = await Promise.all([
+      const [productsRes, customersRes, businessRes] = await Promise.all([
         fetchJson<Product[]>("/api/v1/products"),
         fetchJson<Customer[]>("/api/v1/customers"),
+        fetchJson<BusinessCheckoutConfig>("/api/v1/business"),
       ]);
 
+      const issuerId = businessRes.taxProfile?.issuerId ?? "";
       setProducts(productsRes);
       setCustomers(customersRes);
+      setDefaultIssuerId(issuerId);
+      setCheckout((current) => ({
+        ...current,
+        issuerId: current.issuerId || issuerId,
+      }));
     } catch (error) {
       setMessage({ text: error instanceof Error ? error.message : "No se pudo cargar checkout", tone: "error" });
     } finally {
@@ -349,7 +373,7 @@ export default function CheckoutPage() {
   }
 
   function onResetCheckout() {
-    setCheckout(buildInitialCheckoutForm());
+    setCheckout(buildInitialCheckoutForm(defaultIssuerId));
     setLineItems([]);
     setSelectedProductIds([]);
     setCustomerSearch("");
@@ -401,9 +425,19 @@ export default function CheckoutPage() {
 
       if (result.invoice?.status === "AUTHORIZED") {
         setAuthorizedSriInvoiceId(result.invoice.sriInvoiceId);
-        setMessage({ text: `Venta #${result.saleNumber} registrada y factura autorizada correctamente`, tone: "success" });
+        setMessage({
+          text: result.document.fullNumber
+            ? `Venta #${result.saleNumber} registrada. Factura ${result.document.fullNumber} autorizada correctamente`
+            : `Venta #${result.saleNumber} registrada y factura autorizada correctamente`,
+          tone: "success",
+        });
       } else {
-        setMessage({ text: `Venta #${result.saleNumber} registrada. La factura aun no se encuentra autorizada.`, tone: "info" });
+        setMessage({
+          text: result.document.fullNumber
+            ? `Venta #${result.saleNumber} registrada. Factura ${result.document.fullNumber} emitida localmente y pendiente de autorizacion.`
+            : `Venta #${result.saleNumber} registrada. La factura aun no se encuentra autorizada.`,
+          tone: "info",
+        });
       }
 
       setLineItems([]);

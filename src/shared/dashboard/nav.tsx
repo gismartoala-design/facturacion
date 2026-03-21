@@ -35,7 +35,7 @@ const NAV_ITEMS: NavItem[] = [
   {
     href: "/pos",
     label: "POS",
-    hint: "Terminal separada",
+    hint: "Terminal de ventas",
     icon: Monitor,
     requiredFeature: "POS",
   },
@@ -54,7 +54,7 @@ const NAV_ITEMS: NavItem[] = [
   {
     href: "/sales",
     label: "Facturar Venta",
-    hint: "Venta + SRI",
+    hint: "Registro de ventas",
     icon: ShoppingCart,
   },
   {

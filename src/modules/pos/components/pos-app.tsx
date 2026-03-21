@@ -135,8 +135,14 @@ type CheckoutResponse = {
     total: number;
   };
   document: {
+    saleDocumentId: string;
     type: PosDocumentType;
     status: "NOT_REQUIRED" | "PENDING" | "ISSUED" | "ERROR" | "VOIDED";
+    fullNumber: string | null;
+    establishmentCode: string | null;
+    emissionPointCode: string | null;
+    sequenceNumber: number | null;
+    issuedAt: string | null;
   };
   invoice: {
     sriInvoiceId: string;
@@ -1316,14 +1322,19 @@ export function PosApp({ initialSession }: PosAppProps) {
         businessName: bootstrap.business.name,
         operatorName: bootstrap.operator.name,
         saleNumber: result.saleNumber,
+        documentNumber: result.document.fullNumber,
         createdAt: formatDateTime(new Date()),
         customerName: effectiveCustomer.razonSocial,
         paymentMethodLabel: paymentSummaryLabel,
         documentLabel:
           result.document.type === "INVOICE"
             ? result.invoice?.status === "AUTHORIZED"
-              ? "Factura autorizada"
-              : "Factura en proceso"
+              ? result.document.fullNumber
+                ? `Factura ${result.document.fullNumber} autorizada`
+                : "Factura autorizada"
+              : result.document.fullNumber
+                ? `Factura ${result.document.fullNumber} en proceso`
+                : "Factura en proceso"
             : "Ticket POS",
         subtotal: result.totals.subtotal,
         taxTotal: result.totals.taxTotal,
@@ -1352,8 +1363,12 @@ export function PosApp({ initialSession }: PosAppProps) {
         tone: "success",
         text:
           result.invoice?.status === "AUTHORIZED"
-            ? `Venta #${result.saleNumber} cobrada y factura autorizada`
-            : `Venta #${result.saleNumber} cobrada correctamente`,
+            ? result.document.fullNumber
+              ? `Venta #${result.saleNumber} cobrada. Factura ${result.document.fullNumber} autorizada`
+              : `Venta #${result.saleNumber} cobrada y factura autorizada`
+            : result.document.fullNumber
+              ? `Venta #${result.saleNumber} cobrada. Documento ${result.document.fullNumber} generado`
+              : `Venta #${result.saleNumber} cobrada correctamente`,
       });
       resetSaleState(bootstrap.defaultDocumentType);
       await loadBootstrap();

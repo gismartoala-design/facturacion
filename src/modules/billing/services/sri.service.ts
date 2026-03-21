@@ -1,7 +1,7 @@
 import { Prisma, SaleStatus, SriInvoiceStatus } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
-import { authorizeInvoice, createInvoice } from "@/modules/billing/services/sri.client";
+import { createInvoice } from "@/modules/billing/services/sri.client";
 
 export async function logIntegration(params: {
   operation: "CREATE" | "AUTHORIZE" | "RETRY";
@@ -28,17 +28,17 @@ export async function logIntegration(params: {
 
 export async function pushAndAuthorizeInvoice(sriInvoiceId: string, payload: unknown) {
   try {
-    const createResp = await createInvoice(payload);
+    const serviceResp = await createInvoice(payload);
 
     await logIntegration({
       operation: "CREATE",
       requestPayload: payload,
-      responsePayload: createResp,
-      success: createResp.success,
+      responsePayload: serviceResp,
+      success: serviceResp.success,
       httpStatus: 200,
     });
 
-    if (!createResp.success) {
+    if (!serviceResp.success) {
       await prisma.sriInvoice.update({
         where: { id: sriInvoiceId },
         data: {
@@ -49,77 +49,44 @@ export async function pushAndAuthorizeInvoice(sriInvoiceId: string, payload: unk
       return;
     }
 
-    const draft = createResp.data;
+    const issued = serviceResp.data;
+    const issuedOk = issued.status === "AUTHORIZED";
 
     await prisma.sriInvoice.update({
       where: { id: sriInvoiceId },
       data: {
-        externalInvoiceId: draft.id,
-        secuencial: draft.secuencial ?? undefined,
-        claveAcceso: draft.claveAcceso ?? undefined,
-        status: draft.status === "DRAFT" ? SriInvoiceStatus.DRAFT : SriInvoiceStatus.PENDING_SRI,
-        sriReceptionStatus: draft.sriReceptionStatus ?? undefined,
-        sriAuthorizationStatus: draft.sriAuthorizationStatus ?? undefined,
-        authorizationNumber: draft.authorizationNumber ?? undefined,
-        authorizedAt: draft.authorizedAt ? new Date(draft.authorizedAt) : null,
-        createResponsePayload: createResp as Prisma.InputJsonValue,
-        lastError: draft.lastError ?? undefined,
+        externalInvoiceId: issued.id ?? undefined,
+        secuencial: issued.secuencial ?? undefined,
+        status: issuedOk
+          ? SriInvoiceStatus.AUTHORIZED
+          : issued.status === "ERROR"
+            ? SriInvoiceStatus.ERROR
+          : issued.status === "DRAFT"
+            ? SriInvoiceStatus.DRAFT
+            : SriInvoiceStatus.PENDING_SRI,
+        claveAcceso: issued.claveAcceso ?? undefined,
+        sriReceptionStatus: issued.sriReceptionStatus ?? undefined,
+        sriAuthorizationStatus: issued.sriAuthorizationStatus ?? undefined,
+        authorizationNumber: issued.authorizationNumber ?? undefined,
+        authorizedAt: issued.authorizedAt ? new Date(issued.authorizedAt) : null,
+        createResponsePayload: serviceResp as Prisma.InputJsonValue,
+        authorizeResponsePayload: serviceResp as Prisma.InputJsonValue,
+        lastError: issued.lastError ?? undefined,
       },
     });
 
-    const authResp = await authorizeInvoice(draft.id);
-
-    await logIntegration({
-      operation: "AUTHORIZE",
-      requestPayload: { externalInvoiceId: draft.id },
-      responsePayload: authResp,
-      success: authResp.success,
-      httpStatus: 200,
-    });
-
-    if (!authResp.success) {
-      await prisma.sriInvoice.update({
-        where: { id: sriInvoiceId },
-        data: {
-          status: SriInvoiceStatus.PENDING_SRI,
-          retryCount: { increment: 1 },
-          lastError: "El servicio SRI devolvio success=false en authorize",
-          authorizeResponsePayload: authResp as Prisma.InputJsonValue,
-        },
-      });
-      return;
-    }
-
-    const authorized = authResp.data;
-    const authorizedOk = authorized.status === "AUTHORIZED";
-
-    await prisma.sriInvoice.update({
-      where: { id: sriInvoiceId },
-      data: {
-        status: authorizedOk ? SriInvoiceStatus.AUTHORIZED : SriInvoiceStatus.PENDING_SRI,
-        claveAcceso: authorized.claveAcceso ?? undefined,
-        sriReceptionStatus: authorized.sriReceptionStatus ?? undefined,
-        sriAuthorizationStatus: authorized.sriAuthorizationStatus ?? undefined,
-        authorizationNumber: authorized.authorizationNumber ?? undefined,
-        authorizedAt: authorized.authorizedAt ? new Date(authorized.authorizedAt) : null,
-        retryCount: { increment: 1 },
-        lastError: authorized.lastError ?? undefined,
-        authorizeResponsePayload: authResp as Prisma.InputJsonValue,
-      },
-    });
-
-    if (authorized.xmlUrl || authorized.rideUrl) {
+    if (issued.xmlUrl || issued.rideUrl) {
       await prisma.sriInvoiceDocument.upsert({
         where: { sriInvoiceId },
         update: {
-          xmlAuthorizedPath: authorized.xmlUrl ?? undefined,
-          ridePdfPath: authorized.rideUrl ?? undefined,
+          xmlAuthorizedPath: issued.xmlUrl ?? undefined,
+          ridePdfPath: issued.rideUrl ?? undefined,
           storageProvider: "remote",
         },
         create: {
           sriInvoiceId,
-          xmlAuthorizedPath: authorized.xmlUrl ?? undefined,
-          ridePdfPath: authorized.rideUrl ?? undefined,
+          xmlAuthorizedPath: issued.xmlUrl ?? undefined,
+          ridePdfPath: issued.rideUrl ?? undefined,
           storageProvider: "remote",
         },
       });
@@ -161,8 +128,8 @@ export async function retrySriInvoiceAuthorization(sriInvoiceId: string) {
     throw new Error("Factura local no encontrada");
   }
 
-  if (!invoice.externalInvoiceId) {
-    throw new Error("La factura no tiene externalInvoiceId para reintento");
+  if (!invoice.createRequestPayload) {
+    throw new Error("La factura no tiene payload guardado para reintento");
   }
 
   if (invoice.sale.status === SaleStatus.CANCELLED) {
@@ -170,11 +137,11 @@ export async function retrySriInvoiceAuthorization(sriInvoiceId: string) {
   }
 
   try {
-    const response = await authorizeInvoice(invoice.externalInvoiceId);
+    const response = await createInvoice(invoice.createRequestPayload);
 
     await logIntegration({
       operation: "RETRY",
-      requestPayload: { externalInvoiceId: invoice.externalInvoiceId },
+      requestPayload: invoice.createRequestPayload,
       responsePayload: response,
       success: response.success,
       httpStatus: 200,
@@ -198,6 +165,7 @@ export async function retrySriInvoiceAuthorization(sriInvoiceId: string) {
     return prisma.sriInvoice.update({
       where: { id: sriInvoiceId },
       data: {
+        externalInvoiceId: data.id ?? undefined,
         status: isAuthorized ? SriInvoiceStatus.AUTHORIZED : SriInvoiceStatus.PENDING_SRI,
         claveAcceso: data.claveAcceso ?? undefined,
         sriReceptionStatus: data.sriReceptionStatus ?? undefined,
@@ -217,7 +185,7 @@ export async function retrySriInvoiceAuthorization(sriInvoiceId: string) {
 
     await logIntegration({
       operation: "RETRY",
-      requestPayload: { externalInvoiceId: invoice.externalInvoiceId },
+      requestPayload: invoice.createRequestPayload,
       success: false,
       errorMessage: message,
     });

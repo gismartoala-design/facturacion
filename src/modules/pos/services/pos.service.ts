@@ -177,6 +177,11 @@ async function listPosCustomers() {
 
 export async function getPosBootstrap(session: SessionPayload) {
   const business = await getPosBusinessContext(session);
+  const defaultIssuerId = business.taxProfile?.issuerId;
+
+  if (!defaultIssuerId) {
+    throw new Error("No existe un emisor documental configurado para este negocio");
+  }
 
   const [products, customers, heldSales, cashSession] = await Promise.all([
     listProducts(),
@@ -210,7 +215,7 @@ export async function getPosBootstrap(session: SessionPayload) {
       business.enabledFeatures,
       business.taxProfile?.requiresElectronicBilling,
     ),
-    defaultIssuerId: business.taxProfile?.issuerId ?? session.sub,
+    defaultIssuerId,
     cashSession,
     heldSales: heldSales.map(toHeldSaleSummary),
     customers,

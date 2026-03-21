@@ -39,7 +39,25 @@ type BusinessSettingsResponse = {
     accountingRequired: boolean;
     environment: string;
     taxNotes: string | null;
+    issuerId: string | null;
   } | null;
+  documentIssuers: Array<{
+    id: string;
+    code: string;
+    name: string;
+    legalName: string | null;
+    ruc: string | null;
+    environment: string;
+    active: boolean;
+    series: Array<{
+      id: string;
+      documentType: string;
+      establishmentCode: string;
+      emissionPointCode: string;
+      nextSequence: number;
+      active: boolean;
+    }>;
+  }>;
 };
 
 type FormState = {
@@ -55,6 +73,11 @@ type FormState = {
   accountingRequired: boolean;
   environment: string;
   taxNotes: string;
+  issuerCode: string;
+  issuerName: string;
+  invoiceEstablishmentCode: string;
+  invoiceEmissionPointCode: string;
+  invoiceNextSequence: number;
 };
 
 type SnackbarState = {
@@ -75,6 +98,11 @@ const DEFAULT_FORM: FormState = {
   accountingRequired: false,
   environment: "PRUEBAS",
   taxNotes: "",
+  issuerCode: "MAIN",
+  issuerName: "",
+  invoiceEstablishmentCode: "001",
+  invoiceEmissionPointCode: "001",
+  invoiceNextSequence: 1,
 };
 
 const PROFILE_OPTIONS = [
@@ -90,6 +118,13 @@ const ENVIRONMENT_OPTIONS = [
 ];
 
 function toFormState(data: BusinessSettingsResponse): FormState {
+  const defaultIssuer = data.documentIssuers.find(
+    (issuer) => issuer.id === data.taxProfile?.issuerId,
+  ) ?? data.documentIssuers[0];
+  const defaultInvoiceSeries = defaultIssuer?.series.find(
+    (series) => series.documentType === "INVOICE" && series.active,
+  );
+
   return {
     name: data.name ?? "",
     legalName: data.legalName ?? "",
@@ -104,6 +139,13 @@ function toFormState(data: BusinessSettingsResponse): FormState {
     accountingRequired: data.taxProfile?.accountingRequired ?? false,
     environment: data.taxProfile?.environment ?? "PRUEBAS",
     taxNotes: data.taxProfile?.taxNotes ?? "",
+    issuerCode: defaultIssuer?.code ?? "MAIN",
+    issuerName: defaultIssuer?.name ?? data.name ?? "",
+    invoiceEstablishmentCode:
+      defaultInvoiceSeries?.establishmentCode ?? "001",
+    invoiceEmissionPointCode:
+      defaultInvoiceSeries?.emissionPointCode ?? "001",
+    invoiceNextSequence: defaultInvoiceSeries?.nextSequence ?? 1,
   };
 }
 
@@ -423,6 +465,107 @@ export function CompanySettingsPage({ canEdit }: CompanySettingsPageProps) {
                   label="Obligado a llevar contabilidad"
                 />
               </Stack>
+            </Stack>
+          </Paper>
+
+          <Paper
+            sx={{
+              borderRadius: "24px",
+              borderColor: "divider",
+              backgroundColor: alpha(theme.palette.secondary.light, 0.12),
+              p: { xs: 2, md: 2.5 },
+            }}
+          >
+            <Stack spacing={2}>
+              <Box>
+                <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+                  Emision documental
+                </Typography>
+                <Typography sx={{ mt: 0.5, color: "text.secondary", fontSize: 14 }}>
+                  Configura el emisor por defecto y la serie base de facturas
+                  que usaran ventas y POS.
+                </Typography>
+              </Box>
+
+              <Box
+                sx={{
+                  display: "grid",
+                  gap: 1.25,
+                  gridTemplateColumns: {
+                    xs: "1fr",
+                    md: "repeat(2, minmax(0, 1fr))",
+                  },
+                }}
+              >
+                <TextField
+                  label="Codigo del emisor"
+                  value={form.issuerCode}
+                  onChange={(e) => updateField("issuerCode", e.target.value)}
+                  disabled={!canEdit}
+                  helperText="Referencia interna del emisor documental"
+                />
+                <TextField
+                  label="Nombre del emisor"
+                  value={form.issuerName}
+                  onChange={(e) => updateField("issuerName", e.target.value)}
+                  disabled={!canEdit}
+                  helperText="Si lo dejas vacio, usa el nombre comercial"
+                />
+                <TextField
+                  label="Establecimiento"
+                  value={form.invoiceEstablishmentCode}
+                  onChange={(e) =>
+                    updateField("invoiceEstablishmentCode", e.target.value)
+                  }
+                  disabled={!canEdit}
+                  helperText="Codigo de 3 digitos"
+                />
+                <TextField
+                  label="Punto de emision"
+                  value={form.invoiceEmissionPointCode}
+                  onChange={(e) =>
+                    updateField("invoiceEmissionPointCode", e.target.value)
+                  }
+                  disabled={!canEdit}
+                  helperText="Codigo de 3 digitos"
+                />
+                <TextField
+                  label="Siguiente secuencia"
+                  type="number"
+                  value={form.invoiceNextSequence}
+                  onChange={(e) =>
+                    updateField(
+                      "invoiceNextSequence",
+                      Math.max(1, Number(e.target.value || "1")),
+                    )
+                  }
+                  disabled={!canEdit}
+                  inputProps={{ min: 1, step: 1 }}
+                  sx={{ gridColumn: { md: "1 / span 1" } }}
+                />
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    px: 1.5,
+                    py: 1.25,
+                    borderRadius: "16px",
+                    backgroundColor: alpha(theme.palette.background.paper, 0.72),
+                  }}
+                >
+                  <Stack spacing={0.35}>
+                    <Typography sx={{ fontSize: 12, color: "text.secondary" }}>
+                      Numero de factura estimado
+                    </Typography>
+                    <Typography sx={{ fontWeight: 800, letterSpacing: "0.04em" }}>
+                      {(form.invoiceEstablishmentCode || "001")}-{(form.invoiceEmissionPointCode || "001")}-{String(
+                        form.invoiceNextSequence || 1,
+                      ).padStart(9, "0")}
+                    </Typography>
+                  </Stack>
+                </Paper>
+              </Box>
             </Stack>
           </Paper>
 
