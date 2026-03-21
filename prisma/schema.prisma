@@ -75,6 +75,10 @@ model Business {
   id          String            @id @default(uuid()) @db.Uuid
   name        String
   legalName   String?
+  ruc         String?           @unique
+  phone       String?
+  email       String?
+  address     String?
   slug        String            @unique
   isActive    Boolean           @default(true)
   users       User[]
@@ -106,6 +110,9 @@ model TaxProfile {
   profileType                String    @default("GENERAL")
   requiresElectronicBilling  Boolean   @default(true)
   allowsSalesNote            Boolean   @default(false)
+  accountingRequired         Boolean   @default(false)
+  environment                String    @default("PRUEBAS")
+  taxNotes                   String?
   issuerId                   String?   @db.Uuid
   createdAt                  DateTime  @default(now())
   updatedAt                  DateTime  @updatedAt

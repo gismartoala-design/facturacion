@@ -1,31 +1,83 @@
 "use client";
 
 import type { SessionFeatureKey } from "@/lib/auth";
-import { Boxes, ClipboardList, FileText, Monitor, PackageSearch, ShoppingCart, Users, WalletCards } from "lucide-react";
+import Box from "@mui/material/Box";
+import Paper from "@mui/material/Paper";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
+import { alpha, useTheme } from "@mui/material/styles";
+import {
+  Boxes,
+  ClipboardList,
+  FileText,
+  Monitor,
+  PackageSearch,
+  ShoppingCart,
+  Users,
+  WalletCards,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-
-import { cn } from "@/lib/utils";
 
 type NavItem = {
   href: string;
   label: string;
   hint: string;
-  icon: typeof Boxes;
+  icon: LucideIcon;
   adminOnly?: boolean;
   requiredFeature?: SessionFeatureKey;
 };
 
 const NAV_ITEMS: NavItem[] = [
   { href: "/overview", label: "Resumen", hint: "Vista operativa", icon: Boxes },
-  { href: "/pos", label: "POS", hint: "Terminal separada", icon: Monitor, requiredFeature: "POS" },
-  { href: "/products", label: "Productos", hint: "Catalogo", icon: ClipboardList },
-  { href: "/inventory", label: "Inventario", hint: "Stock y ajustes", icon: PackageSearch },
-  { href: "/sales", label: "Facturar Venta", hint: "Venta + SRI", icon: ShoppingCart },
-  { href: "/quotes", label: "Cotizaciones", hint: "Proformas y conversion", icon: FileText, requiredFeature: "QUOTES" },
-  { href: "/sri", label: "Facturacion", hint: "Reintentos", icon: WalletCards, requiredFeature: "BILLING" },
-  { href: "/users", label: "Usuarios", hint: "Gestion de accesos", icon: Users, adminOnly: true },
+  {
+    href: "/pos",
+    label: "POS",
+    hint: "Terminal separada",
+    icon: Monitor,
+    requiredFeature: "POS",
+  },
+  {
+    href: "/products",
+    label: "Productos",
+    hint: "Catalogo",
+    icon: ClipboardList,
+  },
+  {
+    href: "/inventory",
+    label: "Inventario",
+    hint: "Stock y ajustes",
+    icon: PackageSearch,
+  },
+  {
+    href: "/sales",
+    label: "Facturar Venta",
+    hint: "Venta + SRI",
+    icon: ShoppingCart,
+  },
+  {
+    href: "/quotes",
+    label: "Cotizaciones",
+    hint: "Proformas y conversion",
+    icon: FileText,
+    requiredFeature: "QUOTES",
+  },
+  {
+    href: "/sri",
+    label: "Facturacion",
+    hint: "Reintentos",
+    icon: WalletCards,
+    requiredFeature: "BILLING",
+  },
+  {
+    href: "/users",
+    label: "Usuarios",
+    hint: "Gestion de accesos",
+    icon: Users,
+    adminOnly: true,
+  },
 ];
 
 type MvpDashboardNavProps = {
@@ -34,94 +86,343 @@ type MvpDashboardNavProps = {
   enabledFeatures?: SessionFeatureKey[];
 };
 
-export function MvpDashboardNav({ userRole, businessName, enabledFeatures }: MvpDashboardNavProps) {
+type NavLinkCardProps = {
+  item: NavItem;
+  active: boolean;
+  compact?: boolean;
+};
+
+function NavLinkCard({ item, active, compact = false }: NavLinkCardProps) {
+  const theme = useTheme();
+  const Icon = item.icon;
+  const activeBg = `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.16)}, ${alpha(theme.palette.secondary.main, 0.12)})`;
+  const hoverBg = alpha(theme.palette.background.paper, 0.84);
+
+  return (
+    <Box
+      component={Link}
+      href={item.href}
+      sx={{
+        display: "block",
+        minWidth: 0,
+        textDecoration: "none",
+        borderRadius: compact ? "14px" : "18px",
+        border: "1px solid",
+        borderColor: active
+          ? alpha(theme.palette.primary.main, 0.24)
+          : "transparent",
+        background: active ? activeBg : "transparent",
+        color: active ? "text.primary" : "text.secondary",
+        boxShadow: active
+          ? `0 10px 24px ${alpha(theme.palette.primary.main, 0.14)}`
+          : "none",
+        transform: active ? "translateX(4px)" : "none",
+        transition:
+          "transform 180ms ease, border-color 180ms ease, background 180ms ease, color 180ms ease, box-shadow 180ms ease",
+        "&:hover": {
+          background: active ? activeBg : hoverBg,
+          color: "text.primary",
+          borderColor: active
+            ? alpha(theme.palette.primary.main, 0.24)
+            : alpha(theme.palette.divider, 0.72),
+        },
+      }}
+    >
+      <Stack
+        direction="row"
+        spacing={compact ? 1 : 1.25}
+        alignItems="center"
+        sx={{
+          px: compact ? 1.5 : 2,
+          py: compact ? 1.15 : 1.5,
+          minWidth: 0,
+        }}
+      >
+        <Box
+          sx={{
+            width: compact ? 34 : 38,
+            height: compact ? 34 : 38,
+            borderRadius: compact ? "12px" : "14px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+            color: active ? "primary.main" : "text.secondary",
+            backgroundColor: active
+              ? alpha(theme.palette.primary.light, 0.8)
+              : alpha(theme.palette.background.paper, 0.76),
+            border: "1px solid",
+            borderColor: active
+              ? alpha(theme.palette.primary.main, 0.18)
+              : alpha(theme.palette.divider, 0.65),
+          }}
+        >
+          <Icon className={compact ? "h-4 w-4" : "h-4.5 w-4.5"} />
+        </Box>
+
+        <Box sx={{ minWidth: 0 }}>
+          <Typography
+            sx={{
+              fontSize: compact ? 13 : 14,
+              fontWeight: 700,
+              lineHeight: 1.2,
+              color: "inherit",
+            }}
+          >
+            {item.label}
+          </Typography>
+          {!compact ? (
+            <Typography
+              sx={{
+                mt: 0.35,
+                fontSize: 12,
+                lineHeight: 1.3,
+                color: active
+                  ? alpha(theme.palette.text.primary, 0.68)
+                  : "text.secondary",
+              }}
+            >
+              {item.hint}
+            </Typography>
+          ) : null}
+        </Box>
+      </Stack>
+    </Box>
+  );
+}
+
+export function MvpDashboardNav({
+  userRole,
+  businessName,
+  enabledFeatures,
+}: MvpDashboardNavProps) {
+  const theme = useTheme();
   const pathname = usePathname();
   const visibleItems = NAV_ITEMS.filter((item) => {
     const roleAllowed = !item.adminOnly || userRole === "ADMIN";
-    const featureAllowed = !item.requiredFeature || enabledFeatures?.includes(item.requiredFeature);
+    const featureAllowed =
+      !item.requiredFeature || enabledFeatures?.includes(item.requiredFeature);
     return roleAllowed && featureAllowed;
   });
 
+  const shellBorder = alpha(theme.palette.divider, 0.72);
+  const surfaceBorder = alpha(theme.palette.divider, 0.88);
+  const panelBg = alpha(theme.palette.background.paper, 0.88);
+  const surfaceBg = alpha(theme.palette.background.paper, 0.96);
+  const mobileCardBg = alpha(theme.palette.background.paper, 0.86);
+
   return (
     <>
-      <aside className="hidden h-full w-full rounded-[30px] border border-[var(--border)]/80 bg-[color:var(--sidebar)]/88 p-4 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-xl lg:flex lg:flex-col lg:overflow-hidden">
-        <div className="rounded-3xl border border-[var(--border)] bg-white/96 p-3 shadow-[0_10px_26px_rgba(15,23,42,0.05)]">
-          <div className="flex items-center gap-3">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--primary-light)] p-1 shadow-[0_2px_10px_rgba(15,23,42,0.05)]">
-              <Image src="/logo.png" alt="Logo DOVI VELAS" width={56} height={56} className="object-contain" priority unoptimized />
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-[11px] font-bold uppercase tracking-[0.24em] text-[color:var(--text-muted)]">
-                {businessName ?? "Negocio Principal"}
-              </p>
-              <p className="truncate text-sm font-semibold text-[var(--foreground)]">Panel operativo</p>
-              <p className="truncate text-xs text-[color:var(--text-muted)]">Gestion central del negocio</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-6 flex-1 overflow-y-auto pr-1">
-          <p className="px-2 text-[11px] font-bold uppercase tracking-[0.22em] text-[color:var(--text-muted)]">Navegacion</p>
-          <nav className="mt-3 space-y-2">
-            {visibleItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = pathname === item.href;
-
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    "block w-full rounded-2xl border px-4 py-3.5 text-left transition-all duration-300",
-                    isActive
-                      ? "translate-x-1 border-[var(--primary)]/16 bg-[var(--primary-light)] text-[var(--foreground)] shadow-[0_8px_20px_rgba(139,92,246,0.12)]"
-                      : "border-transparent bg-transparent text-[color:var(--text-muted)] hover:bg-white/78 hover:text-[var(--foreground)]",
-                  )}
-                >
-                  <div className="flex items-center gap-2">
-                    <Icon className="h-4 w-4" />
-                    <p className="text-sm font-semibold">{item.label}</p>
-                  </div>
-                  <p className="mt-1 text-xs text-[color:var(--text-muted)]">{item.hint}</p>
-                </Link>
-              );
-            })}
-          </nav>
-        </div>
-      </aside>
-
-      <div className="space-y-3 lg:hidden">
-        <div className="rounded-2xl border border-[var(--border)]/80 bg-white/86 p-3 shadow-[0_8px_30px_rgba(15,23,42,0.05)] backdrop-blur-xl">
-          <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--primary-light)] p-1 shadow-[0_2px_10px_rgba(15,23,42,0.05)]">
-              <Image src="/logo.png" alt="Logo DOVI VELAS" width={48} height={48} className="object-contain" priority unoptimized />
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-[11px] font-bold uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
-                {businessName ?? "Negocio Principal"}
-              </p>
-              <p className="truncate text-sm font-semibold text-[var(--foreground)]">Panel operativo</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          {visibleItems.map((item) => (
-            <Link
-              key={`mobile-${item.href}`}
-              href={item.href}
-              className={cn(
-                "inline-flex h-10 items-center justify-center whitespace-nowrap rounded-xl border px-4 text-sm font-medium transition-all shadow-sm",
-                pathname === item.href
-                  ? "border-transparent bg-linear-to-tr from-[var(--primary)] to-[var(--secondary)] text-white shadow-[0_8px_18px_rgba(99,102,241,0.18)]"
-                  : "border-[var(--border)] bg-white/85 text-[var(--foreground)] backdrop-blur-sm hover:bg-white hover:text-[var(--primary)]",
-              )}
+      <Paper
+        elevation={0}
+        component="aside"
+        sx={{
+          display: { xs: "none", lg: "flex" },
+          height: "100%",
+          width: "100%",
+          flexDirection: "column",
+          overflow: "hidden",
+          borderRadius: "30px",
+          border: `1px solid ${shellBorder}`,
+          backgroundColor: panelBg,
+          backdropFilter: "blur(18px)",
+          boxShadow: "0 18px 50px rgba(15,23,42,0.08)",
+          p: 2,
+        }}
+      >
+        <Paper
+          elevation={0}
+          sx={{
+            borderRadius: "24px",
+            border: `1px solid ${surfaceBorder}`,
+            backgroundColor: surfaceBg,
+            boxShadow: "0 10px 26px rgba(15,23,42,0.05)",
+            p: 1.5,
+          }}
+        >
+          <Stack direction="row" spacing={1.5} alignItems="center">
+            <Box
+              sx={{
+                width: 56,
+                height: 56,
+                flexShrink: 0,
+                overflow: "hidden",
+                borderRadius: "18px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                border: `1px solid ${surfaceBorder}`,
+                backgroundColor: alpha(theme.palette.primary.light, 0.72),
+                boxShadow: "0 2px 10px rgba(15,23,42,0.05)",
+                p: 0.75,
+              }}
             >
-              {item.label}
-            </Link>
+              <Image
+                src="/logo/logo-intuit.jpg"
+                alt="Logo Intuit"
+                width={100}
+                height={100}
+                className="object-contain"
+                priority
+                unoptimized
+              />
+            </Box>
+
+            <Box sx={{ minWidth: 0 }}>
+              <Typography
+                sx={{
+                  fontSize: 11,
+                  fontWeight: 800,
+                  letterSpacing: "0.22em",
+                  textTransform: "uppercase",
+                  color: "text.secondary",
+                }}
+              >
+                {businessName ?? "Negocio Principal"}
+              </Typography>
+              <Typography
+                sx={{
+                  mt: 0.25,
+                  fontSize: 15,
+                  fontWeight: 700,
+                  color: "text.primary",
+                }}
+              >
+                Panel operativo
+              </Typography>
+              <Typography
+                sx={{
+                  mt: 0.2,
+                  fontSize: 12,
+                  color: "text.secondary",
+                }}
+              >
+                Gestion central del negocio
+              </Typography>
+            </Box>
+          </Stack>
+        </Paper>
+
+        <Box
+          sx={{
+            mt: 3,
+            minHeight: 0,
+            flex: 1,
+            overflowY: "auto",
+            pr: 0.5,
+          }}
+        >
+          <Typography
+            sx={{
+              px: 1,
+              fontSize: 11,
+              fontWeight: 800,
+              letterSpacing: "0.22em",
+              textTransform: "uppercase",
+              color: "text.secondary",
+            }}
+          >
+            Navegacion
+          </Typography>
+
+          <Stack spacing={1.1} sx={{ mt: 1.5 }}>
+            {visibleItems.map((item) => (
+              <NavLinkCard
+                key={item.href}
+                item={item}
+                active={pathname === item.href}
+              />
+            ))}
+          </Stack>
+        </Box>
+      </Paper>
+
+      <Stack spacing={1.5} sx={{ display: { xs: "flex", lg: "none" } }}>
+        <Paper
+          elevation={0}
+          sx={{
+            borderRadius: "22px",
+            border: `1px solid ${shellBorder}`,
+            backgroundColor: mobileCardBg,
+            backdropFilter: "blur(18px)",
+            boxShadow: "0 8px 30px rgba(15,23,42,0.05)",
+            p: 1.5,
+          }}
+        >
+          <Stack direction="row" spacing={1.5} alignItems="center">
+            <Box
+              sx={{
+                width: 48,
+                height: 48,
+                flexShrink: 0,
+                overflow: "hidden",
+                borderRadius: "14px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                border: `1px solid ${surfaceBorder}`,
+                backgroundColor: alpha(theme.palette.primary.light, 0.72),
+                boxShadow: "0 2px 10px rgba(15,23,42,0.05)",
+                p: 0.75,
+              }}
+            >
+              <Image
+                src="/logo.png"
+                alt="Logo DOVI VELAS"
+                width={48}
+                height={48}
+                className="object-contain"
+                priority
+                unoptimized
+              />
+            </Box>
+
+            <Box sx={{ minWidth: 0 }}>
+              <Typography
+                sx={{
+                  fontSize: 11,
+                  fontWeight: 800,
+                  letterSpacing: "0.18em",
+                  textTransform: "uppercase",
+                  color: "text.secondary",
+                }}
+              >
+                {businessName ?? "Negocio Principal"}
+              </Typography>
+              <Typography
+                sx={{
+                  mt: 0.25,
+                  fontSize: 14,
+                  fontWeight: 700,
+                  color: "text.primary",
+                }}
+              >
+                Panel operativo
+              </Typography>
+            </Box>
+          </Stack>
+        </Paper>
+
+        <Box
+          sx={{
+            display: "flex",
+            gap: 1,
+            overflowX: "auto",
+            pb: 0.5,
+            pr: 0.25,
+          }}
+        >
+          {visibleItems.map((item) => (
+            <Box key={`mobile-${item.href}`} sx={{ minWidth: 180, flexShrink: 0 }}>
+              <NavLinkCard
+                item={item}
+                active={pathname === item.href}
+                compact
+              />
+            </Box>
           ))}
-        </div>
-      </div>
+        </Box>
+      </Stack>
     </>
   );
 }

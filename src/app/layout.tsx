@@ -3,8 +3,8 @@ import { AppMuiProvider } from "@/components/providers/app-mui-provider";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "DOVI VELAS",
-  description: "Boutique de velas y flores - Sistema de Gestión",
+  title: "Intuit",
+  description: "Sistema de Gestión",
 };
 
 export default function RootLayout({

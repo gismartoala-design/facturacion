@@ -10,7 +10,7 @@ import Popover from "@mui/material/Popover";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { alpha, useTheme } from "@mui/material/styles";
-import { LogOut, Shield, User2, X } from "lucide-react";
+import { Building2, LogOut, Shield, User2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -18,6 +18,7 @@ type DashboardUserMenuProps = {
   name: string;
   roleLabel: string;
   businessName?: string;
+  canManageCompany?: boolean;
 };
 
 function initialsFromName(name: string) {
@@ -31,6 +32,7 @@ export function DashboardUserMenu({
   name,
   roleLabel,
   businessName,
+  canManageCompany,
 }: DashboardUserMenuProps) {
   const theme = useTheme();
   const router = useRouter();
@@ -224,7 +226,10 @@ export function DashboardUserMenu({
                   backgroundColor: softPaper,
                 }}
               >
-                <User2 className="h-4 w-4 text-(--primary)" />
+                <User2
+                  className="h-4 w-4"
+                  style={{ color: theme.palette.primary.main }}
+                />
                 <Typography
                   sx={{
                     color: "text.primary",
@@ -251,7 +256,10 @@ export function DashboardUserMenu({
                   backgroundColor: softPaper,
                 }}
               >
-                <Shield className="h-4 w-4 text-(--primary)" />
+                <Shield
+                  className="h-4 w-4"
+                  style={{ color: theme.palette.primary.main }}
+                />
                 <Typography sx={{ color: "text.primary", fontSize: 14 }}>
                   {roleLabel}
                 </Typography>
@@ -271,7 +279,10 @@ export function DashboardUserMenu({
                     backgroundColor: softPaper,
                   }}
                 >
-                  <Shield className="h-4 w-4 text-(--primary)" />
+                  <Building2
+                    className="h-4 w-4"
+                    style={{ color: theme.palette.primary.main }}
+                  />
                   <Typography sx={{ color: "text.primary", fontSize: 14 }}>
                     {businessName}
                   </Typography>
@@ -280,6 +291,38 @@ export function DashboardUserMenu({
             </Stack>
 
             <Divider sx={{ borderColor: softBorder }} />
+
+            {canManageCompany ? (
+              <Button
+                type="button"
+                fullWidth
+                variant="text"
+                onClick={() => {
+                  setAnchorEl(null);
+                  router.push("/company");
+                }}
+                startIcon={<Building2 className="h-4 w-4" />}
+                sx={{
+                  justifyContent: "flex-start",
+                  gap: 1,
+                  minHeight: 48,
+                  px: 1.5,
+                  py: 1.25,
+                  borderRadius: "18px",
+                  border: `1px solid ${softBorder}`,
+                  backgroundColor: alpha(theme.palette.background.paper, 0.88),
+                  color: "text.primary",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  "&:hover": {
+                    backgroundColor: alpha(theme.palette.primary.light, 0.42),
+                    borderColor: alpha(theme.palette.primary.main, 0.22),
+                  },
+                }}
+              >
+                Mi compania
+              </Button>
+            ) : null}
 
             <Button
               type="button"

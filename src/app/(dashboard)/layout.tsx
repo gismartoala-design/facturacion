@@ -74,6 +74,7 @@ export default async function DashboardLayout({
               name={session.name}
               roleLabel={roleLabel}
               businessName={session.businessName}
+              canManageCompany={session.role === "ADMIN"}
             />
           </Box>
         ) : null}

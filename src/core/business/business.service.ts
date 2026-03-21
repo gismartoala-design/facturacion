@@ -1,6 +1,7 @@
 import { BusinessFeatureKey, Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import type { UpdateBusinessSettingsInput } from "@/core/business/schemas";
 
 export const DEFAULT_BUSINESS_SLUG = "default";
 
@@ -13,6 +14,11 @@ const DEFAULT_FEATURE_STATE: Record<BusinessFeatureKey, boolean> = {
 const DEFAULT_BUSINESS_SELECT = {
   id: true,
   name: true,
+  legalName: true,
+  ruc: true,
+  phone: true,
+  email: true,
+  address: true,
   slug: true,
   features: {
     select: {
@@ -26,6 +32,9 @@ const DEFAULT_BUSINESS_SELECT = {
       profileType: true,
       requiresElectronicBilling: true,
       allowsSalesNote: true,
+      accountingRequired: true,
+      environment: true,
+      taxNotes: true,
       issuerId: true,
     },
   },
@@ -126,6 +135,46 @@ export async function getBusinessContextById(businessId: string) {
   if (!business) {
     throw new Error("Negocio no encontrado");
   }
+
+  return toBusinessContext(business);
+}
+
+export async function updateBusinessSettings(
+  businessId: string,
+  input: UpdateBusinessSettingsInput,
+) {
+  const business = await prisma.business.update({
+    where: { id: businessId },
+    data: {
+      name: input.name,
+      legalName: input.legalName || null,
+      ruc: input.ruc || null,
+      phone: input.phone || null,
+      email: input.email || null,
+      address: input.address || null,
+      taxProfile: {
+        upsert: {
+          update: {
+            profileType: input.profileType,
+            requiresElectronicBilling: input.requiresElectronicBilling,
+            allowsSalesNote: input.allowsSalesNote,
+            accountingRequired: input.accountingRequired,
+            environment: input.environment,
+            taxNotes: input.taxNotes || null,
+          },
+          create: {
+            profileType: input.profileType,
+            requiresElectronicBilling: input.requiresElectronicBilling,
+            allowsSalesNote: input.allowsSalesNote,
+            accountingRequired: input.accountingRequired,
+            environment: input.environment,
+            taxNotes: input.taxNotes || null,
+          },
+        },
+      },
+    },
+    select: DEFAULT_BUSINESS_SELECT,
+  });
 
   return toBusinessContext(business);
 }

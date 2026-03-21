@@ -12,6 +12,7 @@ const PUBLIC_PREFIXES = [
   "/_next",
   "/favicon.ico",
   "/logo-original.jpg",
+  "/logo/logo-intuit.jpg",
 ];
 
 export async function proxy(request: NextRequest) {
