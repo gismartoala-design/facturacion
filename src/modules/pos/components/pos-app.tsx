@@ -1470,8 +1470,8 @@ export function PosApp({ initialSession }: PosAppProps) {
     }
 
     try {
-      const bytes = buildPosTicketEscPos(ticketData);
-      await printDocumentBytes(selectedPrinter, bytes);
+      const ticket = buildPosTicketEscPos(ticketData);
+      await printDocumentBytes(selectedPrinter, ticket.bytes);
       setMessage({
         tone: "success",
         text: `Ticket enviado a ${selectedPrinter}`,

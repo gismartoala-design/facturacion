@@ -2,39 +2,32 @@
 
 import type { PosTicketData } from "@/lib/pos-ticket-template";
 
-const TICKET_WIDTH = 42; // Epson 80mm usualmente 42 o 48 columnas según font/modo
+const TICKET_WIDTH = 42;
+const MONEY_WIDTH = 10;
+const LEFT_WIDTH = TICKET_WIDTH - MONEY_WIDTH;
 
 function formatMoney(value: number) {
   return value.toFixed(2);
-}
-
-function stripAccents(text: string) {
-  return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-}
-
-function normalizeText(text: string) {
-  return stripAccents(text)
-    .replace(/[“”]/g, '"')
-    .replace(/[‘’]/g, "'")
-    .replace(/–/g, "-")
-    .replace(/—/g, "-");
 }
 
 function repeat(char: string, times: number) {
   return new Array(times + 1).join(char);
 }
 
-function centerText(text: string, width: number) {
-  if (text.length >= width) return text.slice(0, width);
-  const total = width - text.length;
-  const left = Math.floor(total / 2);
-  const right = total - left;
-  return repeat(" ", left) + text + repeat(" ", right);
+function safeText(text: string) {
+  return (text ?? "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+}
+
+function normalizePrintableText(text: string) {
+  return safeText(text)
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/–/g, "-")
+    .replace(/—/g, "-");
 }
 
 function wrapText(text: string, width: number): string[] {
-  const normalized = normalizeText(text).trim();
-
+  const normalized = normalizePrintableText(text).trim();
   if (!normalized) return [""];
 
   const words = normalized.split(/\s+/);
@@ -46,12 +39,12 @@ function wrapText(text: string, width: number): string[] {
       if (word.length <= width) {
         current = word;
       } else {
-        let remaining = word;
-        while (remaining.length > width) {
-          lines.push(remaining.slice(0, width));
-          remaining = remaining.slice(width);
+        let rest = word;
+        while (rest.length > width) {
+          lines.push(rest.slice(0, width));
+          rest = rest.slice(width);
         }
-        current = remaining;
+        current = rest;
       }
       continue;
     }
@@ -59,250 +52,269 @@ function wrapText(text: string, width: number): string[] {
     const candidate = `${current} ${word}`;
     if (candidate.length <= width) {
       current = candidate;
-      continue;
-    }
+    } else {
+      lines.push(current);
 
-    lines.push(current);
-
-    if (word.length <= width) {
-      current = word;
-      continue;
+      if (word.length <= width) {
+        current = word;
+      } else {
+        let rest = word;
+        while (rest.length > width) {
+          lines.push(rest.slice(0, width));
+          rest = rest.slice(width);
+        }
+        current = rest;
+      }
     }
-
-    let remaining = word;
-    while (remaining.length > width) {
-      lines.push(remaining.slice(0, width));
-      remaining = remaining.slice(width);
-    }
-    current = remaining;
   }
 
-  if (current) {
-    lines.push(current);
-  }
+  if (current) lines.push(current);
 
   return lines;
 }
 
-function twoColumn(left: string, right: string, width = TICKET_WIDTH) {
-  const l = normalizeText(left);
-  const r = normalizeText(right);
-
-  if (r.length >= width) {
-    return r.slice(0, width);
-  }
-
-  const availableLeft = width - r.length - 1;
-  if (availableLeft <= 0) {
-    return l.slice(0, width);
-  }
-
-  const leftText =
-    l.length > availableLeft ? l.slice(0, availableLeft) : l;
-
-  return leftText + repeat(" ", width - leftText.length - r.length) + r;
+function padRight(text: string, width: number) {
+  if (text.length >= width) return text.slice(0, width);
+  return text + repeat(" ", width - text.length);
 }
 
-function itemPriceLine(quantity: number, unitPrice: number, total: number) {
-  const left = `${quantity.toFixed(2)} x $${formatMoney(unitPrice)}`;
-  const right = `$${formatMoney(total)}`;
-  return twoColumn(left, right);
+function padLeft(text: string, width: number) {
+  if (text.length >= width) return text.slice(0, width);
+  return repeat(" ", width - text.length) + text;
 }
 
-class EscPosBuilder {
-  private chunks: number[] = [];
+function centerText(text: string, width: number) {
+  if (text.length >= width) return text.slice(0, width);
+  const total = width - text.length;
+  const left = Math.floor(total / 2);
+  const right = total - left;
+  return repeat(" ", left) + text + repeat(" ", right);
+}
 
-  private push(...bytes: number[]) {
-    this.chunks.push(...bytes);
-  }
+function divider(char = "=") {
+  return repeat(char, TICKET_WIDTH);
+}
 
-  private pushTextRaw(text: string) {
-    const normalized = normalizeText(text);
-    for (let i = 0; i < normalized.length; i++) {
-      const code = normalized.charCodeAt(i);
-      this.chunks.push(code <= 255 ? code : 63);
-    }
+function twoColumns(left: string, right: string) {
+  const l = normalizePrintableText(left);
+  const r = normalizePrintableText(right);
+
+  const leftTrimmed = l.length > LEFT_WIDTH ? l.slice(0, LEFT_WIDTH) : l;
+  return padRight(leftTrimmed, LEFT_WIDTH) + padLeft(r, MONEY_WIDTH);
+}
+
+export type EscPosBuildResult = {
+  rawText: string;
+  bytes: Uint8Array;
+};
+
+class EscPos {
+  private out = "";
+
+  private write(value: string) {
+    this.out += value;
+    return this;
   }
 
   initialize() {
-    this.push(0x1b, 0x40); // ESC @
-    return this;
-  }
-
-  alignLeft() {
-    this.push(0x1b, 0x61, 0x00); // ESC a 0
-    return this;
-  }
-
-  alignCenter() {
-    this.push(0x1b, 0x61, 0x01); // ESC a 1
-    return this;
-  }
-
-  alignRight() {
-    this.push(0x1b, 0x61, 0x02); // ESC a 2
-    return this;
-  }
-
-  bold(on = true) {
-    this.push(0x1b, 0x45, on ? 0x01 : 0x00); // ESC E n
-    return this;
+    return this.write("\x1B\x40");
   }
 
   fontA() {
-    this.push(0x1b, 0x4d, 0x00); // ESC M 0
-    return this;
+    return this.write("\x1B\x4D\x00");
   }
 
   fontB() {
-    this.push(0x1b, 0x4d, 0x01); // ESC M 1
-    return this;
+    return this.write("\x1B\x4D\x01");
+  }
+
+  alignLeft() {
+    return this.write("\x1B\x61\x00");
+  }
+
+  alignCenter() {
+    return this.write("\x1B\x61\x01");
+  }
+
+  alignRight() {
+    return this.write("\x1B\x61\x02");
+  }
+
+  boldOn() {
+    return this.write("\x1B\x45\x01");
+  }
+
+  boldOff() {
+    return this.write("\x1B\x45\x00");
   }
 
   normalSize() {
-    this.push(0x1d, 0x21, 0x00); // GS ! 0
-    return this;
+    return this.write("\x1D\x21\x00");
   }
 
   doubleHeight() {
-    this.push(0x1d, 0x21, 0x01 << 4); // GS ! 16
-    return this;
+    return this.write("\x1D\x21\x10");
   }
 
   doubleWidth() {
-    this.push(0x1d, 0x21, 0x01); // GS ! 1
-    return this;
+    return this.write("\x1D\x21\x01");
   }
 
   doubleSize() {
-    this.push(0x1d, 0x21, 0x11); // GS ! 17
-    return this;
+    return this.write("\x1D\x21\x11");
   }
 
-  text(text: string) {
-    this.pushTextRaw(text);
-    return this;
+  codePagePc858() {
+    return this.write("\x1B\x74\x12");
   }
 
   line(text = "") {
-    this.pushTextRaw(text);
-    this.push(0x0a); // LF
+    this.write(normalizePrintableText(text));
+    this.write("\n");
     return this;
   }
 
-  blank(lines = 1) {
-    for (let i = 0; i < lines; i++) {
-      this.push(0x0a);
+  feed(lines = 1) {
+    for (let index = 0; index < lines; index += 1) {
+      this.write("\n");
     }
     return this;
-  }
-
-  divider(char = "-") {
-    this.line(repeat(char, TICKET_WIDTH));
-    return this;
-  }
-
-  feed(lines = 3) {
-    return this.blank(lines);
   }
 
   cut() {
-    this.push(0x1d, 0x56, 0x00); // GS V 0
-    return this;
+    return this.write("\x1D\x56\x00");
   }
 
-  build() {
-    return new Uint8Array(this.chunks);
+  build(): EscPosBuildResult {
+    const bytes = new Uint8Array(
+      Array.from(this.out).map((char) => char.charCodeAt(0)),
+    );
+
+    return {
+      rawText: this.out,
+      bytes,
+    };
   }
 }
 
-export function buildPosTicketEscPos(data: PosTicketData): Uint8Array {
-  const b = new EscPosBuilder();
+export function buildPosTicketEscPos(data: PosTicketData): EscPosBuildResult {
+  const esc = new EscPos();
 
-  b.initialize();
-  b.fontA();
-  b.normalSize();
-  b.alignCenter();
-  b.bold(true);
+  esc.initialize();
+  esc.codePagePc858();
+  esc.fontA();
+  esc.normalSize();
 
-  for (const line of wrapText(data.businessName.toUpperCase(), TICKET_WIDTH)) {
-    b.line(centerText(line, TICKET_WIDTH));
+  esc.alignCenter();
+  esc.boldOn();
+  for (const line of wrapText(
+    (data.businessName ?? "").toUpperCase(),
+    TICKET_WIDTH,
+  )) {
+    esc.line(centerText(line, TICKET_WIDTH));
   }
+  esc.boldOff();
 
-  b.bold(false);
-
-  for (const line of wrapText(data.documentLabel, TICKET_WIDTH)) {
-    b.line(centerText(line, TICKET_WIDTH));
+  if (data.documentLabel) {
+    for (const line of wrapText(data.documentLabel, TICKET_WIDTH)) {
+      esc.line(centerText(line, TICKET_WIDTH));
+    }
   }
 
   if (data.documentNumber) {
-    for (const line of wrapText(`Documento: ${data.documentNumber}`, TICKET_WIDTH)) {
-      b.line(centerText(line, TICKET_WIDTH));
+    for (const line of wrapText(
+      `Documento: ${data.documentNumber}`,
+      TICKET_WIDTH,
+    )) {
+      esc.line(centerText(line, TICKET_WIDTH));
     }
   }
 
-  b.line(centerText(`Venta #${normalizeText(data.saleNumber)}`, TICKET_WIDTH));
-
-  b.alignLeft();
-  b.divider();
-
-  for (const line of wrapText(`Fecha: ${data.createdAt}`, TICKET_WIDTH)) {
-    b.line(line);
-  }
-  for (const line of wrapText(`Operador: ${data.operatorName}`, TICKET_WIDTH)) {
-    b.line(line);
-  }
-  for (const line of wrapText(`Cliente: ${data.customerName}`, TICKET_WIDTH)) {
-    b.line(line);
-  }
-  for (const line of wrapText(`Pago: ${data.paymentMethodLabel}`, TICKET_WIDTH)) {
-    b.line(line);
+  if (data.saleNumber) {
+    esc.line(centerText(`Venta #${data.saleNumber}`, TICKET_WIDTH));
   }
 
-  b.divider();
+  esc.alignLeft();
+  esc.line(divider("="));
 
-  for (const item of data.lines) {
-    b.bold(true);
-    for (const line of wrapText(item.name.toUpperCase(), TICKET_WIDTH)) {
-      b.line(line);
+  for (const line of wrapText(`Fecha: ${data.createdAt ?? ""}`, TICKET_WIDTH)) {
+    esc.line(line);
+  }
+
+  for (const line of wrapText(
+    `Operador: ${data.operatorName ?? ""}`,
+    TICKET_WIDTH,
+  )) {
+    esc.line(line);
+  }
+
+  for (const line of wrapText(
+    `Cliente: ${data.customerName ?? ""}`,
+    TICKET_WIDTH,
+  )) {
+    esc.line(line);
+  }
+
+  for (const line of wrapText(
+    `Pago: ${data.paymentMethodLabel ?? ""}`,
+    TICKET_WIDTH,
+  )) {
+    esc.line(line);
+  }
+
+  esc.line(divider("="));
+  esc.line(twoColumns("DESCRIP", "P.TOTAL"));
+  esc.line(twoColumns("CANT  P.UNIT", ""));
+  esc.line(divider("-"));
+
+  for (const item of data.lines ?? []) {
+    const itemName = normalizePrintableText((item.name ?? "").toUpperCase());
+
+    for (const line of wrapText(itemName, TICKET_WIDTH)) {
+      esc.boldOn();
+      esc.line(line);
+      esc.boldOff();
     }
-    b.bold(false);
 
-    b.line(itemPriceLine(item.quantity, item.unitPrice, item.total));
+    esc.line(
+      twoColumns(
+        `${item.quantity.toFixed(2)}  ${formatMoney(item.unitPrice)}`,
+        formatMoney(item.total),
+      ),
+    );
   }
 
-  b.divider();
+  esc.line(divider("-"));
+  esc.line(twoColumns("Subtotal", formatMoney(data.subtotal ?? 0)));
+  esc.line(twoColumns("IVA", formatMoney(data.taxTotal ?? 0)));
 
-  b.line(twoColumn("Subtotal", `$${formatMoney(data.subtotal)}`));
-  b.line(twoColumn("IVA", `$${formatMoney(data.taxTotal)}`));
+  esc.boldOn();
+  esc.line(twoColumns("TOTAL", formatMoney(data.total ?? 0)));
+  esc.boldOff();
 
-  b.bold(true);
-  b.line(twoColumn("TOTAL", `$${formatMoney(data.total)}`));
-  b.bold(false);
+  esc.line(divider("="));
+  esc.alignCenter();
+  esc.boldOn();
+  esc.line("Gracias por su compra");
+  esc.boldOff();
 
-  b.divider();
-  b.alignCenter();
-  b.bold(true);
-  b.line("Gracias por su compra");
-  b.bold(false);
+  esc.feed(4);
+  esc.cut();
 
-  b.feed(4);
-  b.cut();
-
-  return b.build();
+  return esc.build();
 }
 
 export function buildPosTicketEscPosBase64(data: PosTicketData): string {
-  const bytes = buildPosTicketEscPos(data);
+  const ticket = buildPosTicketEscPos(data);
 
   let binary = "";
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]);
+  for (let index = 0; index < ticket.bytes.length; index += 1) {
+    binary += String.fromCharCode(ticket.bytes[index] ?? 0);
   }
 
   if (typeof window !== "undefined") {
     return window.btoa(binary);
   }
 
-  return Buffer.from(bytes).toString("base64");
+  return Buffer.from(ticket.bytes).toString("base64");
 }
