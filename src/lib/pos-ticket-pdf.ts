@@ -1,20 +1,52 @@
 "use client";
 
-import { PDFDocument, StandardFonts } from "pdf-lib";
+import {
+  PDFDocument,
+  StandardFonts,
+  rgb,
+  type PDFFont,
+} from "pdf-lib";
 
 import type { PosTicketData } from "@/lib/pos-ticket-template";
 
 const MM_TO_PT = 2.83465;
 const PAGE_WIDTH = 78 * MM_TO_PT;
-const PAGE_PADDING = 2;
-const LINE_HEIGHT = 14;
-const CONTENT_WIDTH = PAGE_WIDTH - PAGE_PADDING * 2;
+const PAGE_PADDING_X = 6;
+const PAGE_PADDING_Y = 4;
+const CONTENT_WIDTH = PAGE_WIDTH - PAGE_PADDING_X * 2;
+const AMOUNT_COLUMN_WIDTH = 56;
+const TEXT_COLUMN_WIDTH = CONTENT_WIDTH - AMOUNT_COLUMN_WIDTH - 6;
+
+type TextOp = {
+  kind: "text";
+  text: string;
+  font: PDFFont;
+  size: number;
+  align: "left" | "right" | "center";
+  x?: number;
+  color?: ReturnType<typeof rgb>;
+};
+
+type DividerOp = {
+  kind: "divider";
+};
+
+type LayoutOp = TextOp | DividerOp;
 
 function formatMoney(value: number) {
   return value.toFixed(2);
 }
 
-function wrapText(text: string, maxChars: number) {
+function lineHeightFor(size: number) {
+  return size + 3;
+}
+
+function wrapTextByWidth(
+  text: string,
+  font: PDFFont,
+  size: number,
+  maxWidth: number,
+) {
   const normalized = text.trim();
   if (!normalized) {
     return [""];
@@ -24,9 +56,34 @@ function wrapText(text: string, maxChars: number) {
   const lines: string[] = [];
   let current = "";
 
+  function fits(value: string) {
+    return font.widthOfTextAtSize(value, size) <= maxWidth;
+  }
+
+  function splitLongWord(word: string) {
+    let chunk = "";
+
+    for (const char of word) {
+      const candidate = `${chunk}${char}`;
+      if (fits(candidate)) {
+        chunk = candidate;
+        continue;
+      }
+
+      if (chunk) {
+        lines.push(chunk);
+      }
+      chunk = char;
+    }
+
+    if (chunk) {
+      current = chunk;
+    }
+  }
+
   for (const word of words) {
     const candidate = current ? `${current} ${word}` : word;
-    if (candidate.length <= maxChars) {
+    if (fits(candidate)) {
       current = candidate;
       continue;
     }
@@ -36,14 +93,12 @@ function wrapText(text: string, maxChars: number) {
       current = "";
     }
 
-    if (word.length <= maxChars) {
+    if (fits(word)) {
       current = word;
       continue;
     }
 
-    for (let index = 0; index < word.length; index += maxChars) {
-      lines.push(word.slice(index, index + maxChars));
-    }
+    splitLongWord(word);
   }
 
   if (current) {
@@ -53,69 +108,219 @@ function wrapText(text: string, maxChars: number) {
   return lines.length > 0 ? lines : [normalized];
 }
 
-function pushDivider(lines: string[]) {
-  lines.push("--------------------------------");
+function buildLayoutOps(
+  data: PosTicketData,
+  regularFont: PDFFont,
+  boldFont: PDFFont,
+) {
+  const ops: LayoutOp[] = [];
+
+  function addWrappedText(
+    text: string,
+    options: {
+      font?: PDFFont;
+      size?: number;
+      align?: "left" | "right" | "center";
+      x?: number;
+      color?: ReturnType<typeof rgb>;
+      maxWidth?: number;
+    } = {},
+  ) {
+    const font = options.font ?? regularFont;
+    const size = options.size ?? 10;
+    const align = options.align ?? "left";
+    const maxWidth =
+      options.maxWidth ??
+      (align === "center"
+        ? CONTENT_WIDTH
+        : align === "right"
+          ? AMOUNT_COLUMN_WIDTH
+          : CONTENT_WIDTH);
+
+    for (const line of wrapTextByWidth(text, font, size, maxWidth)) {
+      ops.push({
+        kind: "text",
+        text: line,
+        font,
+        size,
+        align,
+        x: options.x,
+        color: options.color,
+      });
+    }
+  }
+
+  function addDivider() {
+    ops.push({ kind: "divider" });
+  }
+
+  addWrappedText(data.businessName.toUpperCase(), {
+    font: boldFont,
+    size: 12.5,
+    align: "center",
+  });
+  addWrappedText(data.documentLabel, {
+    size: 10,
+    align: "center",
+    color: rgb(0.35, 0.35, 0.35),
+  });
+
+  if (data.documentNumber) {
+    addWrappedText(`Documento: ${data.documentNumber}`, {
+      size: 10,
+      align: "center",
+    });
+  }
+
+  addWrappedText(`Venta #${data.saleNumber}`, {
+    size: 10.5,
+    align: "center",
+  });
+  addDivider();
+
+  addWrappedText(`Fecha: ${data.createdAt}`, { size: 9.5 });
+  addWrappedText(`Operador: ${data.operatorName}`, { size: 9.5 });
+  addWrappedText(`Cliente: ${data.customerName}`, { size: 9.5 });
+  addWrappedText(`Pago: ${data.paymentMethodLabel}`, { size: 9.5 });
+  addDivider();
+
+  for (const item of data.lines) {
+    addWrappedText(item.name, {
+      font: boldFont,
+      size: 10.5,
+      maxWidth: CONTENT_WIDTH,
+    });
+
+    addWrappedText(`${item.quantity.toFixed(2)} x $${formatMoney(item.unitPrice)}`, {
+      size: 9.5,
+      x: PAGE_PADDING_X,
+      maxWidth: TEXT_COLUMN_WIDTH,
+    });
+    ops.push({
+      kind: "text",
+      text: `$${formatMoney(item.total)}`,
+      font: boldFont,
+      size: 9.5,
+      align: "right",
+      x: PAGE_WIDTH - PAGE_PADDING_X,
+    });
+  }
+
+  addDivider();
+  addWrappedText("Subtotal", {
+    size: 10,
+    x: PAGE_PADDING_X,
+    maxWidth: TEXT_COLUMN_WIDTH,
+  });
+  ops.push({
+    kind: "text",
+    text: `$${formatMoney(data.subtotal)}`,
+    font: regularFont,
+    size: 10,
+    align: "right",
+    x: PAGE_WIDTH - PAGE_PADDING_X,
+  });
+
+  addWrappedText("IVA", {
+    size: 10,
+    x: PAGE_PADDING_X,
+    maxWidth: TEXT_COLUMN_WIDTH,
+  });
+  ops.push({
+    kind: "text",
+    text: `$${formatMoney(data.taxTotal)}`,
+    font: regularFont,
+    size: 10,
+    align: "right",
+    x: PAGE_WIDTH - PAGE_PADDING_X,
+  });
+
+  addWrappedText("TOTAL", {
+    font: boldFont,
+    size: 11.5,
+    x: PAGE_PADDING_X,
+    maxWidth: TEXT_COLUMN_WIDTH,
+  });
+  ops.push({
+    kind: "text",
+    text: `$${formatMoney(data.total)}`,
+    font: boldFont,
+    size: 11.5,
+    align: "right",
+    x: PAGE_WIDTH - PAGE_PADDING_X,
+  });
+
+  addDivider();
+  addWrappedText("Gracias por su compra", {
+    font: boldFont,
+    size: 10,
+    align: "center",
+  });
+
+  return ops;
 }
 
-function buildReceiptLines(data: PosTicketData) {
-  const lines: string[] = [];
+function estimatePageHeight(ops: LayoutOp[]) {
+  let height = PAGE_PADDING_Y * 2;
 
-  lines.push(data.businessName.toUpperCase());
-  lines.push(data.documentLabel);
-  if (data.documentNumber) {
-    lines.push(`Documento: ${data.documentNumber}`);
-  }
-  lines.push(`Venta: ${data.saleNumber}`);
-  pushDivider(lines);
-  lines.push(`Fecha: ${data.createdAt}`);
-  lines.push(`Operador: ${data.operatorName}`);
-  lines.push(`Cliente: ${data.customerName}`);
-  lines.push(`Pago: ${data.paymentMethodLabel}`);
-  pushDivider(lines);
-
-  for (const line of data.lines) {
-    for (const wrapped of wrapText(line.name, 22)) {
-      lines.push(wrapped);
+  for (const op of ops) {
+    if (op.kind === "divider") {
+      height += 8;
+      continue;
     }
-    lines.push(
-      `${line.quantity.toFixed(2)} x ${formatMoney(line.unitPrice)}`.padEnd(18) +
-        formatMoney(line.total).padStart(10),
-    );
+
+    height += lineHeightFor(op.size);
   }
 
-  pushDivider(lines);
-  lines.push(`Subtotal`.padEnd(22) + formatMoney(data.subtotal).padStart(10));
-  lines.push(`IVA`.padEnd(22) + formatMoney(data.taxTotal).padStart(10));
-  lines.push(`TOTAL`.padEnd(22) + formatMoney(data.total).padStart(10));
-  pushDivider(lines);
-  lines.push("Gracias por su compra");
-
-  return lines;
+  return Math.max(height, 80);
 }
 
 export async function buildPosTicketPdfBase64(data: PosTicketData) {
-  const receiptLines = buildReceiptLines(data);
-  const pageHeight =
-    PAGE_PADDING * 2 + receiptLines.length * LINE_HEIGHT;
-
   const pdf = await PDFDocument.create();
-  const page = pdf.addPage([PAGE_WIDTH, pageHeight]);
-  const font = await pdf.embedFont(StandardFonts.Helvetica);
+  const regularFont = await pdf.embedFont(StandardFonts.Helvetica);
   const boldFont = await pdf.embedFont(StandardFonts.HelveticaBold);
 
-  let cursorY = pageHeight - PAGE_PADDING;
+  const ops = buildLayoutOps(data, regularFont, boldFont);
+  const pageHeight = estimatePageHeight(ops);
+  const page = pdf.addPage([PAGE_WIDTH, pageHeight]);
 
-  receiptLines.forEach((line, index) => {
-    const isHeader = index === 0 || line === "Gracias por su compra";
-    page.drawText(line, {
-      x: PAGE_PADDING,
-      y: cursorY,
-      size: isHeader ? 12 : 11,
-      font: isHeader ? boldFont : font,
-      maxWidth: CONTENT_WIDTH,
+  let cursorY = pageHeight - PAGE_PADDING_Y;
+
+  for (const op of ops) {
+    if (op.kind === "divider") {
+      cursorY -= 4;
+      page.drawLine({
+        start: { x: PAGE_PADDING_X, y: cursorY },
+        end: { x: PAGE_WIDTH - PAGE_PADDING_X, y: cursorY },
+        thickness: 0.8,
+        color: rgb(0.6, 0.6, 0.6),
+        dashArray: [2, 2],
+      });
+      cursorY -= 4;
+      continue;
+    }
+
+    const textWidth = op.font.widthOfTextAtSize(op.text, op.size);
+    let x = op.x ?? PAGE_PADDING_X;
+
+    if (op.align === "center") {
+      x = PAGE_PADDING_X + (CONTENT_WIDTH - textWidth) / 2;
+    }
+
+    if (op.align === "right") {
+      x = (op.x ?? PAGE_WIDTH - PAGE_PADDING_X) - textWidth;
+    }
+
+    page.drawText(op.text, {
+      x,
+      y: cursorY - op.size,
+      size: op.size,
+      font: op.font,
+      color: op.color ?? rgb(0.07, 0.1, 0.14),
     });
-    cursorY -= LINE_HEIGHT;
-  });
+
+    cursorY -= lineHeightFor(op.size);
+  }
 
   return pdf.saveAsBase64();
 }
