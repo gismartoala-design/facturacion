@@ -67,7 +67,7 @@ export default function OverviewPage() {
   }, []);
 
   return (
-    <Stack spacing={2}>
+    <Stack>
       {message ? (
         <Alert
           severity="error"

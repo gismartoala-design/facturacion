@@ -44,24 +44,24 @@ export function MvpDashboardNav({ userRole, businessName, enabledFeatures }: Mvp
 
   return (
     <>
-      <aside className="hidden h-full w-full rounded-[30px] border border-white/60 bg-white/72 p-4 shadow-[0_12px_40px_rgb(0,0,0,0.05)] backdrop-blur-xl lg:flex lg:flex-col lg:overflow-hidden">
-        <div className="rounded-3xl border border-[#e8d5e5]/60 bg-white/85 p-3 shadow-[0_8px_24px_rgb(0,0,0,0.04)]">
+      <aside className="hidden h-full w-full rounded-[30px] border border-[var(--border)]/80 bg-[color:var(--sidebar)]/88 p-4 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-xl lg:flex lg:flex-col lg:overflow-hidden">
+        <div className="rounded-3xl border border-[var(--border)] bg-white/96 p-3 shadow-[0_10px_26px_rgba(15,23,42,0.05)]">
           <div className="flex items-center gap-3">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[#e8d5e5]/40 bg-white p-1 shadow-[0_2px_10px_rgba(0,0,0,0.05)]">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--primary-light)] p-1 shadow-[0_2px_10px_rgba(15,23,42,0.05)]">
               <Image src="/logo.png" alt="Logo DOVI VELAS" width={56} height={56} className="object-contain" priority unoptimized />
             </div>
             <div className="min-w-0">
-              <p className="truncate text-[11px] font-bold uppercase tracking-[0.24em] text-[#4a3c58]/65">
+              <p className="truncate text-[11px] font-bold uppercase tracking-[0.24em] text-[color:var(--text-muted)]">
                 {businessName ?? "Negocio Principal"}
               </p>
-              <p className="truncate text-sm font-semibold text-slate-800">Panel operativo</p>
-              <p className="truncate text-xs text-[#4a3c58]/55">Gestion central del negocio</p>
+              <p className="truncate text-sm font-semibold text-[var(--foreground)]">Panel operativo</p>
+              <p className="truncate text-xs text-[color:var(--text-muted)]">Gestion central del negocio</p>
             </div>
           </div>
         </div>
 
         <div className="mt-6 flex-1 overflow-y-auto pr-1">
-          <p className="px-2 text-[11px] font-bold uppercase tracking-[0.22em] text-[#4a3c58]/40">Navegacion</p>
+          <p className="px-2 text-[11px] font-bold uppercase tracking-[0.22em] text-[color:var(--text-muted)]">Navegacion</p>
           <nav className="mt-3 space-y-2">
             {visibleItems.map((item) => {
               const Icon = item.icon;
@@ -74,15 +74,15 @@ export function MvpDashboardNav({ userRole, businessName, enabledFeatures }: Mvp
                   className={cn(
                     "block w-full rounded-2xl border px-4 py-3.5 text-left transition-all duration-300",
                     isActive
-                      ? "translate-x-1 border-[#e8d5e5] bg-white text-[#4a3c58] shadow-md"
-                      : "border-transparent bg-transparent text-slate-600 hover:bg-white/65 hover:text-[#4a3c58]",
+                      ? "translate-x-1 border-[var(--primary)]/16 bg-[var(--primary-light)] text-[var(--foreground)] shadow-[0_8px_20px_rgba(139,92,246,0.12)]"
+                      : "border-transparent bg-transparent text-[color:var(--text-muted)] hover:bg-white/78 hover:text-[var(--foreground)]",
                   )}
                 >
                   <div className="flex items-center gap-2">
                     <Icon className="h-4 w-4" />
                     <p className="text-sm font-semibold">{item.label}</p>
                   </div>
-                  <p className="mt-1 text-xs text-slate-500">{item.hint}</p>
+                  <p className="mt-1 text-xs text-[color:var(--text-muted)]">{item.hint}</p>
                 </Link>
               );
             })}
@@ -91,16 +91,16 @@ export function MvpDashboardNav({ userRole, businessName, enabledFeatures }: Mvp
       </aside>
 
       <div className="space-y-3 lg:hidden">
-        <div className="rounded-2xl border border-white/60 bg-white/75 p-3 shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-xl">
+        <div className="rounded-2xl border border-[var(--border)]/80 bg-white/86 p-3 shadow-[0_8px_30px_rgba(15,23,42,0.05)] backdrop-blur-xl">
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[#e8d5e5]/40 bg-white p-1 shadow-[0_2px_10px_rgba(0,0,0,0.05)]">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--primary-light)] p-1 shadow-[0_2px_10px_rgba(15,23,42,0.05)]">
               <Image src="/logo.png" alt="Logo DOVI VELAS" width={48} height={48} className="object-contain" priority unoptimized />
             </div>
             <div className="min-w-0">
-              <p className="truncate text-[11px] font-bold uppercase tracking-[0.18em] text-[#4a3c58]/65">
+              <p className="truncate text-[11px] font-bold uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
                 {businessName ?? "Negocio Principal"}
               </p>
-              <p className="truncate text-sm font-semibold text-slate-800">Panel operativo</p>
+              <p className="truncate text-sm font-semibold text-[var(--foreground)]">Panel operativo</p>
             </div>
           </div>
         </div>
@@ -113,8 +113,8 @@ export function MvpDashboardNav({ userRole, businessName, enabledFeatures }: Mvp
               className={cn(
                 "inline-flex h-10 items-center justify-center whitespace-nowrap rounded-xl border px-4 text-sm font-medium transition-all shadow-sm",
                 pathname === item.href
-                  ? "border-transparent bg-linear-to-tr from-[#b1a1c6] to-[#4a3c58] text-white shadow-md"
-                  : "border-slate-200 bg-white/80 text-slate-700 backdrop-blur-sm hover:bg-white hover:text-[#4a3c58]",
+                  ? "border-transparent bg-linear-to-tr from-[var(--primary)] to-[var(--secondary)] text-white shadow-[0_8px_18px_rgba(99,102,241,0.18)]"
+                  : "border-[var(--border)] bg-white/85 text-[var(--foreground)] backdrop-blur-sm hover:bg-white hover:text-[var(--primary)]",
               )}
             >
               {item.label}

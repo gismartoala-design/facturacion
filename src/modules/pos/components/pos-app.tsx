@@ -15,6 +15,7 @@ import {
   Menu,
   MenuItem,
   Paper,
+  Snackbar,
   Stack,
   TextField,
   Typography,
@@ -43,7 +44,9 @@ import {
   useRef,
   useState,
   type MouseEvent,
+  type SyntheticEvent,
 } from "react";
+import { alpha, useTheme } from "@mui/material/styles";
 
 import { buildPosTicketHtml } from "@/lib/pos-ticket-template";
 import { PosCashSessionDialog } from "@/modules/pos/components/pos-cash-session-dialog";
@@ -216,6 +219,7 @@ function isEditableElement(target: EventTarget | null) {
 }
 
 export function PosApp({ initialSession }: PosAppProps) {
+  const theme = useTheme();
   const barcodeInputRef = useRef<HTMLInputElement | null>(null);
   const customerNameInputRef = useRef<HTMLInputElement | null>(null);
   const [bootstrap, setBootstrap] = useState<PosBootstrap | null>(null);
@@ -258,6 +262,16 @@ export function PosApp({ initialSession }: PosAppProps) {
     ? "calc(100vh - 198px)"
     : "calc(100vh - 156px)";
   const isToolbarMenuOpen = Boolean(toolbarMenuAnchor);
+  const subtleBorder = alpha(theme.palette.divider, 0.9);
+  const subtleBorderSoft = alpha(theme.palette.divider, 0.55);
+  const softPrimary = alpha(theme.palette.primary.light, 0.55);
+  const softPrimaryAlt = alpha(theme.palette.primary.light, 0.35);
+  const panelBg = alpha(theme.palette.background.paper, 0.96);
+  const chipBg = alpha(theme.palette.primary.light, 0.9);
+  const accentSoft = alpha(theme.palette.secondary.light, 0.72);
+  const successSoft = alpha(theme.palette.success.main, 0.12);
+  const headerOutline = alpha(theme.palette.common.white, 0.28);
+  const totalGradient = `linear-gradient(180deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`;
 
   const linePreview = useMemo<LinePreviewRow[]>(
     () =>
@@ -369,7 +383,7 @@ export function PosApp({ initialSession }: PosAppProps) {
         renderCell: (params) => (
           <Typography
             variant="body2"
-            sx={{ fontSize: 12, fontWeight: 700, color: "#5c4635" }}
+            sx={{ fontSize: 12, fontWeight: 700, color: "text.primary" }}
           >
             {params.row.product.codigo}
           </Typography>
@@ -389,7 +403,7 @@ export function PosApp({ initialSession }: PosAppProps) {
               sx={{
                 fontSize: 12,
                 fontWeight: 700,
-                color: "#4a3c58",
+                color: "text.primary",
                 lineHeight: 1.15,
               }}
             >
@@ -399,7 +413,7 @@ export function PosApp({ initialSession }: PosAppProps) {
               variant="caption"
               sx={{
                 fontSize: 10.5,
-                color: "rgba(74, 60, 88, 0.6)",
+                color: "text.secondary",
                 lineHeight: 1.1,
               }}
             >
@@ -436,7 +450,7 @@ export function PosApp({ initialSession }: PosAppProps) {
                 height: 34,
                 fontSize: 12,
                 borderRadius: "10px",
-                backgroundColor: "#fff",
+                backgroundColor: "background.paper",
               },
               "& input": {
                 px: 1,
@@ -469,7 +483,7 @@ export function PosApp({ initialSession }: PosAppProps) {
                 height: 34,
                 fontSize: 12,
                 borderRadius: "10px",
-                backgroundColor: "#fff",
+                backgroundColor: "background.paper",
               },
               "& input": {
                 px: 1,
@@ -502,7 +516,7 @@ export function PosApp({ initialSession }: PosAppProps) {
                 height: 34,
                 fontSize: 12,
                 borderRadius: "10px",
-                backgroundColor: "#fff",
+                backgroundColor: "background.paper",
               },
               "& input": {
                 px: 1,
@@ -576,18 +590,6 @@ export function PosApp({ initialSession }: PosAppProps) {
       setBootLoading(false);
     }
   }
-
-  useEffect(() => {
-    const timeoutId = message
-      ? window.setTimeout(() => setMessage(null), 4200)
-      : null;
-
-    return () => {
-      if (timeoutId) {
-        window.clearTimeout(timeoutId);
-      }
-    };
-  }, [message]);
 
   useEffect(() => {
     void loadBootstrap();
@@ -1386,6 +1388,17 @@ export function PosApp({ initialSession }: PosAppProps) {
     printWindow.document.close();
   }
 
+  function handleSnackbarClose(
+    _: Event | SyntheticEvent,
+    reason?: string,
+  ) {
+    if (reason === "clickaway") {
+      return;
+    }
+
+    setMessage(null);
+  }
+
   if (bootLoading && !bootstrap) {
     return (
       <Box
@@ -1393,7 +1406,7 @@ export function PosApp({ initialSession }: PosAppProps) {
           minHeight: "100vh",
           display: "grid",
           placeItems: "center",
-          backgroundColor: "#f4efe7",
+          backgroundColor: "background.default",
         }}
       >
         <Paper sx={{ px: 4, py: 3, borderRadius: "24px" }}>
@@ -1413,7 +1426,7 @@ export function PosApp({ initialSession }: PosAppProps) {
           minHeight: "100vh",
           display: "grid",
           placeItems: "center",
-          backgroundColor: "#f4efe7",
+          backgroundColor: "background.default",
           p: 3,
         }}
       >
@@ -1452,7 +1465,8 @@ export function PosApp({ initialSession }: PosAppProps) {
           sx={{
             borderRadius: "22px",
             overflow: "hidden",
-            borderColor: "rgba(74, 60, 88, 0.12)",
+            borderColor: subtleBorder,
+            backgroundColor: alpha(theme.palette.background.paper, 0.98),
           }}
         >
           <Box
@@ -1507,9 +1521,11 @@ export function PosApp({ initialSession }: PosAppProps) {
                     sx={{
                       borderRadius: "999px",
                       backgroundColor: cashSession
-                        ? "#ecfdf3"
-                        : "rgba(255,255,255,0.14)",
-                      color: cashSession ? "#166534" : "#fff",
+                        ? successSoft
+                        : alpha(theme.palette.common.white, 0.16),
+                      color: cashSession
+                        ? theme.palette.success.dark
+                        : theme.palette.common.white,
                     }}
                   />
                   <Chip
@@ -1558,7 +1574,7 @@ export function PosApp({ initialSession }: PosAppProps) {
                 <Button
                   size="small"
                   variant="outlined"
-                  sx={{ borderColor: "rgba(255,255,255,0.28)" }}
+                  sx={{ borderColor: headerOutline }}
                   startIcon={<Wallet className="h-4 w-4" />}
                   onClick={() => setCashDialogOpen(true)}
                 >
@@ -1567,7 +1583,7 @@ export function PosApp({ initialSession }: PosAppProps) {
                 <Button
                   size="small"
                   variant="outlined"
-                  sx={{ borderColor: "rgba(255,255,255,0.28)" }}
+                  sx={{ borderColor: headerOutline }}
                   startIcon={
                     holding ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -1583,7 +1599,7 @@ export function PosApp({ initialSession }: PosAppProps) {
                 <Button
                   size="small"
                   variant="outlined"
-                  sx={{ borderColor: "rgba(255,255,255,0.28)" }}
+                  sx={{ borderColor: headerOutline }}
                   onClick={() => setHeldSalesDialogOpen(true)}
                 >
                   Esperas ({heldSales.length}) · F6
@@ -1591,7 +1607,7 @@ export function PosApp({ initialSession }: PosAppProps) {
                 <Button
                   size="small"
                   variant="outlined"
-                  sx={{ borderColor: "rgba(255,255,255,0.28)" }}
+                  sx={{ borderColor: headerOutline }}
                   startIcon={<Printer className="h-4 w-4" />}
                   onClick={() => lastTicketHtml && printTicket(lastTicketHtml)}
                   disabled={!lastTicketHtml}
@@ -1602,7 +1618,7 @@ export function PosApp({ initialSession }: PosAppProps) {
                   size="small"
                   variant="outlined"
                   sx={{
-                    borderColor: "rgba(255,255,255,0.28)",
+                    borderColor: headerOutline,
                     minWidth: 42,
                     px: 1.1,
                   }}
@@ -1657,20 +1673,29 @@ export function PosApp({ initialSession }: PosAppProps) {
           </MenuItem>
         </Menu>
 
-        {message ? (
-          <Alert
-            severity={
-              message.tone === "error"
-                ? "error"
-                : message.tone === "success"
-                  ? "success"
-                  : "info"
-            }
-            sx={{ py: 0, borderRadius: "16px" }}
-          >
-            {message.text}
-          </Alert>
-        ) : null}
+        <Snackbar
+          open={Boolean(message)}
+          autoHideDuration={4200}
+          onClose={handleSnackbarClose}
+          anchorOrigin={{ vertical: "top", horizontal: "right" }}
+        >
+          {message ? (
+            <Alert
+              onClose={handleSnackbarClose}
+              severity={
+                message.tone === "error"
+                  ? "error"
+                  : message.tone === "success"
+                    ? "success"
+                    : "info"
+              }
+              variant="filled"
+              sx={{ py: 0, borderRadius: "16px", minWidth: 320 }}
+            >
+              {message.text}
+            </Alert>
+          ) : undefined}
+        </Snackbar>
 
         <Grid
           container
@@ -1712,7 +1737,7 @@ export function PosApp({ initialSession }: PosAppProps) {
                     <Box>
                       <Typography
                         variant="subtitle1"
-                        sx={{ fontWeight: 800, color: "#4a3c58" }}
+                        sx={{ fontWeight: 800, color: "text.primary" }}
                       >
                         Cliente, venta y captura
                       </Typography>
@@ -1760,8 +1785,8 @@ export function PosApp({ initialSession }: PosAppProps) {
                         sx={{
                           p: 1.1,
                           borderRadius: "18px",
-                          border: "1px solid rgba(205, 191, 173, 0.72)",
-                          backgroundColor: "#fbf7f1",
+                          border: `1px solid ${subtleBorder}`,
+                          backgroundColor: softPrimary,
                           height: "100%",
                           minWidth: 0,
                         }}
@@ -1773,7 +1798,7 @@ export function PosApp({ initialSession }: PosAppProps) {
                               fontWeight: 800,
                               letterSpacing: "0.08em",
                               textTransform: "uppercase",
-                              color: "#6e5642",
+                              color: "text.secondary",
                             }}
                           >
                             Documento
@@ -1816,8 +1841,8 @@ export function PosApp({ initialSession }: PosAppProps) {
                         sx={{
                           p: 1.1,
                           borderRadius: "18px",
-                          border: "1px solid rgba(205, 191, 173, 0.72)",
-                          backgroundColor: "#fffdf9",
+                          border: `1px solid ${subtleBorder}`,
+                          backgroundColor: panelBg,
                           minWidth: 0,
                         }}
                       >
@@ -1828,7 +1853,7 @@ export function PosApp({ initialSession }: PosAppProps) {
                               fontWeight: 800,
                               letterSpacing: "0.08em",
                               textTransform: "uppercase",
-                              color: "#6e5642",
+                              color: "text.secondary",
                             }}
                           >
                             Cliente
@@ -1924,8 +1949,8 @@ export function PosApp({ initialSession }: PosAppProps) {
                                 label="Venta en espera"
                                 sx={{
                                   borderRadius: "999px",
-                                  backgroundColor: "#efe7ff",
-                                  color: "#5a3a8a",
+                                  backgroundColor: accentSoft,
+                                  color: "secondary.dark",
                                 }}
                               />
                             </Stack>
@@ -1976,8 +2001,8 @@ export function PosApp({ initialSession }: PosAppProps) {
                     sx={{
                       p: 1.1,
                       borderRadius: "18px",
-                      border: "1px solid rgba(205, 191, 173, 0.72)",
-                      backgroundColor: "#fffdf9",
+                      border: `1px solid ${subtleBorder}`,
+                      backgroundColor: panelBg,
                       minWidth: 0,
                     }}
                   >
@@ -1995,7 +2020,7 @@ export function PosApp({ initialSession }: PosAppProps) {
                               fontWeight: 800,
                               letterSpacing: "0.08em",
                               textTransform: "uppercase",
-                              color: "#6e5642",
+                              color: "text.secondary",
                             }}
                           >
                             Ingreso rapido de producto
@@ -2013,8 +2038,8 @@ export function PosApp({ initialSession }: PosAppProps) {
                           sx={{
                             alignSelf: "flex-start",
                             borderRadius: "999px",
-                            backgroundColor: "#f1e7d8",
-                            color: "#6e5642",
+                            backgroundColor: chipBg,
+                            color: "primary.main",
                           }}
                         />
                       </Stack>
@@ -2183,7 +2208,7 @@ export function PosApp({ initialSession }: PosAppProps) {
                     <Box>
                       <Typography
                         variant="subtitle1"
-                        sx={{ fontWeight: 800, color: "#4a3c58" }}
+                        sx={{ fontWeight: 800, color: "text.primary" }}
                       >
                         Detalle de productos
                       </Typography>
@@ -2205,7 +2230,7 @@ export function PosApp({ initialSession }: PosAppProps) {
                       overflowX: "auto",
                       overflowY: "hidden",
                       borderRadius: "18px",
-                      border: "1px solid rgba(205, 191, 173, 0.72)",
+                      border: `1px solid ${subtleBorder}`,
                       flex: 1,
                       minHeight: 0,
                       minWidth: 0,
@@ -2232,15 +2257,15 @@ export function PosApp({ initialSession }: PosAppProps) {
                         "& .MuiDataGrid-columnHeaders": {
                           minHeight: "34px !important",
                           maxHeight: "34px !important",
-                          backgroundColor: "#f8f2ea",
-                          borderBottom: "1px solid rgba(205, 191, 173, 0.72)",
+                          backgroundColor: softPrimaryAlt,
+                          borderBottom: `1px solid ${subtleBorder}`,
                         },
                         "& .MuiDataGrid-cell": {
                           fontSize: 12,
                           alignItems: "center",
                           px: 0.75,
                           py: 0.25,
-                          borderColor: "rgba(205, 191, 173, 0.42)",
+                          borderColor: subtleBorderSoft,
                         },
                         "& .MuiDataGrid-columnHeader": {
                           px: 0.75,
@@ -2257,10 +2282,16 @@ export function PosApp({ initialSession }: PosAppProps) {
                           display: "none",
                         },
                         "& .MuiDataGrid-row": {
-                          backgroundColor: "#fffdf9",
+                          backgroundColor: alpha(
+                            theme.palette.background.paper,
+                            0.95,
+                          ),
                         },
                         "& .MuiDataGrid-row:hover": {
-                          backgroundColor: "#f9f1e7",
+                          backgroundColor: alpha(
+                            theme.palette.primary.light,
+                            0.46,
+                          ),
                         },
                         "& .MuiDataGrid-cellContent": {
                           lineHeight: 1.15,
@@ -2299,7 +2330,7 @@ export function PosApp({ initialSession }: PosAppProps) {
                   <Box>
                     <Typography
                       variant="subtitle1"
-                      sx={{ fontWeight: 800, color: "#4a3c58" }}
+                      sx={{ fontWeight: 800, color: "text.primary" }}
                     >
                       Resumen de cobro
                     </Typography>
@@ -2314,10 +2345,9 @@ export function PosApp({ initialSession }: PosAppProps) {
                     sx={{
                       p: { xs: 1.5, sm: 2 },
                       borderRadius: "20px",
-                      background:
-                        "linear-gradient(180deg, #c01e31 0%, #8b1120 100%)",
-                      color: "#fff",
-                      borderColor: "rgba(111, 13, 24, 0.3)",
+                      background: totalGradient,
+                      color: "common.white",
+                      borderColor: alpha(theme.palette.primary.dark, 0.24),
                       minWidth: 0,
                       overflow: "hidden",
                     }}
@@ -2352,9 +2382,15 @@ export function PosApp({ initialSession }: PosAppProps) {
                         }
                         sx={{
                           borderRadius: "999px",
-                          backgroundColor: "rgba(255,255,255,0.14)",
-                          color: "#fff",
-                          border: "1px solid rgba(255,255,255,0.16)",
+                          backgroundColor: alpha(
+                            theme.palette.common.white,
+                            0.14,
+                          ),
+                          color: "common.white",
+                          border: `1px solid ${alpha(
+                            theme.palette.common.white,
+                            0.16,
+                          )}`,
                         }}
                       />
                     </Stack>
@@ -2364,8 +2400,8 @@ export function PosApp({ initialSession }: PosAppProps) {
                     sx={{
                       p: 1.5,
                       borderRadius: "18px",
-                      backgroundColor: "#fbf7f1",
-                      borderColor: "rgba(205, 191, 173, 0.72)",
+                      backgroundColor: softPrimary,
+                      borderColor: subtleBorder,
                       minWidth: 0,
                     }}
                   >
@@ -2376,7 +2412,7 @@ export function PosApp({ initialSession }: PosAppProps) {
                           fontWeight: 800,
                           letterSpacing: "0.08em",
                           textTransform: "uppercase",
-                          color: "#6e5642",
+                          color: "text.secondary",
                         }}
                       >
                         Desglose
@@ -2412,7 +2448,7 @@ export function PosApp({ initialSession }: PosAppProps) {
                         </Typography>
                         <Typography
                           variant="body2"
-                          sx={{ fontWeight: 800, color: "#8b1120" }}
+                          sx={{ fontWeight: 800, color: "primary.main" }}
                         >
                           {formatCurrency(totals.total)}
                         </Typography>
@@ -2424,8 +2460,8 @@ export function PosApp({ initialSession }: PosAppProps) {
                     sx={{
                       p: 1.5,
                       borderRadius: "18px",
-                      backgroundColor: "#fcfaf6",
-                      borderColor: "rgba(205, 191, 173, 0.72)",
+                      backgroundColor: panelBg,
+                      borderColor: subtleBorder,
                       minWidth: 0,
                     }}
                   >
@@ -2436,7 +2472,7 @@ export function PosApp({ initialSession }: PosAppProps) {
                           fontWeight: 800,
                           letterSpacing: "0.08em",
                           textTransform: "uppercase",
-                          color: "#6e5642",
+                          color: "text.secondary",
                         }}
                       >
                         Medios de pago
@@ -2573,7 +2609,11 @@ export function PosApp({ initialSession }: PosAppProps) {
                           <Typography
                             fontWeight={700}
                             variant="body2"
-                            color={remainingAmount > 0 ? "#8b1120" : "inherit"}
+                            color={
+                              remainingAmount > 0
+                                ? "primary.main"
+                                : "inherit"
+                            }
                           >
                             {formatCurrency(remainingAmount)}
                           </Typography>
