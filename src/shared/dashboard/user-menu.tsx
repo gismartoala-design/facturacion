@@ -9,6 +9,7 @@ import Paper from "@mui/material/Paper";
 import Popover from "@mui/material/Popover";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
+import { alpha, useTheme } from "@mui/material/styles";
 import { LogOut, Shield, User2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -31,10 +32,18 @@ export function DashboardUserMenu({
   roleLabel,
   businessName,
 }: DashboardUserMenuProps) {
+  const theme = useTheme();
   const router = useRouter();
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const initials = initialsFromName(name);
   const open = Boolean(anchorEl);
+  const subtleBorder = alpha(theme.palette.divider, 0.9);
+  const softBorder = alpha(theme.palette.divider, 0.6);
+  const triggerBg = alpha(theme.palette.background.paper, 0.84);
+  const panelBg = alpha(theme.palette.background.paper, 0.92);
+  const softPrimary = alpha(theme.palette.primary.light, 0.5);
+  const softSecondary = alpha(theme.palette.secondary.light, 0.42);
+  const softPaper = alpha(theme.palette.primary.light, 0.32);
 
   async function handleLogout() {
     await fetch("/api/v1/auth/logout", { method: "POST" });
@@ -52,13 +61,13 @@ export function DashboardUserMenu({
           position: "relative",
           width: 52,
           height: 52,
-          border: "1px solid rgba(255,255,255,0.72)",
-          backgroundColor: "rgba(255,255,255,0.82)",
+          border: `1px solid ${subtleBorder}`,
+          backgroundColor: triggerBg,
           backdropFilter: "blur(18px)",
-          boxShadow: "0 14px 32px rgba(0,0,0,0.08)",
+          boxShadow: "0 14px 32px rgba(15,23,42,0.08)",
           transition: "transform 160ms ease, background-color 160ms ease",
           "&:hover": {
-            backgroundColor: "#ffffff",
+            backgroundColor: theme.palette.background.paper,
             transform: "scale(1.02)",
           },
         }}
@@ -69,7 +78,7 @@ export function DashboardUserMenu({
             inset: 0,
             borderRadius: "999px",
             background:
-              "linear-gradient(135deg, rgba(254,205,211,0.55), transparent 52%, rgba(225,190,231,0.4))",
+              `linear-gradient(135deg, ${softPrimary}, transparent 52%, ${softSecondary})`,
             opacity: 0.9,
           }}
         />
@@ -80,7 +89,7 @@ export function DashboardUserMenu({
             fontSize: 14,
             fontWeight: 700,
             letterSpacing: "0.16em",
-            color: "#4a3c58",
+            color: "text.primary",
           }}
         >
           {initials}
@@ -100,10 +109,10 @@ export function DashboardUserMenu({
               width: "min(22rem, calc(100vw - 1rem))",
               overflow: "hidden",
               borderRadius: "28px",
-              border: "1px solid rgba(255,255,255,0.72)",
-              backgroundColor: "rgba(255,255,255,0.9)",
+              border: `1px solid ${subtleBorder}`,
+              backgroundColor: panelBg,
               backdropFilter: "blur(18px)",
-              boxShadow: "0 20px 50px rgba(0,0,0,0.12)",
+              boxShadow: "0 20px 50px rgba(15,23,42,0.12)",
             },
           },
         }}
@@ -116,7 +125,7 @@ export function DashboardUserMenu({
             top: 0,
             height: 96,
             background:
-              "linear-gradient(135deg, rgba(254,205,211,0.55), transparent 58%, rgba(225,190,231,0.45))",
+              `linear-gradient(135deg, ${softPrimary}, transparent 58%, ${softSecondary})`,
           }}
         />
 
@@ -145,10 +154,10 @@ export function DashboardUserMenu({
                     fontSize: 14,
                     fontWeight: 700,
                     letterSpacing: "0.16em",
-                    color: "#4a3c58",
-                    backgroundColor: "rgba(253,252,245,0.95)",
-                    border: "1px solid rgba(255,255,255,0.82)",
-                    boxShadow: "0 8px 18px rgba(0,0,0,0.06)",
+                    color: "text.primary",
+                    backgroundColor: alpha(theme.palette.background.paper, 0.96),
+                    border: `1px solid ${alpha(theme.palette.common.white, 0.82)}`,
+                    boxShadow: "0 8px 18px rgba(15,23,42,0.06)",
                   }}
                 >
                   {initials}
@@ -160,14 +169,14 @@ export function DashboardUserMenu({
                       fontWeight: 700,
                       letterSpacing: "0.18em",
                       textTransform: "uppercase",
-                      color: "rgba(74, 60, 88, 0.38)",
+                      color: alpha(theme.palette.text.primary, 0.38),
                     }}
                   >
                     Sesion activa
                   </Typography>
                   <Typography
                     sx={{
-                      color: "#1f2937",
+                      color: "text.primary",
                       fontSize: 14,
                       fontWeight: 600,
                       lineHeight: 1.2,
@@ -177,7 +186,7 @@ export function DashboardUserMenu({
                   </Typography>
                   <Typography
                     sx={{
-                      color: "rgba(74, 60, 88, 0.65)",
+                      color: "text.secondary",
                       fontSize: 12,
                     }}
                   >
@@ -190,10 +199,10 @@ export function DashboardUserMenu({
                 size="small"
                 onClick={() => setAnchorEl(null)}
                 sx={{
-                  color: "rgba(74, 60, 88, 0.56)",
+                  color: alpha(theme.palette.text.primary, 0.56),
                   "&:hover": {
-                    backgroundColor: "rgba(255,255,255,0.8)",
-                    color: "#4a3c58",
+                    backgroundColor: alpha(theme.palette.background.paper, 0.8),
+                    color: "text.primary",
                   },
                 }}
               >
@@ -211,14 +220,14 @@ export function DashboardUserMenu({
                   px: 1.5,
                   py: 1.25,
                   borderRadius: "18px",
-                  border: "1px solid rgba(232, 213, 229, 0.65)",
-                  backgroundColor: "rgba(253,252,245,0.82)",
+                  border: `1px solid ${softBorder}`,
+                  backgroundColor: softPaper,
                 }}
               >
-                <User2 className="h-4 w-4 text-[#b1a1c6]" />
+                <User2 className="h-4 w-4 text-(--primary)" />
                 <Typography
                   sx={{
-                    color: "#4a3c58",
+                    color: "text.primary",
                     fontSize: 14,
                     overflow: "hidden",
                     textOverflow: "ellipsis",
@@ -238,12 +247,12 @@ export function DashboardUserMenu({
                   px: 1.5,
                   py: 1.25,
                   borderRadius: "18px",
-                  border: "1px solid rgba(232, 213, 229, 0.65)",
-                  backgroundColor: "rgba(253,252,245,0.82)",
+                  border: `1px solid ${softBorder}`,
+                  backgroundColor: softPaper,
                 }}
               >
-                <Shield className="h-4 w-4 text-[#b1a1c6]" />
-                <Typography sx={{ color: "#4a3c58", fontSize: 14 }}>
+                <Shield className="h-4 w-4 text-(--primary)" />
+                <Typography sx={{ color: "text.primary", fontSize: 14 }}>
                   {roleLabel}
                 </Typography>
               </Paper>
@@ -258,60 +267,48 @@ export function DashboardUserMenu({
                     px: 1.5,
                     py: 1.25,
                     borderRadius: "18px",
-                    border: "1px solid rgba(232, 213, 229, 0.65)",
-                    backgroundColor: "rgba(253,252,245,0.82)",
+                    border: `1px solid ${softBorder}`,
+                    backgroundColor: softPaper,
                   }}
                 >
-                  <Shield className="h-4 w-4 text-[#b1a1c6]" />
-                  <Typography sx={{ color: "#4a3c58", fontSize: 14 }}>
+                  <Shield className="h-4 w-4 text-(--primary)" />
+                  <Typography sx={{ color: "text.primary", fontSize: 14 }}>
                     {businessName}
                   </Typography>
                 </Paper>
               ) : null}
             </Stack>
 
-            <Divider sx={{ borderColor: "rgba(232, 213, 229, 0.55)" }} />
+            <Divider sx={{ borderColor: softBorder }} />
 
-            <Paper
-              elevation={0}
+            <Button
+              type="button"
+              fullWidth
+              variant="text"
+              onClick={() => {
+                void handleLogout();
+              }}
+              startIcon={<LogOut className="h-4 w-4" />}
               sx={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
+                justifyContent: "flex-start",
                 gap: 1,
+                minHeight: 48,
                 px: 1.5,
                 py: 1.25,
                 borderRadius: "18px",
-                border: "1px solid rgba(232, 213, 229, 0.65)",
-                backgroundColor: "rgba(255,255,255,0.88)",
+                border: `1px solid ${softBorder}`,
+                backgroundColor: alpha(theme.palette.background.paper, 0.88),
+                color: "text.primary",
+                fontSize: 14,
+                fontWeight: 600,
+                "&:hover": {
+                  backgroundColor: alpha(theme.palette.primary.light, 0.42),
+                  borderColor: alpha(theme.palette.primary.main, 0.22),
+                },
               }}
             >
-              <Stack direction="row" spacing={1} alignItems="center">
-                <LogOut className="h-4 w-4 text-[#b1a1c6]" />
-                <Typography
-                  sx={{ color: "#4a3c58", fontSize: 14, fontWeight: 500 }}
-                >
-                  Cerrar sesion
-                </Typography>
-              </Stack>
-
-              <Button
-                type="button"
-                size="small"
-                variant="outlined"
-                onClick={() => {
-                  void handleLogout();
-                }}
-                startIcon={<LogOut className="h-3.5 w-3.5" />}
-                sx={{
-                  minHeight: 34,
-                  px: 1.5,
-                  fontSize: 12,
-                }}
-              >
-                Salir
-              </Button>
-            </Paper>
+              Cerrar sesion
+            </Button>
           </Stack>
         </Paper>
       </Popover>

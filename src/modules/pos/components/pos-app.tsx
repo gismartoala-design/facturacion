@@ -1641,14 +1641,6 @@ export function PosApp({ initialSession }: PosAppProps) {
           <MenuItem
             onClick={() => {
               closeToolbarMenu();
-              setHeldSalesDialogOpen(true);
-            }}
-          >
-            Ver esperas
-          </MenuItem>
-          <MenuItem
-            onClick={() => {
-              closeToolbarMenu();
               void loadBootstrap();
             }}
           >
