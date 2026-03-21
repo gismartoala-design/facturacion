@@ -858,12 +858,16 @@ export function PosApp({ initialSession }: PosAppProps) {
     return (
       products.find((product) => product.codigo.toLowerCase() === normalized) ??
       products.find(
+        (product) => (product.codigoBarras ?? "").toLowerCase() === normalized,
+      ) ??
+      products.find(
         (product) => (product.sku ?? "").toLowerCase() === normalized,
       ) ??
       products.find((product) => product.nombre.toLowerCase() === normalized) ??
       products.find(
         (product) =>
           product.codigo.toLowerCase().includes(normalized) ||
+          (product.codigoBarras ?? "").toLowerCase().includes(normalized) ||
           (product.sku ?? "").toLowerCase().includes(normalized) ||
           product.nombre.toLowerCase().includes(normalized),
       ) ??
@@ -2056,7 +2060,7 @@ export function PosApp({ initialSession }: PosAppProps) {
                                 handleAddByCode();
                               }
                             }}
-                            placeholder="Escanear o escribir codigo"
+                            placeholder="Escanear o escribir codigo o barra"
                             InputProps={{
                               endAdornment: (
                                 <InputAdornment position="end">
@@ -2074,19 +2078,21 @@ export function PosApp({ initialSession }: PosAppProps) {
                         </Grid>
                         <Grid size={{ xs: 12, md: 12 }} sx={{ minWidth: 0 }}>
                           <Autocomplete
-                            options={products}
-                            value={manualProduct}
-                            onChange={(_, value) => setManualProduct(value)}
-                            getOptionLabel={(option) =>
-                              `${option.codigo} · ${option.nombre}`
-                            }
+                        options={products}
+                        value={manualProduct}
+                        onChange={(_, value) => setManualProduct(value)}
+                        getOptionLabel={(option) =>
+                          `${option.codigo}${
+                            option.codigoBarras ? ` · ${option.codigoBarras}` : ""
+                          } · ${option.nombre}`
+                        }
                             renderInput={(params) => (
                               <TextField
                                 {...params}
                                 fullWidth
                                 label="Agregar manualmente"
                                 size="small"
-                                placeholder="Buscar por nombre o codigo"
+                            placeholder="Buscar por nombre, codigo o barra"
                                 onKeyDown={(e) => {
                                   if (e.key === "Enter" && manualProduct) {
                                     e.preventDefault();
@@ -2122,8 +2128,11 @@ export function PosApp({ initialSession }: PosAppProps) {
                                       variant="caption"
                                       sx={{ color: "text.secondary" }}
                                     >
-                                      {option.codigo} ·{" "}
-                                      {formatCurrency(option.precio)} ·{" "}
+                                  {option.codigo} ·{" "}
+                                  {option.codigoBarras
+                                    ? `${option.codigoBarras} · `
+                                    : ""}
+                                  {formatCurrency(option.precio)} ·{" "}
                                       {option.tipoProducto === "BIEN"
                                         ? `Stock ${option.stock.toFixed(3)}`
                                         : "Servicio"}

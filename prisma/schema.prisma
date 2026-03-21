@@ -193,6 +193,7 @@ model Product {
   id              String          @id @default(uuid()) @db.Uuid
   secuencial      BigInt          @unique @default(autoincrement())
   sku             String?
+  codigoBarras    String?
   tipoProducto    ProductType     @default(BIEN)
   nombre          String
   descripcion     String?
@@ -207,6 +208,7 @@ model Product {
   updatedAt       DateTime        @updatedAt
 
   @@index([sku, activo])
+  @@index([codigoBarras, activo])
 }
 
 model StockLevel {

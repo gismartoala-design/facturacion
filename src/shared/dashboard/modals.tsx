@@ -85,7 +85,7 @@ export function ProductModal({ isOpen, newProduct, setNewProduct, saving, onClos
           className="grid gap-3"
           onSubmit={onSubmit}
         >
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <TextField
               id="modal-nombre"
               label="Nombre"
@@ -117,7 +117,7 @@ export function ProductModal({ isOpen, newProduct, setNewProduct, saving, onClos
               ))}
             </TextField>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <TextField
                 id="modal-sku"
@@ -126,6 +126,21 @@ export function ProductModal({ isOpen, newProduct, setNewProduct, saving, onClos
                 onChange={(e) => setNewProduct((prev) => ({ ...prev, sku: e.target.value }))}
               />
             </div>
+            <div>
+              <TextField
+                id="modal-codigo-barras"
+                label="Codigo de barras (opcional)"
+                value={newProduct.codigoBarras}
+                onChange={(e) =>
+                  setNewProduct((prev) => ({
+                    ...prev,
+                    codigoBarras: e.target.value,
+                  }))
+                }
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <TextField
                 id="modal-precio"
@@ -143,7 +158,7 @@ export function ProductModal({ isOpen, newProduct, setNewProduct, saving, onClos
               />
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div>
               <TextField
                 id="modal-iva"
@@ -250,7 +265,7 @@ export function EditProductModal({ isOpen, editForm, setEditForm, saving, onClos
           Modifica los datos del producto. El stock se gestiona desde Inventario.
         </p>
         <form id="edit-product-form" className="grid gap-3" onSubmit={onSubmit}>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <TextField
               id="edit-nombre"
               label="Nombre"
@@ -280,7 +295,7 @@ export function EditProductModal({ isOpen, editForm, setEditForm, saving, onClos
               ))}
             </TextField>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <TextField
                 id="edit-sku"
@@ -289,6 +304,21 @@ export function EditProductModal({ isOpen, editForm, setEditForm, saving, onClos
                 onChange={(e) => setEditForm((prev) => ({ ...prev, sku: e.target.value }))}
               />
             </div>
+            <div>
+              <TextField
+                id="edit-codigo-barras"
+                label="Codigo de barras (opcional)"
+                value={editForm.codigoBarras}
+                onChange={(e) =>
+                  setEditForm((prev) => ({
+                    ...prev,
+                    codigoBarras: e.target.value,
+                  }))
+                }
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <TextField
                 id="edit-precio"
@@ -306,7 +336,7 @@ export function EditProductModal({ isOpen, editForm, setEditForm, saving, onClos
               />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <TextField
                 id="edit-iva"

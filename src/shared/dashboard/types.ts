@@ -4,6 +4,7 @@ export type Product = {
   id: string;
   codigo: string;
   sku: string | null;
+  codigoBarras: string | null;
   tipoProducto: ProductType;
   nombre: string;
   descripcion: string | null;
@@ -204,6 +205,7 @@ export const PRODUCT_TYPE_OPTIONS: Array<{
 export type NewProductForm = {
   nombre: string;
   sku: string;
+  codigoBarras: string;
   tipoProducto: ProductType;
   precio: string;
   tarifaIva: string;
@@ -214,6 +216,7 @@ export type NewProductForm = {
 export type EditProductForm = {
   nombre: string;
   sku: string;
+  codigoBarras: string;
   tipoProducto: ProductType;
   precio: string;
   tarifaIva: string;

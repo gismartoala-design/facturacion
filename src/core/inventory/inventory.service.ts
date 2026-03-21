@@ -8,6 +8,7 @@ const productSelect = {
   id: true,
   secuencial: true,
   sku: true,
+  codigoBarras: true,
   tipoProducto: true,
   nombre: true,
   descripcion: true,
@@ -29,6 +30,7 @@ function productPresenter(product: Prisma.ProductGetPayload<{ select: typeof pro
     secuencial: product.secuencial.toString(),
     codigo: resolveProductCode(product.sku, product.secuencial),
     sku: normalizeProductSku(product.sku),
+    codigoBarras: product.codigoBarras,
     tipoProducto: product.tipoProducto,
     nombre: product.nombre,
     descripcion: product.descripcion,
@@ -58,6 +60,28 @@ async function ensureActiveSkuAvailable(sku: string | null, excludeProductId?: s
   }
 }
 
+async function ensureActiveBarcodeAvailable(
+  codigoBarras: string | null,
+  excludeProductId?: string,
+) {
+  if (!codigoBarras) return;
+
+  const existing = await prisma.product.findFirst({
+    where: {
+      codigoBarras: { equals: codigoBarras, mode: "insensitive" },
+      activo: true,
+      ...(excludeProductId ? { NOT: { id: excludeProductId } } : {}),
+    },
+    select: { id: true },
+  });
+
+  if (existing) {
+    throw new Error(
+      `Ya existe un producto activo con el codigo de barras ${codigoBarras}`,
+    );
+  }
+}
+
 export async function listProducts() {
   const products = await prisma.product.findMany({
     select: productSelect,
@@ -71,12 +95,15 @@ export async function listProducts() {
 export async function createProduct(rawInput: unknown) {
   const input = createProductSchema.parse(rawInput);
   const normalizedSku = normalizeProductSku(input.sku);
+  const normalizedBarcode = input.codigoBarras?.trim() || null;
 
   await ensureActiveSkuAvailable(normalizedSku);
+  await ensureActiveBarcodeAvailable(normalizedBarcode);
 
   const product = await prisma.product.create({
     data: {
       sku: normalizedSku,
+      codigoBarras: normalizedBarcode,
       tipoProducto: input.tipoProducto,
       nombre: input.nombre,
       descripcion: input.descripcion || null,
@@ -110,9 +137,15 @@ export async function createProduct(rawInput: unknown) {
 export async function updateProduct(id: string, rawInput: unknown) {
   const input = updateProductSchema.parse(rawInput);
   const normalizedSku = input.sku !== undefined ? normalizeProductSku(input.sku) : undefined;
+  const normalizedBarcode =
+    input.codigoBarras !== undefined ? input.codigoBarras.trim() || null : undefined;
 
   if (normalizedSku !== undefined) {
     await ensureActiveSkuAvailable(normalizedSku, id);
+  }
+
+  if (normalizedBarcode !== undefined) {
+    await ensureActiveBarcodeAvailable(normalizedBarcode, id);
   }
 
   const existing = await prisma.product.findUnique({
@@ -142,6 +175,9 @@ export async function updateProduct(id: string, rawInput: unknown) {
     where: { id },
     data: {
       ...(input.sku !== undefined ? { sku: normalizedSku } : {}),
+      ...(input.codigoBarras !== undefined
+        ? { codigoBarras: normalizedBarcode }
+        : {}),
       ...(input.tipoProducto !== undefined ? { tipoProducto: input.tipoProducto } : {}),
       ...(input.nombre !== undefined ? { nombre: input.nombre } : {}),
       ...(input.descripcion !== undefined ? { descripcion: input.descripcion || null } : {}),

@@ -1,6 +1,5 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { fetchJson } from "@/shared/dashboard/api";
@@ -12,11 +11,11 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [newProduct, setNewProduct] = useState<NewProductForm>({
     nombre: "",
     sku: "",
+    codigoBarras: "",
     tipoProducto: "BIEN",
     precio: "",
     tarifaIva: "15",
@@ -29,6 +28,7 @@ export default function ProductsPage() {
   const [editForm, setEditForm] = useState<EditProductForm>({
     nombre: "",
     sku: "",
+    codigoBarras: "",
     tipoProducto: "BIEN",
     precio: "",
     tarifaIva: "15",
@@ -40,15 +40,11 @@ export default function ProductsPage() {
   const [deleting, setDeleting] = useState(false);
 
   async function loadProducts() {
-    setLoading(true);
-
     try {
       const result = await fetchJson<Product[]>("/api/v1/products");
       setProducts(result);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "No se pudo cargar productos");
-    } finally {
-      setLoading(false);
     }
   }
 
@@ -67,6 +63,7 @@ export default function ProductsPage() {
         body: JSON.stringify({
           nombre: newProduct.nombre,
           sku: newProduct.sku || undefined,
+          codigoBarras: newProduct.codigoBarras || undefined,
           tipoProducto: newProduct.tipoProducto,
           precio: Number(newProduct.precio),
           tarifaIva: Number(newProduct.tarifaIva),
@@ -78,6 +75,7 @@ export default function ProductsPage() {
       setNewProduct({
         nombre: "",
         sku: "",
+        codigoBarras: "",
         tipoProducto: "BIEN",
         precio: "",
         tarifaIva: "15",
@@ -99,6 +97,7 @@ export default function ProductsPage() {
     setEditForm({
       nombre: product.nombre,
       sku: product.sku ?? "",
+      codigoBarras: product.codigoBarras ?? "",
       tipoProducto: product.tipoProducto,
       precio: String(product.precio),
       tarifaIva: String(product.tarifaIva),
@@ -119,6 +118,7 @@ export default function ProductsPage() {
         body: JSON.stringify({
           nombre: editForm.nombre,
           sku: editForm.sku || undefined,
+          codigoBarras: editForm.codigoBarras || undefined,
           tipoProducto: editForm.tipoProducto,
           precio: Number(editForm.precio),
           tarifaIva: Number(editForm.tarifaIva),
