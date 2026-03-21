@@ -52,7 +52,6 @@ import {
   buildPosTicketHtml,
   type PosTicketData,
 } from "@/lib/pos-ticket-template";
-import { buildPosTicketPdfBase64 } from "@/lib/pos-ticket-pdf";
 import { PosCashSessionDialog } from "@/modules/pos/components/pos-cash-session-dialog";
 import { PosHeldSalesDialog } from "@/modules/pos/components/pos-held-sales-dialog";
 import { useLocalPrintSocket } from "@/modules/pos/hooks/use-local-print-socket";
@@ -64,6 +63,7 @@ import {
   type LineItem,
   type Product,
 } from "@/shared/dashboard/types";
+import { buildPosTicketEscPos } from "@/lib/pos-ticket-pdf";
 
 type PosAppProps = {
   initialSession: {
@@ -272,7 +272,7 @@ export function PosApp({ initialSession }: PosAppProps) {
     selectedPrinter,
     setSelectedPrinter,
     loadPrinters,
-    printBase64Document,
+    printDocumentBytes,
   } = useLocalPrintSocket();
   const [manualProduct, setManualProduct] = useState<Product | null>(null);
 
@@ -1470,8 +1470,8 @@ export function PosApp({ initialSession }: PosAppProps) {
     }
 
     try {
-      const pdfBase64 = await buildPosTicketPdfBase64(ticketData);
-      await printBase64Document(selectedPrinter, pdfBase64);
+      const bytes = buildPosTicketEscPos(ticketData);
+      await printDocumentBytes(selectedPrinter, bytes);
       setMessage({
         tone: "success",
         text: `Ticket enviado a ${selectedPrinter}`,
@@ -1493,10 +1493,7 @@ export function PosApp({ initialSession }: PosAppProps) {
     }
   }
 
-  function handleSnackbarClose(
-    _: Event | SyntheticEvent,
-    reason?: string,
-  ) {
+  function handleSnackbarClose(_: Event | SyntheticEvent, reason?: string) {
     if (reason === "clickaway") {
       return;
     }
@@ -1714,7 +1711,9 @@ export function PosApp({ initialSession }: PosAppProps) {
                   variant="outlined"
                   sx={{ borderColor: headerOutline }}
                   startIcon={<Printer className="h-4 w-4" />}
-                  onClick={() => lastTicketData && void printTicket(lastTicketData)}
+                  onClick={() =>
+                    lastTicketData && void printTicket(lastTicketData)
+                  }
                   disabled={!lastTicketData}
                 >
                   Reimprimir · F9
@@ -2229,21 +2228,23 @@ export function PosApp({ initialSession }: PosAppProps) {
                         </Grid>
                         <Grid size={{ xs: 12, md: 12 }} sx={{ minWidth: 0 }}>
                           <Autocomplete
-                        options={products}
-                        value={manualProduct}
-                        onChange={(_, value) => setManualProduct(value)}
-                        getOptionLabel={(option) =>
-                          `${option.codigo}${
-                            option.codigoBarras ? ` · ${option.codigoBarras}` : ""
-                          } · ${option.nombre}`
-                        }
+                            options={products}
+                            value={manualProduct}
+                            onChange={(_, value) => setManualProduct(value)}
+                            getOptionLabel={(option) =>
+                              `${option.codigo}${
+                                option.codigoBarras
+                                  ? ` · ${option.codigoBarras}`
+                                  : ""
+                              } · ${option.nombre}`
+                            }
                             renderInput={(params) => (
                               <TextField
                                 {...params}
                                 fullWidth
                                 label="Agregar manualmente"
                                 size="small"
-                            placeholder="Buscar por nombre, codigo o barra"
+                                placeholder="Buscar por nombre, codigo o barra"
                                 onKeyDown={(e) => {
                                   if (e.key === "Enter" && manualProduct) {
                                     e.preventDefault();
@@ -2279,11 +2280,11 @@ export function PosApp({ initialSession }: PosAppProps) {
                                       variant="caption"
                                       sx={{ color: "text.secondary" }}
                                     >
-                                  {option.codigo} ·{" "}
-                                  {option.codigoBarras
-                                    ? `${option.codigoBarras} · `
-                                    : ""}
-                                  {formatCurrency(option.precio)} ·{" "}
+                                      {option.codigo} ·{" "}
+                                      {option.codigoBarras
+                                        ? `${option.codigoBarras} · `
+                                        : ""}
+                                      {formatCurrency(option.precio)} ·{" "}
                                       {option.tipoProducto === "BIEN"
                                         ? `Stock ${option.stock.toFixed(3)}`
                                         : "Servicio"}
@@ -2762,9 +2763,7 @@ export function PosApp({ initialSession }: PosAppProps) {
                             fontWeight={700}
                             variant="body2"
                             color={
-                              remainingAmount > 0
-                                ? "primary.main"
-                                : "inherit"
+                              remainingAmount > 0 ? "primary.main" : "inherit"
                             }
                           >
                             {formatCurrency(remainingAmount)}

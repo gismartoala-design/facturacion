@@ -22,6 +22,19 @@ type PendingRequest = {
   timeoutId: number;
 };
 
+function toBase64(document: Uint8Array | string) {
+  if (typeof document === "string") {
+    return document;
+  }
+
+  let binary = "";
+  for (let index = 0; index < document.length; index += 1) {
+    binary += String.fromCharCode(document[index] ?? 0);
+  }
+
+  return window.btoa(binary);
+}
+
 export function useLocalPrintSocket() {
   const socketRef = useRef<WebSocket | null>(null);
   const connectPromiseRef = useRef<Promise<WebSocket> | null>(null);
@@ -277,21 +290,26 @@ export function useLocalPrintSocket() {
       : [];
   }
 
-  async function printBase64Document(
+  async function printDocumentBytes(
     printerName: string,
-    base64Document: string,
+    document: Uint8Array | string,
   ) {
-    console.log(`${PRINT_DEBUG_PREFIX} printBase64Document:start`, {
+    const encodedDocument = toBase64(document);
+
+    console.log(`${PRINT_DEBUG_PREFIX} printDocumentBytes:start`, {
       printerName,
-      base64Length: base64Document.length,
-      base64Preview: base64Document.slice(0, 64),
+      payloadType: typeof document === "string" ? "base64" : "uint8array",
+      originalLength:
+        typeof document === "string" ? document.length : document.byteLength,
+      base64Length: encodedDocument.length,
+      base64Preview: encodedDocument.slice(0, 64),
     });
     const response = await sendRequest("PrintDocument", {
       namePrinter: printerName,
-      documents: [base64Document],
+      documents: [encodedDocument],
     });
 
-    console.log(`${PRINT_DEBUG_PREFIX} printBase64Document:response`, response);
+    console.log(`${PRINT_DEBUG_PREFIX} printDocumentBytes:response`, response);
     if (response.StatusCode !== 200) {
       throw new Error(response.Message || "No se pudo imprimir el documento");
     }
@@ -305,6 +323,6 @@ export function useLocalPrintSocket() {
     selectedPrinter,
     setSelectedPrinter,
     loadPrinters,
-    printBase64Document,
+    printDocumentBytes,
   };
 }
