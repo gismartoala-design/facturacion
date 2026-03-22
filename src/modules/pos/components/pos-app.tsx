@@ -46,13 +46,14 @@ import {
   startTransition,
   useEffect,
   useEffectEvent,
+  useId,
   useMemo,
   useRef,
   useState,
   type MouseEvent,
   type SyntheticEvent,
 } from "react";
-import { alpha, useTheme } from "@mui/material/styles";
+import { alpha, type SxProps, type Theme, useTheme } from "@mui/material/styles";
 
 import {
   buildPosTicketHtml,
@@ -230,6 +231,116 @@ function createPaymentLine(
   };
 }
 
+function sanitizeDecimalInput(value: string, fractionDigits: number) {
+  const normalized = value.replace(",", ".").replace(/[^\d.]/g, "");
+  if (!normalized) {
+    return "";
+  }
+
+  const [integerPartRaw = "", ...fractionParts] = normalized.split(".");
+  const integerPart = integerPartRaw || "0";
+  const fractionPart = fractionParts.join("").slice(0, fractionDigits);
+  const hasDecimal = normalized.includes(".");
+
+  if (!hasDecimal) {
+    return integerPart;
+  }
+
+  return `${integerPart}.${fractionPart}`;
+}
+
+function parseDecimalInput(value: string, fallback = 0) {
+  const normalized = sanitizeDecimalInput(value, 6);
+  if (!normalized || normalized === ".") {
+    return fallback;
+  }
+
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function formatDecimalInput(
+  value: number,
+  fractionDigits: number,
+  trimTrailingZeros = false,
+) {
+  const fixed = value.toFixed(fractionDigits);
+  if (!trimTrailingZeros) {
+    return fixed;
+  }
+
+  return fixed.replace(/\.?0+$/, "");
+}
+
+type PosDecimalInputProps = {
+  value: number;
+  fractionDigits: number;
+  min?: number;
+  trimTrailingZeros?: boolean;
+  sx?: SxProps<Theme>;
+  onCommit: (value: number) => void;
+};
+
+function PosDecimalInput({
+  value,
+  fractionDigits,
+  min = 0,
+  trimTrailingZeros = false,
+  sx,
+  onCommit,
+}: PosDecimalInputProps) {
+  const [draft, setDraft] = useState(() =>
+    formatDecimalInput(value, fractionDigits, trimTrailingZeros),
+  );
+  const inputId = useId();
+
+  useEffect(() => {
+    setDraft(formatDecimalInput(value, fractionDigits, trimTrailingZeros));
+  }, [fractionDigits, trimTrailingZeros, value]);
+
+  function commitDraft() {
+    const parsed = Math.max(parseDecimalInput(draft, value), min);
+    onCommit(parsed);
+    setDraft(formatDecimalInput(parsed, fractionDigits, trimTrailingZeros));
+  }
+
+  return (
+    <TextField
+      id={inputId}
+      type="text"
+      size="small"
+      value={draft}
+      onChange={(event) =>
+        setDraft(sanitizeDecimalInput(event.target.value, fractionDigits))
+      }
+      onFocus={(event) => event.target.select()}
+      onBlur={commitDraft}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          commitDraft();
+          event.currentTarget.blur();
+          return;
+        }
+
+        if (event.key === "Escape") {
+          event.preventDefault();
+          setDraft(formatDecimalInput(value, fractionDigits, trimTrailingZeros));
+          event.currentTarget.blur();
+        }
+      }}
+      slotProps={{
+        htmlInput: {
+          inputMode: "decimal",
+          enterKeyHint: "done",
+          style: { textAlign: "right" },
+        },
+      }}
+      sx={sx}
+    />
+  );
+}
+
 function isEditableElement(target: EventTarget | null) {
   const element = target instanceof HTMLElement ? target : null;
   if (!element) return false;
@@ -371,7 +482,10 @@ export function PosApp({
 
   const allocatedAmount = useMemo(
     () =>
-      paymentLines.reduce((acc, line) => acc + Number(line.total || "0"), 0),
+      paymentLines.reduce(
+        (acc, line) => acc + parseDecimalInput(line.total || "0"),
+        0,
+      ),
     [paymentLines],
   );
 
@@ -379,7 +493,8 @@ export function PosApp({
     () =>
       paymentLines.reduce(
         (acc, line) =>
-          acc + (line.formaPago === "01" ? Number(line.total || "0") : 0),
+          acc +
+          (line.formaPago === "01" ? parseDecimalInput(line.total || "0") : 0),
         0,
       ),
     [paymentLines],
@@ -392,7 +507,9 @@ export function PosApp({
 
   const receivedAmount = useMemo(
     () =>
-      cashPaymentAllocated > 0 ? Number(cashReceived || "0") : allocatedAmount,
+      cashPaymentAllocated > 0
+        ? parseDecimalInput(cashReceived || "0")
+        : allocatedAmount,
     [allocatedAmount, cashPaymentAllocated, cashReceived],
   );
 
@@ -405,7 +522,7 @@ export function PosApp({
 
   const paymentSummaryLabel = useMemo(() => {
     const nonZeroLines = paymentLines.filter(
-      (line) => Number(line.total || "0") > 0,
+      (line) => parseDecimalInput(line.total || "0") > 0,
     );
 
     if (nonZeroLines.length === 0) {
@@ -427,7 +544,7 @@ export function PosApp({
       paymentLines
         .map((line) => ({
           formaPago: line.formaPago,
-          total: Number(line.total || "0"),
+          total: parseDecimalInput(line.total || "0"),
           plazo: 0,
           unidadTiempo: "DIAS",
         }))
@@ -498,18 +615,14 @@ export function PosApp({
         flex: 0.8,
         sortable: false,
         renderCell: (params) => (
-          <TextField
-            type="number"
-            size="small"
+          <PosDecimalInput
             value={params.row.cantidad}
-            onChange={(e) => {
-              const next = Number(e.target.value || "0");
-              // if (next <= 0) {
-              //   removeLine(params.row.productId);
-              //   return;
-              // }
-              updateLine(params.row.productId, { cantidad: next });
-            }}
+            fractionDigits={3}
+            min={0.001}
+            trimTrailingZeros
+            onCommit={(next) =>
+              updateLine(params.row.productId, { cantidad: next })
+            }
             sx={{
               minWidth: 88,
               "& .MuiInputBase-root": {
@@ -533,16 +646,14 @@ export function PosApp({
         flex: 0.85,
         sortable: false,
         renderCell: (params) => (
-          <TextField
-            type="number"
-            size="small"
+          <PosDecimalInput
             value={params.row.precioUnitario}
-            onChange={(e) =>
+            fractionDigits={2}
+            onCommit={(next) =>
               updateLine(params.row.productId, {
-                precioUnitario: Number(e.target.value || "0"),
+                precioUnitario: next,
               })
             }
-            inputProps={{ min: 0, step: "0.01" }}
             sx={{
               minWidth: 88,
               "& .MuiInputBase-root": {
@@ -566,16 +677,14 @@ export function PosApp({
         flex: 0.75,
         sortable: false,
         renderCell: (params) => (
-          <TextField
-            type="number"
-            size="small"
+          <PosDecimalInput
             value={params.row.descuento}
-            onChange={(e) =>
+            fractionDigits={2}
+            onCommit={(next) =>
               updateLine(params.row.productId, {
-                descuento: Number(e.target.value || "0"),
+                descuento: next,
               })
             }
-            inputProps={{ min: 0, step: "0.01" }}
             sx={{
               minWidth: 84,
               "& .MuiInputBase-root": {
@@ -1077,7 +1186,7 @@ export function PosApp({
 
       const otherTotal = prev
         .slice(0, -1)
-        .reduce((acc, line) => acc + Number(line.total || "0"), 0);
+        .reduce((acc, line) => acc + parseDecimalInput(line.total || "0"), 0);
       const nextAmount = Math.max(totals.total - otherTotal, 0);
 
       return prev.map((line) =>
@@ -1093,7 +1202,7 @@ export function PosApp({
       return payload.payments.map((payment) =>
         createNextPaymentLine(
           payment.formaPago,
-          Number(payment.total || 0).toFixed(2),
+          parseDecimalInput(String(payment.total ?? 0)).toFixed(2),
         ),
       );
     }
@@ -1241,7 +1350,7 @@ export function PosApp({
 
   function handleAddByCode() {
     const product = resolveProductByCode(barcodeQuery);
-    const quantity = Number(entryQuantity || "1");
+    const quantity = parseDecimalInput(entryQuantity || "1", 1);
 
     if (!product) {
       setMessage({
@@ -1263,7 +1372,7 @@ export function PosApp({
   }
 
   function handleAddManualProduct() {
-    const quantity = Number(entryQuantity || "1");
+    const quantity = parseDecimalInput(entryQuantity || "1", 1);
 
     if (!manualProduct) {
       setMessage({ tone: "error", text: "Selecciona un producto manualmente" });
@@ -1290,7 +1399,7 @@ export function PosApp({
         {
           method: "POST",
           body: JSON.stringify({
-            openingAmount: Number(openingAmount || "0"),
+            openingAmount: parseDecimalInput(openingAmount || "0"),
             notes: openingNotes,
           }),
         },
@@ -1319,7 +1428,7 @@ export function PosApp({
       await fetchJson<PosCashSession>("/api/v1/pos/cash-session", {
         method: "PATCH",
         body: JSON.stringify({
-          closingAmount: Number(closingAmount || "0"),
+          closingAmount: parseDecimalInput(closingAmount || "0"),
           notes: closingNotes,
         }),
       });
@@ -1363,7 +1472,7 @@ export function PosApp({
               paymentMethod: paymentLines[0]?.formaPago ?? "01",
               payments: paymentLines.map((line) => ({
                 formaPago: line.formaPago,
-                total: Number(line.total || "0"),
+                total: parseDecimalInput(line.total || "0"),
               })),
               customer,
               items: lineItems,
@@ -2768,10 +2877,27 @@ export function PosApp({
                           <TextField
                             fullWidth
                             label="Cant."
-                            type="number"
+                            type="text"
                             size="small"
                             value={entryQuantity}
-                            onChange={(e) => setEntryQuantity(e.target.value)}
+                            onChange={(e) =>
+                              setEntryQuantity(
+                                sanitizeDecimalInput(e.target.value, 3),
+                              )
+                            }
+                            onFocus={(e) => e.target.select()}
+                            onBlur={(e) =>
+                              setEntryQuantity(
+                                formatDecimalInput(
+                                  Math.max(
+                                    parseDecimalInput(e.target.value, 1),
+                                    0.001,
+                                  ),
+                                  3,
+                                  true,
+                                ),
+                              )
+                            }
                             onKeyDown={(e) => {
                               if (e.key !== "Enter") {
                                 return;
@@ -2787,7 +2913,13 @@ export function PosApp({
                                 handleAddManualProduct();
                               }
                             }}
-                            inputProps={{ min: 0.001, step: "0.001" }}
+                            slotProps={{
+                              htmlInput: {
+                                inputMode: "decimal",
+                                enterKeyHint: "done",
+                                style: { textAlign: "right" },
+                              },
+                            }}
                           />
                         </Grid>
                         {/* <Grid size={{ xs: 12, sm: 8, md: 2 }}>
@@ -3162,14 +3294,32 @@ export function PosApp({
                             <TextField
                               size="small"
                               label="Valor"
-                              type="number"
+                              type="text"
                               value={line.total}
                               onChange={(e) =>
                                 updatePaymentLine(line.id, {
-                                  total: e.target.value,
+                                  total: sanitizeDecimalInput(
+                                    e.target.value,
+                                    2,
+                                  ),
                                 })
                               }
-                              inputProps={{ min: 0, step: "0.01" }}
+                              onFocus={(e) => e.target.select()}
+                              onBlur={(e) =>
+                                updatePaymentLine(line.id, {
+                                  total: formatDecimalInput(
+                                    parseDecimalInput(e.target.value, 0),
+                                    2,
+                                  ),
+                                })
+                              }
+                              slotProps={{
+                                htmlInput: {
+                                  inputMode: "decimal",
+                                  enterKeyHint: "done",
+                                  style: { textAlign: "right" },
+                                },
+                              }}
                               sx={{ width: { xs: "100%", sm: 106 } }}
                               InputProps={{
                                 startAdornment: (
@@ -3197,13 +3347,30 @@ export function PosApp({
                       <TextField
                         size="small"
                         label="Recibido en efectivo"
-                        type="number"
+                        type="text"
                         value={cashReceived}
                         onChange={(e) => {
                           setCashReceivedTouched(true);
-                          setCashReceived(e.target.value);
+                          setCashReceived(
+                            sanitizeDecimalInput(e.target.value, 2),
+                          );
                         }}
-                        inputProps={{ min: 0, step: "0.01" }}
+                        onFocus={(e) => e.target.select()}
+                        onBlur={(e) =>
+                          setCashReceived(
+                            formatDecimalInput(
+                              parseDecimalInput(e.target.value, 0),
+                              2,
+                            ),
+                          )
+                        }
+                        slotProps={{
+                          htmlInput: {
+                            inputMode: "decimal",
+                            enterKeyHint: "done",
+                            style: { textAlign: "right" },
+                          },
+                        }}
                         disabled={cashPaymentAllocated <= 0}
                         helperText={
                           cashPaymentAllocated > 0
@@ -3266,9 +3433,13 @@ export function PosApp({
         openingNotes={openingNotes}
         closingAmount={closingAmount}
         closingNotes={closingNotes}
-        onOpeningAmountChange={setOpeningAmount}
+        onOpeningAmountChange={(value) =>
+          setOpeningAmount(sanitizeDecimalInput(value, 2))
+        }
         onOpeningNotesChange={setOpeningNotes}
-        onClosingAmountChange={setClosingAmount}
+        onClosingAmountChange={(value) =>
+          setClosingAmount(sanitizeDecimalInput(value, 2))
+        }
         onClosingNotesChange={setClosingNotes}
         onOpenCash={() => void openCash()}
         onCloseCash={() => void closeCash()}

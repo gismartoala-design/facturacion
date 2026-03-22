@@ -119,10 +119,18 @@ export function PosCashSessionDialog({
             <Stack spacing={2}>
               <TextField
                 label="Monto inicial"
-                type="number"
+                type="text"
                 value={openingAmount}
                 onChange={(e) => onOpeningAmountChange(e.target.value)}
-                inputProps={{ min: 0, step: "0.01" }}
+                onFocus={(e) => e.target.select()}
+                onBlur={(e) => onOpeningAmountChange(e.target.value)}
+                slotProps={{
+                  htmlInput: {
+                    inputMode: "decimal",
+                    enterKeyHint: "done",
+                    style: { textAlign: "right" },
+                  },
+                }}
               />
               <TextField
                 label="Notas de apertura"
@@ -135,10 +143,18 @@ export function PosCashSessionDialog({
             <Stack spacing={2}>
               <TextField
                 label="Valor de cierre"
-                type="number"
+                type="text"
                 value={closingAmount}
                 onChange={(e) => onClosingAmountChange(e.target.value)}
-                inputProps={{ min: 0, step: "0.01" }}
+                onFocus={(e) => e.target.select()}
+                onBlur={(e) => onClosingAmountChange(e.target.value)}
+                slotProps={{
+                  htmlInput: {
+                    inputMode: "decimal",
+                    enterKeyHint: "done",
+                    style: { textAlign: "right" },
+                  },
+                }}
               />
               <TextField
                 label="Notas de cierre"
