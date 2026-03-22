@@ -5,6 +5,10 @@ import type { PosTicketData } from "@/lib/pos-ticket-template";
 const TICKET_WIDTH = 42;
 const MONEY_WIDTH = 10;
 const LEFT_WIDTH = TICKET_WIDTH - MONEY_WIDTH;
+const DESC_WIDTH = 18;
+const QTY_WIDTH = 5;
+const UNIT_WIDTH = 9;
+const TOTAL_WIDTH = 10;
 
 function formatMoney(value: number) {
   return value.toFixed(2);
@@ -83,14 +87,6 @@ function padLeft(text: string, width: number) {
   return repeat(" ", width - text.length) + text;
 }
 
-function centerText(text: string, width: number) {
-  if (text.length >= width) return text.slice(0, width);
-  const total = width - text.length;
-  const left = Math.floor(total / 2);
-  const right = total - left;
-  return repeat(" ", left) + text + repeat(" ", right);
-}
-
 function divider(char = "=") {
   return repeat(char, TICKET_WIDTH);
 }
@@ -111,6 +107,63 @@ function labelValueLines(label: string, value: string, width = TICKET_WIDTH) {
   return wrapped.map((line, index) =>
     index === 0 ? `${prefix}${line}` : `${repeat(" ", prefix.length)}${line}`,
   );
+}
+
+function itemHeaderLine() {
+  return (
+    padRight("DESCRIP", DESC_WIDTH) +
+    padLeft("CANT", QTY_WIDTH) +
+    padLeft("P.UNIT", UNIT_WIDTH) +
+    padLeft("P.TOTAL", TOTAL_WIDTH)
+  );
+}
+
+function itemColumnLines(
+  description: string,
+  quantity: number,
+  unitPrice: number,
+  total: number,
+) {
+  const wrappedDescription = wrapText(description, DESC_WIDTH);
+
+  return wrappedDescription.map((line, index) =>
+    padRight(line, DESC_WIDTH) +
+    padLeft(index === 0 ? quantity.toFixed(2) : "", QTY_WIDTH) +
+    padLeft(index === 0 ? `$${formatMoney(unitPrice)}` : "", UNIT_WIDTH) +
+    padLeft(index === 0 ? `$${formatMoney(total)}` : "", TOTAL_WIDTH),
+  );
+}
+
+function inferDocumentTitle(documentLabel: string, documentNumber: string | null) {
+  const label = normalizePrintableText(documentLabel).trim();
+  const normalizedNumber = normalizePrintableText(documentNumber ?? "").trim();
+
+  if (!label) {
+    return normalizedNumber ? "DOCUMENTO" : "TICKET";
+  }
+
+  if (normalizedNumber && label.includes(normalizedNumber)) {
+    if (label.toUpperCase().includes("FACTURA")) {
+      return "FACTURA";
+    }
+
+    if (label.toUpperCase().includes("TICKET")) {
+      return "TICKET";
+    }
+
+    return "DOCUMENTO";
+  }
+
+  return label.toUpperCase();
+}
+
+function paymentLines(paymentMethodLabel: string) {
+  const lines = wrapText(paymentMethodLabel, TICKET_WIDTH - 2);
+
+  return [
+    "Forma de pago:",
+    ...lines.map((line, index) => (index === 0 ? line : ` ${line}`)),
+  ];
 }
 
 export type EscPosBuildResult = {
@@ -209,6 +262,10 @@ class EscPos {
 
 export function buildPosTicketEscPos(data: PosTicketData): EscPosBuildResult {
   const esc = new EscPos();
+  const documentTitle = inferDocumentTitle(
+    data.documentLabel ?? "",
+    data.documentNumber,
+  );
 
   esc.initialize();
   esc.codePagePc858();
@@ -221,24 +278,35 @@ export function buildPosTicketEscPos(data: PosTicketData): EscPosBuildResult {
     (data.businessName ?? "").toUpperCase(),
     TICKET_WIDTH,
   )) {
-    esc.line(centerText(line, TICKET_WIDTH));
+    esc.line(line);
   }
   esc.boldOff();
 
-  if (data.documentLabel) {
-    for (const line of wrapText(data.documentLabel, TICKET_WIDTH - 4)) {
-      esc.line(centerText(line, TICKET_WIDTH));
+  if (documentTitle) {
+    esc.boldOn();
+    for (const line of wrapText(documentTitle, TICKET_WIDTH)) {
+      esc.line(line);
     }
+    esc.boldOff();
   }
 
   if (data.documentNumber) {
-    for (const line of wrapText(data.documentNumber, TICKET_WIDTH - 4)) {
-      esc.line(centerText(line, TICKET_WIDTH));
+    for (const line of wrapText(data.documentNumber, TICKET_WIDTH)) {
+      esc.line(line);
+    }
+  }
+
+  if (
+    data.documentLabel &&
+    normalizePrintableText(data.documentLabel).trim() !== documentTitle
+  ) {
+    for (const line of wrapText(data.documentLabel, TICKET_WIDTH)) {
+      esc.line(line);
     }
   }
 
   if (data.saleNumber) {
-    esc.line(centerText(`Venta #${data.saleNumber}`, TICKET_WIDTH));
+    esc.line(`Venta #${data.saleNumber}`);
   }
 
   esc.alignLeft();
@@ -256,42 +324,41 @@ export function buildPosTicketEscPos(data: PosTicketData): EscPosBuildResult {
     esc.line(line);
   }
 
-  for (const line of labelValueLines("Pago", data.paymentMethodLabel ?? "")) {
-    esc.line(line);
-  }
-
   esc.line(divider("="));
   esc.boldOn();
-  esc.line("DETALLE");
+  esc.line(itemHeaderLine());
   esc.boldOff();
   esc.line(divider("-"));
 
   for (const item of data.lines ?? []) {
     const itemName = normalizePrintableText((item.name ?? "").toUpperCase());
 
-    for (const line of wrapText(itemName, TICKET_WIDTH)) {
-      esc.boldOn();
-      esc.line(line);
-      esc.boldOff();
-    }
-
-    for (const line of wrapText(
-      `${item.quantity.toFixed(2)} x ${formatMoney(item.unitPrice)} = ${formatMoney(item.total)}`,
-      TICKET_WIDTH - 2,
+    esc.boldOn();
+    for (const line of itemColumnLines(
+      itemName,
+      item.quantity,
+      item.unitPrice,
+      item.total,
     )) {
-      esc.line(` ${line}`);
+      esc.line(line);
     }
+    esc.boldOff();
   }
 
   esc.line(divider("-"));
   esc.line(twoColumns("Subtotal", formatMoney(data.subtotal ?? 0)));
+  esc.line(twoColumns("Dcto", "0.00"));
   esc.line(twoColumns("IVA", formatMoney(data.taxTotal ?? 0)));
 
   esc.boldOn();
   esc.line(twoColumns("TOTAL", formatMoney(data.total ?? 0)));
   esc.boldOff();
 
-  esc.line(divider("="));
+  esc.line(divider("-"));
+  for (const line of paymentLines(data.paymentMethodLabel ?? "")) {
+    esc.line(line);
+  }
+  esc.line(divider("-"));
   esc.alignCenter();
   esc.boldOn();
   esc.line("Gracias por su compra");
