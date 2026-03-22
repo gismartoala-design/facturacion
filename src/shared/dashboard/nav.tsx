@@ -217,6 +217,48 @@ export function MvpDashboardNav({
   const panelBg = alpha(theme.palette.background.paper, 0.88);
   const surfaceBg = alpha(theme.palette.background.paper, 0.96);
   const mobileCardBg = alpha(theme.palette.background.paper, 0.86);
+  const scrollbarThumb = alpha(theme.palette.primary.main, 0.28);
+  const scrollbarThumbHover = alpha(theme.palette.primary.main, 0.42);
+  const scrollbarTrack = alpha(theme.palette.background.default, 0.78);
+  const desktopScrollbarSx = {
+    scrollbarWidth: "thin",
+    scrollbarColor: `${scrollbarThumb} ${scrollbarTrack}`,
+    "&::-webkit-scrollbar": {
+      width: 8,
+    },
+    "&::-webkit-scrollbar-track": {
+      backgroundColor: scrollbarTrack,
+      borderRadius: 999,
+    },
+    "&::-webkit-scrollbar-thumb": {
+      backgroundColor: scrollbarThumb,
+      borderRadius: 999,
+      border: `2px solid ${scrollbarTrack}`,
+    },
+    "&::-webkit-scrollbar-thumb:hover": {
+      backgroundColor: scrollbarThumbHover,
+    },
+  } as const;
+  const mobileScrollbarSx = {
+    scrollbarWidth: "thin",
+    scrollbarColor: `${scrollbarThumb} transparent`,
+    "&::-webkit-scrollbar": {
+      height: 8,
+    },
+    "&::-webkit-scrollbar-track": {
+      backgroundColor: alpha(theme.palette.background.default, 0.5),
+      borderRadius: 999,
+      marginInline: 8,
+    },
+    "&::-webkit-scrollbar-thumb": {
+      background: `linear-gradient(90deg, ${scrollbarThumb}, ${alpha(theme.palette.secondary.main, 0.34)})`,
+      borderRadius: 999,
+      border: `2px solid ${alpha(theme.palette.background.paper, 0.9)}`,
+    },
+    "&::-webkit-scrollbar-thumb:hover": {
+      background: `linear-gradient(90deg, ${scrollbarThumbHover}, ${alpha(theme.palette.secondary.main, 0.48)})`,
+    },
+  } as const;
 
   return (
     <>
@@ -317,6 +359,7 @@ export function MvpDashboardNav({
             flex: 1,
             overflowY: "auto",
             pr: 0.5,
+            ...desktopScrollbarSx,
           }}
         >
           <Typography
@@ -417,10 +460,16 @@ export function MvpDashboardNav({
             overflowX: "auto",
             pb: 0.5,
             pr: 0.25,
+            scrollBehavior: "smooth",
+            scrollSnapType: "x proximity",
+            ...mobileScrollbarSx,
           }}
         >
           {visibleItems.map((item) => (
-            <Box key={`mobile-${item.href}`} sx={{ minWidth: 180, flexShrink: 0 }}>
+            <Box
+              key={`mobile-${item.href}`}
+              sx={{ minWidth: 180, flexShrink: 0, scrollSnapAlign: "start" }}
+            >
               <NavLinkCard
                 item={item}
                 active={pathname === item.href}
