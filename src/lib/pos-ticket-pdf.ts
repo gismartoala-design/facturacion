@@ -2,17 +2,40 @@
 
 import type { PosTicketData } from "@/lib/pos-ticket-template";
 
-const TICKET_WIDTH = 32;
+function readEnvInt(name: string, fallback: number) {
+  const raw = process.env[name];
+  if (!raw) {
+    return fallback;
+  }
+
+  const value = Number.parseInt(raw, 10);
+  return Number.isFinite(value) ? value : fallback;
+}
+
+const TICKET_WIDTH = readEnvInt("NEXT_PUBLIC_POS_TICKET_WIDTH", 32);
 
 // Columnas del detalle
-const DESC_WIDTH = 12;
-const QTY_WIDTH = 5;
-const UNIT_WIDTH = 7;
-const TOTAL_WIDTH = 8;
+const DESC_WIDTH = readEnvInt("NEXT_PUBLIC_POS_TICKET_DESC_WIDTH", 12);
+const QTY_WIDTH = readEnvInt("NEXT_PUBLIC_POS_TICKET_QTY_WIDTH", 5);
+const UNIT_WIDTH = readEnvInt("NEXT_PUBLIC_POS_TICKET_UNIT_WIDTH", 7);
+const TOTAL_WIDTH = readEnvInt("NEXT_PUBLIC_POS_TICKET_TOTAL_WIDTH", 8);
 
 // Totales
-const MONEY_WIDTH = 10;
-const LABEL_WIDTH = 22;
+const MONEY_WIDTH = readEnvInt("NEXT_PUBLIC_POS_TICKET_MONEY_WIDTH", 10);
+const LABEL_WIDTH = readEnvInt("NEXT_PUBLIC_POS_TICKET_LABEL_WIDTH", 22);
+
+
+// const TICKET_WIDTH = 32;
+
+// // Columnas del detalle
+// const DESC_WIDTH = 12;
+// const QTY_WIDTH = 5;
+// const UNIT_WIDTH = 7;
+// const TOTAL_WIDTH = 8;
+
+// // Totales
+// const MONEY_WIDTH = 10;
+// const LABEL_WIDTH = 22;
 
 function formatMoney(value: number) {
   return value.toFixed(2);
