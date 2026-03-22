@@ -1,8 +1,15 @@
-import { ReferenceType, type SaleStatus } from "@prisma/client";
+import { Prisma, ReferenceType, type SaleStatus } from "@prisma/client";
 
 import type { CheckoutInput } from "@/core/sales/schemas";
+import { createLogger, startTimer, timerDurationMs } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { roundMoney } from "@/lib/utils";
+
+const logger = createLogger("SalesCreate");
+
+type SaleTimingContext = {
+  startedAt: number;
+};
 
 export type CreatedSaleContext = {
   sale: {
@@ -48,10 +55,16 @@ export type CreatedSaleContext = {
   };
 };
 
-export async function createSale(input: CheckoutInput): Promise<CreatedSaleContext> {
+export async function createSaleInTransaction(
+  tx: Prisma.TransactionClient,
+  input: CheckoutInput,
+  timing?: SaleTimingContext,
+): Promise<CreatedSaleContext> {
   const paymentSum = roundMoney(input.payments.reduce((acc, payment) => acc + payment.total, 0));
+  const startedAt = timing?.startedAt ?? startTimer();
 
-  return prisma.$transaction(async (tx) => {
+  try {
+    const customerStartedAt = startTimer();
     const customer = await tx.customer.upsert({
       where: {
         tipoIdentificacion_identificacion: {
@@ -76,6 +89,7 @@ export async function createSale(input: CheckoutInput): Promise<CreatedSaleConte
     });
 
     const productIds = [...new Set(input.items.map((item) => item.productId))];
+    const productsStartedAt = startTimer();
     const products = await tx.product.findMany({
       where: {
         id: { in: productIds },
@@ -99,9 +113,13 @@ export async function createSale(input: CheckoutInput): Promise<CreatedSaleConte
         continue;
       }
 
-      aggregateQty.set(item.productId, (aggregateQty.get(item.productId) ?? 0) + item.cantidad);
+      aggregateQty.set(
+        item.productId,
+        (aggregateQty.get(item.productId) ?? 0) + item.cantidad,
+      );
     }
 
+    const stockStartedAt = startTimer();
     for (const [productId, qty] of aggregateQty) {
       const updated = await tx.stockLevel.updateMany({
         where: {
@@ -150,15 +168,22 @@ export async function createSale(input: CheckoutInput): Promise<CreatedSaleConte
       };
     });
 
-    const subtotal = roundMoney(lineComputations.reduce((acc, line) => acc + line.lineSubtotal, 0));
-    const discountTotal = roundMoney(lineComputations.reduce((acc, line) => acc + line.discount, 0));
-    const taxTotal = roundMoney(lineComputations.reduce((acc, line) => acc + line.lineTax, 0));
+    const subtotal = roundMoney(
+      lineComputations.reduce((acc, line) => acc + line.lineSubtotal, 0),
+    );
+    const discountTotal = roundMoney(
+      lineComputations.reduce((acc, line) => acc + line.discount, 0),
+    );
+    const taxTotal = roundMoney(
+      lineComputations.reduce((acc, line) => acc + line.lineTax, 0),
+    );
     const total = roundMoney(subtotal + taxTotal);
 
     if (roundMoney(paymentSum) !== total) {
       throw new Error("La suma de pagos no coincide con el total de la venta");
     }
 
+    const persistenceStartedAt = startTimer();
     const sale = await tx.sale.create({
       data: {
         customerId: customer.id,
@@ -212,6 +237,17 @@ export async function createSale(input: CheckoutInput): Promise<CreatedSaleConte
       });
     }
 
+    logger.info("create-sale:completed", {
+      saleId: sale.id,
+      saleNumber: sale.saleNumber.toString(),
+      itemCount: lineComputations.length,
+      customerUpsertMs: timerDurationMs(customerStartedAt),
+      productLoadMs: timerDurationMs(productsStartedAt),
+      stockMs: timerDurationMs(stockStartedAt),
+      persistenceMs: timerDurationMs(persistenceStartedAt),
+      durationMs: timerDurationMs(startedAt),
+    });
+
     return {
       sale: {
         id: sale.id,
@@ -242,5 +278,18 @@ export async function createSale(input: CheckoutInput): Promise<CreatedSaleConte
         infoAdicional: input.infoAdicional,
       },
     };
-  });
+  } catch (error) {
+    logger.error("create-sale:failed", {
+      durationMs: timerDurationMs(startedAt),
+      message: error instanceof Error ? error.message : "Error desconocido",
+    });
+    throw error;
+  }
+}
+
+export async function createSale(input: CheckoutInput): Promise<CreatedSaleContext> {
+  const startedAt = startTimer();
+  return prisma.$transaction((tx) =>
+    createSaleInTransaction(tx, input, { startedAt }),
+  );
 }

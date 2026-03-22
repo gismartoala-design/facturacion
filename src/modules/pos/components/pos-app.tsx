@@ -22,8 +22,12 @@ import {
 } from "@mui/material";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import {
+  Check,
+  LayoutDashboard,
   Loader2,
+  LogOut,
   MoreHorizontal,
+  Monitor,
   PauseCircle,
   Plus,
   Printer,
@@ -34,6 +38,8 @@ import {
   Trash2,
   UserRoundSearch,
   Wallet,
+  Wifi,
+  WifiOff,
 } from "lucide-react";
 import NextLink from "next/link";
 import {
@@ -52,6 +58,7 @@ import {
   buildPosTicketHtml,
   type PosTicketData,
 } from "@/lib/pos-ticket-template";
+import { createLogger, startTimer, timerDurationMs } from "@/lib/logger";
 import { PosCashSessionDialog } from "@/modules/pos/components/pos-cash-session-dialog";
 import { PosHeldSalesDialog } from "@/modules/pos/components/pos-held-sales-dialog";
 import { useLocalPrintSocket } from "@/modules/pos/hooks/use-local-print-socket";
@@ -70,6 +77,8 @@ type PosAppProps = {
     name: string;
     role: "ADMIN" | "SELLER";
   };
+  initialBootstrap: PosBootstrap | null;
+  initialBootstrapError?: string | null;
 };
 
 type PosDocumentType = "NONE" | "INVOICE";
@@ -113,7 +122,7 @@ type PosHeldSale = {
   payload: PosHeldSalePayload | null;
 };
 
-type PosBootstrap = {
+export type PosBootstrap = {
   business: {
     id: string;
     name: string;
@@ -186,6 +195,8 @@ const WALK_IN_CUSTOMER = {
   telefono: "",
 };
 
+const posLogger = createLogger("POSApp");
+
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("es-EC", {
     style: "currency",
@@ -205,12 +216,13 @@ function buildDefaultCustomer() {
   return { ...WALK_IN_CUSTOMER };
 }
 
-function createPaymentLine(formaPago = "01", total = "0.00"): PosPaymentLine {
+function createPaymentLine(
+  id: string,
+  formaPago = "01",
+  total = "0.00",
+): PosPaymentLine {
   return {
-    id:
-      typeof crypto !== "undefined" && "randomUUID" in crypto
-        ? crypto.randomUUID()
-        : `pay-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    id,
     formaPago,
     total,
   };
@@ -229,12 +241,23 @@ function isEditableElement(target: EventTarget | null) {
   );
 }
 
-export function PosApp({ initialSession }: PosAppProps) {
+export function PosApp({
+  initialSession,
+  initialBootstrap,
+  initialBootstrapError = null,
+}: PosAppProps) {
   const theme = useTheme();
   const barcodeInputRef = useRef<HTMLInputElement | null>(null);
+  const identificationInputRef = useRef<HTMLInputElement | null>(null);
   const customerNameInputRef = useRef<HTMLInputElement | null>(null);
-  const [bootstrap, setBootstrap] = useState<PosBootstrap | null>(null);
-  const [bootLoading, setBootLoading] = useState(true);
+  const paymentLineSequenceRef = useRef(0);
+  const [bootstrap, setBootstrap] = useState<PosBootstrap | null>(
+    initialBootstrap,
+  );
+  const [bootLoading, setBootLoading] = useState(false);
+  const [bootError, setBootError] = useState<string | null>(
+    initialBootstrapError,
+  );
   const [initialized, setInitialized] = useState(false);
   const [message, setMessage] = useState<MessageState>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -242,14 +265,18 @@ export function PosApp({ initialSession }: PosAppProps) {
   const [holding, setHolding] = useState(false);
   const [cashDialogOpen, setCashDialogOpen] = useState(false);
   const [heldSalesDialogOpen, setHeldSalesDialogOpen] = useState(false);
+  const [deletingHeldSaleId, setDeletingHeldSaleId] = useState<string | null>(
+    null,
+  );
   const [showExtraCustomerFields, setShowExtraCustomerFields] = useState(false);
   const [toolbarMenuAnchor, setToolbarMenuAnchor] =
     useState<null | HTMLElement>(null);
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
   const [customer, setCustomer] = useState(buildDefaultCustomer);
-  const [paymentLines, setPaymentLines] = useState<PosPaymentLine[]>(() => [
-    createPaymentLine(),
-  ]);
+  const [paymentLines, setPaymentLines] = useState<PosPaymentLine[]>(() => {
+    paymentLineSequenceRef.current += 1;
+    return [createPaymentLine(`pay-${paymentLineSequenceRef.current}`)];
+  });
   const [paymentLinesTouched, setPaymentLinesTouched] = useState(false);
   const [cashReceived, setCashReceived] = useState("0.00");
   const [cashReceivedTouched, setCashReceivedTouched] = useState(false);
@@ -294,12 +321,16 @@ export function PosApp({ initialSession }: PosAppProps) {
   const successSoft = alpha(theme.palette.success.main, 0.12);
   const headerOutline = alpha(theme.palette.common.white, 0.28);
   const totalGradient = `linear-gradient(180deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`;
+  const productsById = useMemo(
+    () => new Map(products.map((product) => [product.id, product])),
+    [products],
+  );
 
   const linePreview = useMemo<LinePreviewRow[]>(
     () =>
       lineItems
         .map((line) => {
-          const product = products.find((item) => item.id === line.productId);
+          const product = productsById.get(line.productId);
           if (!product) return null;
 
           const subtotal = line.cantidad * line.precioUnitario - line.descuento;
@@ -314,8 +345,17 @@ export function PosApp({ initialSession }: PosAppProps) {
           };
         })
         .filter((line): line is LinePreviewRow => Boolean(line)),
-    [lineItems, products],
+    [lineItems, productsById],
   );
+
+  function createNextPaymentLine(formaPago = "01", total = "0.00") {
+    paymentLineSequenceRef.current += 1;
+    return createPaymentLine(
+      `pay-${paymentLineSequenceRef.current}`,
+      formaPago,
+      total,
+    );
+  }
 
   const totals = useMemo(
     () => ({
@@ -440,7 +480,7 @@ export function PosApp({ initialSession }: PosAppProps) {
               }}
             >
               {params.row.product.tipoProducto === "BIEN"
-                ? `Stock ${params.row.product.stock.toFixed(3)}`
+                ? `Stock ${params.row.product.stock.toFixed(2)}`
                 : "Servicio"}
             </Typography>
           </Stack>
@@ -459,13 +499,12 @@ export function PosApp({ initialSession }: PosAppProps) {
             value={params.row.cantidad}
             onChange={(e) => {
               const next = Number(e.target.value || "0");
-              if (next <= 0) {
-                removeLine(params.row.productId);
-                return;
-              }
+              // if (next <= 0) {
+              //   removeLine(params.row.productId);
+              //   return;
+              // }
               updateLine(params.row.productId, { cantidad: next });
             }}
-            inputProps={{ min: 0.001, step: "0.001" }}
             sx={{
               minWidth: 88,
               "& .MuiInputBase-root": {
@@ -592,11 +631,142 @@ export function PosApp({ initialSession }: PosAppProps) {
     [],
   );
 
+  function patchBootstrap(updater: (current: PosBootstrap) => PosBootstrap) {
+    startTransition(() => {
+      setBootstrap((current) => (current ? updater(current) : current));
+    });
+  }
+
+  function setCashSessionInBootstrap(nextCashSession: PosCashSession | null) {
+    patchBootstrap((current) => ({
+      ...current,
+      cashSession: nextCashSession,
+    }));
+  }
+
+  function upsertHeldSaleInBootstrap(nextHeldSale: PosHeldSale) {
+    patchBootstrap((current) => ({
+      ...current,
+      heldSales: [
+        nextHeldSale,
+        ...current.heldSales.filter((item) => item.id !== nextHeldSale.id),
+      ].slice(0, 12),
+    }));
+  }
+
+  function removeHeldSaleFromBootstrap(heldSaleId: string) {
+    patchBootstrap((current) => ({
+      ...current,
+      heldSales: current.heldSales.filter((item) => item.id !== heldSaleId),
+    }));
+  }
+
+  function applyCheckoutToBootstrap(
+    nextCustomer: typeof customer,
+    soldLines: LinePreviewRow[],
+    saleTotal: number,
+    heldSaleIdToRemove: string | null,
+  ) {
+    const purchasedAt = new Date().toISOString();
+    const soldQtyByProduct = new Map<string, number>();
+
+    for (const line of soldLines) {
+      if (line.product.tipoProducto !== "BIEN") {
+        continue;
+      }
+
+      soldQtyByProduct.set(
+        line.productId,
+        (soldQtyByProduct.get(line.productId) ?? 0) + line.cantidad,
+      );
+    }
+
+    patchBootstrap((current) => {
+      const existingCustomerIndex = current.customers.findIndex(
+        (item) =>
+          item.tipoIdentificacion === nextCustomer.tipoIdentificacion &&
+          item.identificacion === nextCustomer.identificacion,
+      );
+
+      const nextCustomers =
+        existingCustomerIndex >= 0
+          ? current.customers.map((item, index) =>
+              index === existingCustomerIndex
+                ? {
+                    ...item,
+                    razonSocial: nextCustomer.razonSocial,
+                    direccion: nextCustomer.direccion || null,
+                    email: nextCustomer.email || null,
+                    telefono: nextCustomer.telefono || null,
+                    purchaseCount: item.purchaseCount + 1,
+                    lastPurchaseAt: purchasedAt,
+                  }
+                : item,
+            )
+          : [
+              {
+                id: `local-${nextCustomer.tipoIdentificacion}-${nextCustomer.identificacion}`,
+                tipoIdentificacion: nextCustomer.tipoIdentificacion,
+                identificacion: nextCustomer.identificacion,
+                razonSocial: nextCustomer.razonSocial,
+                direccion: nextCustomer.direccion || null,
+                email: nextCustomer.email || null,
+                telefono: nextCustomer.telefono || null,
+                purchaseCount: 1,
+                lastPurchaseAt: purchasedAt,
+              },
+              ...current.customers,
+            ].slice(0, 40);
+
+      return {
+        ...current,
+        products:
+          soldQtyByProduct.size === 0
+            ? current.products
+            : current.products.map((product) => {
+                const soldQty = soldQtyByProduct.get(product.id);
+                if (!soldQty || product.tipoProducto !== "BIEN") {
+                  return product;
+                }
+
+                return {
+                  ...product,
+                  stock: Number(
+                    Math.max(product.stock - soldQty, 0).toFixed(3),
+                  ),
+                };
+              }),
+        customers: nextCustomers,
+        cashSession: current.cashSession
+          ? {
+              ...current.cashSession,
+              salesCount: current.cashSession.salesCount + 1,
+              salesTotal: Number(
+                (current.cashSession.salesTotal + saleTotal).toFixed(2),
+              ),
+            }
+          : current.cashSession,
+        heldSales: heldSaleIdToRemove
+          ? current.heldSales.filter((item) => item.id !== heldSaleIdToRemove)
+          : current.heldSales,
+      };
+    });
+  }
+
   async function loadBootstrap() {
+    const startedAt = startTimer();
     setBootLoading(true);
+    setBootError(null);
 
     try {
       const data = await fetchJson<PosBootstrap>("/api/v1/pos/bootstrap");
+      posLogger.info("bootstrap:loaded", {
+        durationMs: timerDurationMs(startedAt),
+        productCount: data.products.length,
+        customerCount: data.customers.length,
+        heldSalesCount: data.heldSales.length,
+        hasCashSession: Boolean(data.cashSession),
+      });
       startTransition(() => {
         setBootstrap(data);
         if (!data.billingEnabled) {
@@ -604,9 +774,16 @@ export function PosApp({ initialSession }: PosAppProps) {
         }
       });
     } catch (error) {
+      const nextMessage =
+        error instanceof Error ? error.message : "No se pudo cargar POS";
+      setBootError(nextMessage);
       setMessage({
         tone: "error",
-        text: error instanceof Error ? error.message : "No se pudo cargar POS",
+        text: nextMessage,
+      });
+      posLogger.error("bootstrap:failed", {
+        durationMs: timerDurationMs(startedAt),
+        message: nextMessage,
       });
     } finally {
       setBootLoading(false);
@@ -650,17 +827,13 @@ export function PosApp({ initialSession }: PosAppProps) {
   }
 
   useEffect(() => {
-    void loadBootstrap();
-  }, []);
-
-  useEffect(() => {
     if (!bootstrap || initialized) {
       return;
     }
 
     setLineItems([]);
     setCustomer(buildDefaultCustomer());
-    setPaymentLines([createPaymentLine("01", "0.00")]);
+    setPaymentLines([createNextPaymentLine("01", "0.00")]);
     setPaymentLinesTouched(false);
     setCashReceived("0.00");
     setCashReceivedTouched(false);
@@ -796,7 +969,7 @@ export function PosApp({ initialSession }: PosAppProps) {
   function resetSaleState(nextDocumentType?: PosDocumentType) {
     setLineItems([]);
     setCustomer(buildDefaultCustomer());
-    setPaymentLines([createPaymentLine("01", "0.00")]);
+    setPaymentLines([createNextPaymentLine("01", "0.00")]);
     setPaymentLinesTouched(false);
     setCashReceived("0.00");
     setCashReceivedTouched(false);
@@ -834,6 +1007,20 @@ export function PosApp({ initialSession }: PosAppProps) {
     });
   }
 
+  function focusIdentificationField(select = false) {
+    window.requestAnimationFrame(() => {
+      const input = identificationInputRef.current;
+      if (!input) {
+        return;
+      }
+
+      input.focus();
+      if (select) {
+        input.select();
+      }
+    });
+  }
+
   function focusCustomerNameField(select = false) {
     window.requestAnimationFrame(() => {
       const input = customerNameInputRef.current;
@@ -857,7 +1044,7 @@ export function PosApp({ initialSession }: PosAppProps) {
 
   function addPaymentLine() {
     setPaymentLinesTouched(true);
-    setPaymentLines((prev) => [...prev, createPaymentLine("19", "0.00")]);
+    setPaymentLines((prev) => [...prev, createNextPaymentLine("19", "0.00")]);
   }
 
   function removePaymentLine(lineId: string) {
@@ -875,7 +1062,7 @@ export function PosApp({ initialSession }: PosAppProps) {
     setPaymentLinesTouched(true);
     setPaymentLines((prev) => {
       if (prev.length === 0) {
-        return [createPaymentLine("01", totals.total.toFixed(2))];
+        return [createNextPaymentLine("01", totals.total.toFixed(2))];
       }
 
       const lastLine = prev.at(-1);
@@ -899,14 +1086,14 @@ export function PosApp({ initialSession }: PosAppProps) {
   function normalizeHeldSalePayments(payload: PosHeldSalePayload) {
     if (payload.payments && payload.payments.length > 0) {
       return payload.payments.map((payment) =>
-        createPaymentLine(
+        createNextPaymentLine(
           payment.formaPago,
           Number(payment.total || 0).toFixed(2),
         ),
       );
     }
 
-    return [createPaymentLine(payload.paymentMethod ?? "01", "0.00")];
+    return [createNextPaymentLine(payload.paymentMethod ?? "01", "0.00")];
   }
 
   function resolveProductByCode(query: string) {
@@ -1088,20 +1275,23 @@ export function PosApp({ initialSession }: PosAppProps) {
     setCashSubmitting(true);
 
     try {
-      await fetchJson<PosCashSession>("/api/v1/pos/cash-session", {
-        method: "POST",
-        body: JSON.stringify({
-          openingAmount: Number(openingAmount || "0"),
-          notes: openingNotes,
-        }),
-      });
+      const cashSession = await fetchJson<PosCashSession>(
+        "/api/v1/pos/cash-session",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            openingAmount: Number(openingAmount || "0"),
+            notes: openingNotes,
+          }),
+        },
+      );
 
+      setCashSessionInBootstrap(cashSession);
       setMessage({ tone: "success", text: "Caja abierta correctamente" });
       setOpeningNotes("");
       setClosingAmount("");
       setClosingNotes("");
       setCashDialogOpen(false);
-      await loadBootstrap();
     } catch (error) {
       setMessage({
         tone: "error",
@@ -1124,11 +1314,11 @@ export function PosApp({ initialSession }: PosAppProps) {
         }),
       });
 
+      setCashSessionInBootstrap(null);
       setMessage({ tone: "success", text: "Caja cerrada correctamente" });
       setClosingAmount("");
       setClosingNotes("");
       setCashDialogOpen(false);
-      await loadBootstrap();
     } catch (error) {
       setMessage({
         tone: "error",
@@ -1151,27 +1341,30 @@ export function PosApp({ initialSession }: PosAppProps) {
     setHolding(true);
 
     try {
-      await fetchJson<PosHeldSale>("/api/v1/pos/held-sales", {
-        method: "POST",
-        body: JSON.stringify({
-          heldSaleId: activeHeldSaleId ?? undefined,
-          label: heldLabel.trim() || `Espera ${format(new Date(), "HH:mm")}`,
-          payload: {
-            documentType,
-            paymentMethod: paymentLines[0]?.formaPago ?? "01",
-            payments: paymentLines.map((line) => ({
-              formaPago: line.formaPago,
-              total: Number(line.total || "0"),
-            })),
-            customer,
-            items: lineItems,
-          },
-        }),
-      });
+      const savedHeldSale = await fetchJson<PosHeldSale>(
+        "/api/v1/pos/held-sales",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            heldSaleId: activeHeldSaleId ?? undefined,
+            label: heldLabel.trim() || `Espera ${format(new Date(), "HH:mm")}`,
+            payload: {
+              documentType,
+              paymentMethod: paymentLines[0]?.formaPago ?? "01",
+              payments: paymentLines.map((line) => ({
+                formaPago: line.formaPago,
+                total: Number(line.total || "0"),
+              })),
+              customer,
+              items: lineItems,
+            },
+          }),
+        },
+      );
 
+      upsertHeldSaleInBootstrap(savedHeldSale);
       setMessage({ tone: "success", text: "Venta en espera guardada" });
       resetSaleState(bootstrap?.defaultDocumentType);
-      await loadBootstrap();
     } catch (error) {
       setMessage({
         tone: "error",
@@ -1219,16 +1412,21 @@ export function PosApp({ initialSession }: PosAppProps) {
   }
 
   async function removeHeldSale(heldSaleId: string) {
+    setDeletingHeldSaleId(heldSaleId);
+
     try {
-      await fetchJson<{ id: string }>(`/api/v1/pos/held-sales/${heldSaleId}`, {
-        method: "DELETE",
-      });
+      const removed = await fetchJson<{ id: string }>(
+        `/api/v1/pos/held-sales/${heldSaleId}`,
+        {
+          method: "DELETE",
+        },
+      );
 
       if (activeHeldSaleId === heldSaleId) {
         setActiveHeldSaleId(null);
       }
 
-      await loadBootstrap();
+      removeHeldSaleFromBootstrap(removed.id);
     } catch (error) {
       setMessage({
         tone: "error",
@@ -1237,6 +1435,10 @@ export function PosApp({ initialSession }: PosAppProps) {
             ? error.message
             : "No se pudo borrar la espera",
       });
+    } finally {
+      setDeletingHeldSaleId((current) =>
+        current === heldSaleId ? null : current,
+      );
     }
   }
 
@@ -1270,6 +1472,7 @@ export function PosApp({ initialSession }: PosAppProps) {
 
   async function checkoutSale() {
     if (!bootstrap) return;
+    const checkoutStartedAt = startTimer();
 
     if (!cashSession) {
       setMessage({
@@ -1328,6 +1531,7 @@ export function PosApp({ initialSession }: PosAppProps) {
     setSubmitting(true);
 
     try {
+      const heldSaleIdToRemove = activeHeldSaleId;
       const effectiveCustomer =
         documentType === "NONE"
           ? {
@@ -1370,6 +1574,14 @@ export function PosApp({ initialSession }: PosAppProps) {
         },
       );
 
+      posLogger.info("checkout:completed", {
+        saleNumber: result.saleNumber,
+        documentType: result.document.type,
+        documentStatus: result.document.status,
+        invoiceStatus: result.invoice?.status ?? null,
+        durationMs: timerDurationMs(checkoutStartedAt),
+      });
+
       const ticketData: PosTicketData = {
         businessName: bootstrap.business.name,
         operatorName: bootstrap.operator.name,
@@ -1401,14 +1613,32 @@ export function PosApp({ initialSession }: PosAppProps) {
 
       setLastTicketData(ticketData);
       void printTicket(ticketData);
+      applyCheckoutToBootstrap(
+        effectiveCustomer,
+        linePreview,
+        result.totals.total,
+        heldSaleIdToRemove,
+      );
 
-      if (activeHeldSaleId) {
-        await fetchJson<{ id: string }>(
-          `/api/v1/pos/held-sales/${activeHeldSaleId}`,
+      if (heldSaleIdToRemove) {
+        void fetchJson<{ id: string }>(
+          `/api/v1/pos/held-sales/${heldSaleIdToRemove}`,
           {
             method: "DELETE",
           },
-        );
+        )
+          .then(() => {
+            posLogger.info("held-sale:removed-after-checkout", {
+              heldSaleId: heldSaleIdToRemove,
+            });
+          })
+          .catch((error) => {
+            posLogger.warn("held-sale:remove-after-checkout-failed", {
+              heldSaleId: heldSaleIdToRemove,
+              message:
+                error instanceof Error ? error.message : "Error desconocido",
+            });
+          });
       }
 
       setMessage({
@@ -1423,12 +1653,15 @@ export function PosApp({ initialSession }: PosAppProps) {
               : `Venta #${result.saleNumber} cobrada correctamente`,
       });
       resetSaleState(bootstrap.defaultDocumentType);
-      await loadBootstrap();
     } catch (error) {
       setMessage({
         tone: "error",
         text:
           error instanceof Error ? error.message : "No se pudo cobrar la venta",
+      });
+      posLogger.error("checkout:failed", {
+        durationMs: timerDurationMs(checkoutStartedAt),
+        message: error instanceof Error ? error.message : "Error desconocido",
       });
     } finally {
       setSubmitting(false);
@@ -1459,6 +1692,7 @@ export function PosApp({ initialSession }: PosAppProps) {
   }
 
   async function printTicket(ticketData: PosTicketData) {
+    const printStartedAt = startTimer();
     if (!selectedPrinter) {
       printTicketInBrowser(
         buildPosTicketHtml(ticketData, {
@@ -1466,12 +1700,22 @@ export function PosApp({ initialSession }: PosAppProps) {
           autoClose: false,
         }),
       );
+      posLogger.info("print:browser-fallback", {
+        saleNumber: ticketData.saleNumber,
+        durationMs: timerDurationMs(printStartedAt),
+        reason: "no-selected-printer",
+      });
       return;
     }
 
     try {
       const ticket = buildPosTicketEscPos(ticketData);
       await printDocumentBytes(selectedPrinter, ticket.bytes);
+      posLogger.info("print:completed", {
+        saleNumber: ticketData.saleNumber,
+        printerName: selectedPrinter,
+        durationMs: timerDurationMs(printStartedAt),
+      });
       setMessage({
         tone: "success",
         text: `Ticket enviado a ${selectedPrinter}`,
@@ -1483,6 +1727,12 @@ export function PosApp({ initialSession }: PosAppProps) {
           error instanceof Error
             ? `${error.message}. Se abrira la impresion del navegador como respaldo.`
             : "No se pudo imprimir por la impresora local. Se abrira el navegador como respaldo.",
+      });
+      posLogger.warn("print:fallback", {
+        saleNumber: ticketData.saleNumber,
+        printerName: selectedPrinter,
+        durationMs: timerDurationMs(printStartedAt),
+        message: error instanceof Error ? error.message : "Error desconocido",
       });
       printTicketInBrowser(
         buildPosTicketHtml(ticketData, {
@@ -1538,8 +1788,8 @@ export function PosApp({ initialSession }: PosAppProps) {
               No se pudo abrir el POS
             </Typography>
             <Typography sx={{ color: "text.secondary" }}>
-              Revisa que el negocio tenga el modulo POS activo y que la sesion
-              siga vigente.
+              {bootError ??
+                "Revisa que el negocio tenga el modulo POS activo y que la sesion siga vigente."}
             </Typography>
             <Button
               variant="contained"
@@ -1629,15 +1879,6 @@ export function PosApp({ initialSession }: PosAppProps) {
                         ? theme.palette.success.dark
                         : theme.palette.common.white,
                     }}
-                  />
-                  <Chip
-                    label={
-                      bootstrap.billingEnabled
-                        ? "Facturacion disponible"
-                        : "Solo ticket"
-                    }
-                    size="small"
-                    sx={{ borderRadius: "999px" }}
                   />
                 </Stack>
               </Stack>
@@ -1741,26 +1982,141 @@ export function PosApp({ initialSession }: PosAppProps) {
           onClose={closeToolbarMenu}
           transformOrigin={{ horizontal: "right", vertical: "top" }}
           anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
+          slotProps={{
+            paper: {
+              sx: {
+                mt: 1,
+                width: 320,
+                overflow: "hidden",
+                borderRadius: "22px",
+                border: `1px solid ${subtleBorder}`,
+                backgroundColor: alpha(theme.palette.background.paper, 0.98),
+                boxShadow: "0 22px 54px rgba(15, 23, 42, 0.18)",
+                backdropFilter: "blur(14px)",
+              },
+            },
+          }}
         >
-          <MenuItem disabled>
-            {selectedPrinter
-              ? `Impresora: ${selectedPrinter}`
-              : "Impresora local no seleccionada"}
-          </MenuItem>
+          <Box sx={{ p: 1.2 }}>
+            <Paper
+              sx={{
+                p: 1.25,
+                borderRadius: "18px",
+                backgroundColor: chipBg,
+                borderColor: subtleBorder,
+                boxShadow: "none",
+              }}
+            >
+              <Stack spacing={0.75}>
+                <Stack
+                  direction="row"
+                  spacing={0.85}
+                  alignItems="center"
+                  justifyContent="space-between"
+                >
+                  <Stack direction="row" spacing={0.85} alignItems="center">
+                    <Box
+                      sx={{
+                        width: 34,
+                        height: 34,
+                        borderRadius: "12px",
+                        display: "grid",
+                        placeItems: "center",
+                        backgroundColor: alpha(theme.palette.common.white, 0.82),
+                        color: "primary.main",
+                      }}
+                    >
+                      <Printer className="h-4 w-4" />
+                    </Box>
+                    <Box>
+                      <Typography sx={{ fontSize: 12, fontWeight: 800 }}>
+                        Impresion local
+                      </Typography>
+                      <Typography
+                        sx={{ fontSize: 11.5, color: "text.secondary" }}
+                      >
+                        {selectedPrinter || "Usando navegador como respaldo"}
+                      </Typography>
+                    </Box>
+                  </Stack>
+                  <Chip
+                    size="small"
+                    icon={
+                      isPrintServiceConnected ? (
+                        <Wifi className="h-3.5 w-3.5" />
+                      ) : (
+                        <WifiOff className="h-3.5 w-3.5" />
+                      )
+                    }
+                    label={isPrintServiceConnected ? "Conectado" : "Offline"}
+                    sx={{
+                      height: 26,
+                      borderRadius: "999px",
+                      backgroundColor: isPrintServiceConnected
+                        ? alpha(theme.palette.success.main, 0.12)
+                        : alpha(theme.palette.text.primary, 0.08),
+                      color: isPrintServiceConnected
+                        ? "success.dark"
+                        : "text.secondary",
+                      "& .MuiChip-icon": {
+                        color: "inherit",
+                      },
+                    }}
+                  />
+                </Stack>
+              </Stack>
+            </Paper>
+          </Box>
+          <Divider sx={{ borderColor: subtleBorderSoft }} />
           <MenuItem
             onClick={() => {
               void refreshLocalPrinters();
             }}
             disabled={loadingPrinters}
+            sx={{ minHeight: 42, mx: 0.75, mt: 0.75, borderRadius: "14px" }}
           >
-            {loadingPrinters
-              ? "Buscando impresoras..."
-              : isPrintServiceConnected
-                ? "Actualizar impresoras"
-                : "Conectar impresora local"}
+            <Stack direction="row" spacing={1} alignItems="center">
+              {loadingPrinters ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCcw className="h-4 w-4" />
+              )}
+              <Box>
+                <Typography sx={{ fontSize: 13, fontWeight: 700 }}>
+                  {loadingPrinters
+                    ? "Buscando impresoras..."
+                    : isPrintServiceConnected
+                      ? "Actualizar impresoras"
+                      : "Conectar impresora local"}
+                </Typography>
+                <Typography sx={{ fontSize: 11.5, color: "text.secondary" }}>
+                  Detecta equipos y sincroniza la seleccion.
+                </Typography>
+              </Box>
+            </Stack>
           </MenuItem>
+          <Box sx={{ px: 1.5, pt: 1.25, pb: 0.5 }}>
+            <Typography
+              sx={{
+                fontSize: 10.5,
+                fontWeight: 800,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                color: "text.secondary",
+              }}
+            >
+              Impresoras disponibles
+            </Typography>
+          </Box>
           {localPrinters.length === 0 ? (
-            <MenuItem disabled>Sin impresoras detectadas</MenuItem>
+            <MenuItem
+              disabled
+              sx={{ minHeight: 40, mx: 0.75, borderRadius: "14px" }}
+            >
+              <Typography sx={{ fontSize: 12.5, color: "text.secondary" }}>
+                Sin impresoras detectadas
+              </Typography>
+            </MenuItem>
           ) : null}
           {localPrinters.map((printerName) => (
             <MenuItem
@@ -1774,8 +2130,56 @@ export function PosApp({ initialSession }: PosAppProps) {
                   text: `Impresora seleccionada: ${printerName}`,
                 });
               }}
+              sx={{
+                minHeight: 44,
+                mx: 0.75,
+                borderRadius: "14px",
+                mb: 0.25,
+                "&.Mui-selected": {
+                  backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                },
+                "&.Mui-selected:hover": {
+                  backgroundColor: alpha(theme.palette.primary.main, 0.14),
+                },
+              }}
             >
-              {printerName}
+              <Stack
+                direction="row"
+                spacing={1}
+                alignItems="center"
+                justifyContent="space-between"
+                sx={{ width: "100%" }}
+              >
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography
+                    sx={{ fontSize: 13, fontWeight: 700 }}
+                    noWrap
+                  >
+                    {printerName}
+                  </Typography>
+                  <Typography sx={{ fontSize: 11.5, color: "text.secondary" }}>
+                    {printerName === selectedPrinter
+                      ? "Impresora activa para tickets"
+                      : "Disponible para seleccionar"}
+                  </Typography>
+                </Box>
+                {printerName === selectedPrinter ? (
+                  <Box
+                    sx={{
+                      width: 24,
+                      height: 24,
+                      borderRadius: "999px",
+                      display: "grid",
+                      placeItems: "center",
+                      backgroundColor: alpha(theme.palette.primary.main, 0.12),
+                      color: "primary.main",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                  </Box>
+                ) : null}
+              </Stack>
             </MenuItem>
           ))}
           {selectedPrinter ? (
@@ -1788,25 +2192,44 @@ export function PosApp({ initialSession }: PosAppProps) {
                   text: "Impresion local desactivada. Se usara el navegador.",
                 });
               }}
+              sx={{ minHeight: 42, mx: 0.75, mt: 0.25, borderRadius: "14px" }}
             >
-              Usar navegador para imprimir
+              <Stack direction="row" spacing={1} alignItems="center">
+                <Monitor className="h-4 w-4" />
+                <Typography sx={{ fontSize: 13, fontWeight: 700 }}>
+                  Usar navegador para imprimir
+                </Typography>
+              </Stack>
             </MenuItem>
           ) : null}
+          <Divider sx={{ my: 0.75, borderColor: subtleBorderSoft }} />
           <MenuItem
             onClick={() => {
               closeToolbarMenu();
               void loadBootstrap();
             }}
+            sx={{ minHeight: 42, mx: 0.75, borderRadius: "14px" }}
           >
-            Recargar
+            <Stack direction="row" spacing={1} alignItems="center">
+              <RefreshCcw className="h-4 w-4" />
+              <Typography sx={{ fontSize: 13, fontWeight: 700 }}>
+                Recargar POS
+              </Typography>
+            </Stack>
           </MenuItem>
           {bootstrap.operator.role === "ADMIN" ? (
             <MenuItem
               component={NextLink}
               href="/overview"
               onClick={closeToolbarMenu}
+              sx={{ minHeight: 42, mx: 0.75, borderRadius: "14px" }}
             >
-              Ir al panel
+              <Stack direction="row" spacing={1} alignItems="center">
+                <LayoutDashboard className="h-4 w-4" />
+                <Typography sx={{ fontSize: 13, fontWeight: 700 }}>
+                  Ir al panel
+                </Typography>
+              </Stack>
             </MenuItem>
           ) : null}
           <MenuItem
@@ -1814,8 +2237,20 @@ export function PosApp({ initialSession }: PosAppProps) {
               closeToolbarMenu();
               void logout();
             }}
+            sx={{
+              minHeight: 42,
+              mx: 0.75,
+              mb: 0.75,
+              borderRadius: "14px",
+              color: "error.main",
+            }}
           >
-            Salir
+            <Stack direction="row" spacing={1} alignItems="center">
+              <LogOut className="h-4 w-4" />
+              <Typography sx={{ fontSize: 13, fontWeight: 700 }}>
+                Salir
+              </Typography>
+            </Stack>
           </MenuItem>
         </Menu>
 
@@ -2012,11 +2447,12 @@ export function PosApp({ initialSession }: PosAppProps) {
                                 label="Tipo ID"
                                 size="small"
                                 value={customer.tipoIdentificacion}
-                                onChange={(e) =>
+                                onChange={(e) => {
                                   selectCustomer({
                                     tipoIdentificacion: e.target.value,
-                                  })
-                                }
+                                  });
+                                  focusIdentificationField(true);
+                                }}
                               >
                                 {IDENTIFICATION_TYPES.map((type) => (
                                   <MenuItem key={type.code} value={type.code}>
@@ -2030,6 +2466,7 @@ export function PosApp({ initialSession }: PosAppProps) {
                                 fullWidth
                                 label="Identificacion"
                                 size="small"
+                                inputRef={identificationInputRef}
                                 value={customer.identificacion}
                                 onChange={(e) =>
                                   selectCustomer({
@@ -2379,15 +2816,17 @@ export function PosApp({ initialSession }: PosAppProps) {
                   </Stack>
 
                   <Box
-                    sx={{
-                      overflowX: "auto",
-                      overflowY: "hidden",
-                      borderRadius: "18px",
-                      border: `1px solid ${subtleBorder}`,
-                      flex: 1,
-                      minHeight: 0,
-                      minWidth: 0,
-                    }}
+                    sx={
+                      {
+                        // overflowX: "auto",
+                        // overflowY: "hidden",
+                        // borderRadius: "18px",
+                        // border: `1px solid ${subtleBorder}`,
+                        // flex: 1,
+                        // minHeight: 0,
+                        // minWidth: 0,
+                      }
+                    }
                   >
                     <DataGrid
                       rows={linePreview}
@@ -2807,6 +3246,7 @@ export function PosApp({ initialSession }: PosAppProps) {
         open={heldSalesDialogOpen}
         heldSales={heldSales}
         activeHeldSaleId={activeHeldSaleId}
+        deletingHeldSaleId={deletingHeldSaleId}
         onClose={() => setHeldSalesDialogOpen(false)}
         onLoadHeldSale={(heldSaleId) => {
           const heldSale = heldSales.find((item) => item.id === heldSaleId);

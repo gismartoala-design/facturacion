@@ -9,7 +9,7 @@ import IconButton from "@mui/material/IconButton";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import { Trash2 } from "lucide-react";
+import { Loader2, Trash2 } from "lucide-react";
 
 type HeldSaleSummary = {
   id: string;
@@ -22,6 +22,7 @@ type PosHeldSalesDialogProps = {
   open: boolean;
   heldSales: HeldSaleSummary[];
   activeHeldSaleId: string | null;
+  deletingHeldSaleId: string | null;
   onClose: () => void;
   onLoadHeldSale: (heldSaleId: string) => void;
   onDeleteHeldSale: (heldSaleId: string) => void;
@@ -55,6 +56,7 @@ export function PosHeldSalesDialog({
   open,
   heldSales,
   activeHeldSaleId,
+  deletingHeldSaleId,
   onClose,
   onLoadHeldSale,
   onDeleteHeldSale,
@@ -91,37 +93,55 @@ export function PosHeldSalesDialog({
               </Typography>
             </Paper>
           ) : (
-            heldSales.map((heldSale) => (
-              <Paper
-                key={heldSale.id}
-                sx={{
-                  px: 1.25,
-                  py: 1,
-                  borderRadius: "16px",
-                  backgroundColor: activeHeldSaleId === heldSale.id ? "#f6efe6" : "#fff",
-                  borderColor: activeHeldSaleId === heldSale.id ? "rgba(146, 111, 74, 0.5)" : "rgba(205, 191, 173, 0.72)",
-                }}
-              >
-                <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
-                  <Stack spacing={0.25} sx={{ minWidth: 0 }}>
-                    <Typography sx={{ fontWeight: 700, fontSize: 14 }} noWrap>
-                      {heldSale.label}
-                    </Typography>
-                    <Typography variant="caption" sx={{ color: "text.secondary" }} noWrap>
-                      {formatCurrency(heldSale.total)} • {formatRelativeStamp(heldSale.updatedAt)}
-                    </Typography>
+            heldSales.map((heldSale) => {
+              const isDeleting = deletingHeldSaleId === heldSale.id;
+
+              return (
+                <Paper
+                  key={heldSale.id}
+                  sx={{
+                    px: 1.25,
+                    py: 1,
+                    borderRadius: "16px",
+                    backgroundColor: activeHeldSaleId === heldSale.id ? "#f6efe6" : "#fff",
+                    borderColor: activeHeldSaleId === heldSale.id ? "rgba(146, 111, 74, 0.5)" : "rgba(205, 191, 173, 0.72)",
+                  }}
+                >
+                  <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
+                    <Stack spacing={0.25} sx={{ minWidth: 0 }}>
+                      <Typography sx={{ fontWeight: 700, fontSize: 14 }} noWrap>
+                        {heldSale.label}
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: "text.secondary" }} noWrap>
+                        {formatCurrency(heldSale.total)} • {formatRelativeStamp(heldSale.updatedAt)}
+                      </Typography>
+                    </Stack>
+                    <Stack direction="row" spacing={0.5}>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        disabled={isDeleting}
+                        onClick={() => onLoadHeldSale(heldSale.id)}
+                      >
+                        Cargar
+                      </Button>
+                      <IconButton
+                        color="error"
+                        size="small"
+                        disabled={isDeleting}
+                        onClick={() => onDeleteHeldSale(heldSale.id)}
+                      >
+                        {isDeleting ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </IconButton>
+                    </Stack>
                   </Stack>
-                  <Stack direction="row" spacing={0.5}>
-                    <Button size="small" variant="outlined" onClick={() => onLoadHeldSale(heldSale.id)}>
-                      Cargar
-                    </Button>
-                    <IconButton color="error" size="small" onClick={() => onDeleteHeldSale(heldSale.id)}>
-                      <Trash2 className="h-4 w-4" />
-                    </IconButton>
-                  </Stack>
-                </Stack>
-              </Paper>
-            ))
+                </Paper>
+              );
+            })
           )}
         </Stack>
       </DialogContent>

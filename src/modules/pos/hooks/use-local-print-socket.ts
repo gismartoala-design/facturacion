@@ -46,10 +46,7 @@ export function useLocalPrintSocket() {
   const [isConnected, setIsConnected] = useState(false);
   const [printers, setPrinters] = useState<string[]>([]);
   const [selectedPrinter, setSelectedPrinterState] = useState<string | null>(
-    () =>
-      typeof window === "undefined"
-        ? null
-        : window.localStorage.getItem(PRINTER_STORAGE_KEY),
+    null,
   );
 
   function setSelectedPrinter(nextPrinter: string | null) {
@@ -213,6 +210,11 @@ export function useLocalPrintSocket() {
 
   /* eslint-disable react-hooks/exhaustive-deps */
   useEffect(() => {
+    const storedPrinter = window.localStorage.getItem(PRINTER_STORAGE_KEY);
+    if (storedPrinter) {
+      setSelectedPrinterState(storedPrinter);
+    }
+
     void connect().catch(() => {
       // The POS can still fall back to browser printing if the local bridge
       // is unavailable during startup.

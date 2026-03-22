@@ -6,17 +6,20 @@ import {
 } from "@prisma/client";
 
 import type { CreatedSaleContext } from "@/core/sales/sale.service";
+import { reserveDocumentNumber } from "@/core/sales/document-series.service";
+import { createLogger, startTimer, timerDurationMs } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { resolveProductCode } from "@/lib/utils";
-import { pushAndAuthorizeInvoice } from "@/modules/billing/services/sri.service";
-import { reserveDocumentNumber } from "@/core/sales/document-series.service";
+import { SRI_SIGNATURE_ISSUER_ID } from "@/modules/billing/services/sri.client";
 import {
   buildSriNumericCode,
   generateAccessKey,
 } from "@/modules/billing/services/sri-access-key";
-import { SRI_SIGNATURE_ISSUER_ID } from "@/modules/billing/services/sri.client";
+import { pushAndAuthorizeInvoice } from "@/modules/billing/services/sri.service";
 
-type InvoiceSummary = {
+const logger = createLogger("SalesDocument");
+
+export type InvoiceSummary = {
   sriInvoiceId: string;
   externalInvoiceId: string | null;
   secuencial: string | null;
@@ -32,7 +35,7 @@ type InvoiceSummary = {
   } | null;
 };
 
-type IssuedDocumentResult = {
+export type IssuedDocumentResult = {
   document: {
     saleDocumentId: string;
     type: SaleDocumentType;
@@ -45,6 +48,19 @@ type IssuedDocumentResult = {
     invoice: InvoiceSummary | null;
   };
   invoice: InvoiceSummary | null;
+};
+
+export type PendingSaleDocumentAuthorization = {
+  saleDocumentId: string;
+  saleId: string;
+  saleNumber: string;
+  documentNumber: string | null;
+  sriInvoiceId: string;
+  invoicePayload: ReturnType<typeof toInvoicePayload>;
+};
+
+type PreparedDocumentResult = IssuedDocumentResult & {
+  backgroundAuthorization: PendingSaleDocumentAuthorization | null;
 };
 
 function sriTaxCode(tarifa: number) {
@@ -67,9 +83,12 @@ function sriCurrencyCode(currency: string | null | undefined) {
   return currency.toUpperCase() === "USD" ? "DOLAR" : currency;
 }
 
-function toInvoicePayload(context: CreatedSaleContext, params: {
-  formattedSequence: string;
-}) {
+function toInvoicePayload(
+  context: CreatedSaleContext,
+  params: {
+    formattedSequence: string;
+  },
+) {
   return {
     issuerId: SRI_SIGNATURE_ISSUER_ID,
     fechaEmision: context.documentInput.fechaEmision,
@@ -88,7 +107,10 @@ function toInvoicePayload(context: CreatedSaleContext, params: {
     moneda: sriCurrencyCode(context.documentInput.moneda),
     infoAdicional: context.documentInput.infoAdicional ?? {},
     detalles: context.lines.map((line) => ({
-      codigoPrincipal: resolveProductCode(line.productSku, line.productSecuencial),
+      codigoPrincipal: resolveProductCode(
+        line.productSku,
+        line.productSecuencial,
+      ),
       codigoAuxiliar: `AUX${line.productSecuencial.toString()}`,
       descripcion: line.productName,
       cantidad: line.quantity,
@@ -155,9 +177,14 @@ function toInvoiceSummary(finalInvoice: {
   };
 }
 
-export async function issueDocumentForSale(context: CreatedSaleContext): Promise<IssuedDocumentResult> {
+export async function createDocumentForSaleInTransaction(
+  tx: Prisma.TransactionClient,
+  context: CreatedSaleContext,
+): Promise<PreparedDocumentResult> {
+  const startedAt = startTimer();
+
   if (context.documentInput.documentType === "NONE") {
-    const saleDocument = await prisma.saleDocument.create({
+    const saleDocument = await tx.saleDocument.create({
       data: {
         saleId: context.sale.id,
         type: SaleDocumentType.NONE,
@@ -167,6 +194,15 @@ export async function issueDocumentForSale(context: CreatedSaleContext): Promise
           infoAdicional: context.documentInput.infoAdicional,
         } as Prisma.InputJsonValue,
       },
+    });
+
+    logger.info("document:prepared", {
+      saleId: context.sale.id,
+      saleNumber: context.sale.saleNumber.toString(),
+      documentType: saleDocument.type,
+      documentStatus: saleDocument.status,
+      durationMs: timerDurationMs(startedAt),
+      backgroundAuthorization: false,
     });
 
     return {
@@ -182,146 +218,231 @@ export async function issueDocumentForSale(context: CreatedSaleContext): Promise
         invoice: null,
       },
       invoice: null,
+      backgroundAuthorization: null,
     };
   }
 
-  const txResult = await prisma.$transaction(async (tx) => {
-    const numbering = await reserveDocumentNumber(
-      tx,
-      context.documentInput.issuerId,
-      "INVOICE",
-    );
+  const numbering = await reserveDocumentNumber(
+    tx,
+    context.documentInput.issuerId,
+    "INVOICE",
+  );
 
-    const saleDocument = await tx.saleDocument.create({
-      data: {
-        saleId: context.sale.id,
-        type: SaleDocumentType.INVOICE,
-        status: SaleDocumentStatus.PENDING,
-        issuerId: context.documentInput.issuerId,
-        documentSeriesId: numbering.documentSeriesId,
-        establishmentCode: numbering.establishmentCode,
-        emissionPointCode: numbering.emissionPointCode,
-        sequenceNumber: numbering.sequenceNumber,
-        fullNumber: numbering.fullNumber,
-        metadata: {
-          source: "checkout",
-          fechaEmision: context.documentInput.fechaEmision,
-          moneda: context.documentInput.moneda,
-          infoAdicional: context.documentInput.infoAdicional,
-          documento: numbering,
-        } as Prisma.InputJsonValue,
-      },
-    });
-
-    const issuer = await tx.documentIssuer.findUnique({
-      where: { id: context.documentInput.issuerId },
-      select: {
-        ruc: true,
-        environment: true,
-      },
-    });
-
-    if (!issuer?.ruc) {
-      throw new Error(
-        "El emisor documental no tiene RUC configurado para generar la clave de acceso",
-      );
-    }
-
-    const numericCode = buildSriNumericCode(
-      `${context.sale.id}-${saleDocument.id}-${numbering.fullNumber}`,
-    );
-    const accessKey = generateAccessKey({
-      fecha: context.documentInput.fechaEmision,
-      tipoComprobante: "01",
-      ruc: issuer.ruc,
-      ambiente: sriEnvironmentCode(issuer.environment),
-      serie: `${numbering.establishmentCode}${numbering.emissionPointCode}`,
-      numeroComprobante: numbering.formattedSequence,
-      codigoNumerico: numericCode,
-      tipoEmision: "1",
-    });
-    const invoicePayload = toInvoicePayload(context, {
-      formattedSequence: numbering.formattedSequence,
-    });
-
-    await tx.saleDocument.update({
-      where: { id: saleDocument.id },
-      data: {
-        metadata: {
-          source: "checkout",
-          fechaEmision: context.documentInput.fechaEmision,
-          moneda: context.documentInput.moneda,
-          infoAdicional: context.documentInput.infoAdicional,
-          documento: {
-            ...numbering,
-            accessKey,
-            numericCode,
-          },
-        } as Prisma.InputJsonValue,
-      },
-    });
-
-    const sriInvoice = await tx.sriInvoice.create({
-      data: {
-        saleId: context.sale.id,
-        issuerId: context.documentInput.issuerId,
-        secuencial: numbering.formattedSequence,
-        claveAcceso: accessKey,
-        status: SriInvoiceStatus.PENDING_SRI,
-        createRequestPayload: invoicePayload as Prisma.InputJsonValue,
-      },
-    });
-
-    await tx.saleDocument.update({
-      where: { id: saleDocument.id },
-      data: {
-        sriInvoiceId: sriInvoice.id,
-      },
-    });
-
-    return {
-      saleDocumentId: saleDocument.id,
-      sriInvoiceId: sriInvoice.id,
-      numbering,
-      invoicePayload,
-    };
+  const saleDocument = await tx.saleDocument.create({
+    data: {
+      saleId: context.sale.id,
+      type: SaleDocumentType.INVOICE,
+      status: SaleDocumentStatus.PENDING,
+      issuerId: context.documentInput.issuerId,
+      documentSeriesId: numbering.documentSeriesId,
+      establishmentCode: numbering.establishmentCode,
+      emissionPointCode: numbering.emissionPointCode,
+      sequenceNumber: numbering.sequenceNumber,
+      fullNumber: numbering.fullNumber,
+      metadata: {
+        source: "checkout",
+        fechaEmision: context.documentInput.fechaEmision,
+        moneda: context.documentInput.moneda,
+        infoAdicional: context.documentInput.infoAdicional,
+        documento: numbering,
+      } as Prisma.InputJsonValue,
+    },
   });
 
-  await pushAndAuthorizeInvoice(txResult.sriInvoiceId, txResult.invoicePayload);
+  const issuer = await tx.documentIssuer.findUnique({
+    where: { id: context.documentInput.issuerId },
+    select: {
+      ruc: true,
+      environment: true,
+    },
+  });
+
+  if (!issuer?.ruc) {
+    throw new Error(
+      "El emisor documental no tiene RUC configurado para generar la clave de acceso",
+    );
+  }
+
+  const numericCode = buildSriNumericCode(
+    `${context.sale.id}-${saleDocument.id}-${numbering.fullNumber}`,
+  );
+  const accessKey = generateAccessKey({
+    fecha: context.documentInput.fechaEmision,
+    tipoComprobante: "01",
+    ruc: issuer.ruc,
+    ambiente: sriEnvironmentCode(issuer.environment),
+    serie: `${numbering.establishmentCode}${numbering.emissionPointCode}`,
+    numeroComprobante: numbering.formattedSequence,
+    codigoNumerico: numericCode,
+    tipoEmision: "1",
+  });
+  const invoicePayload = toInvoicePayload(context, {
+    formattedSequence: numbering.formattedSequence,
+  });
+
+  await tx.saleDocument.update({
+    where: { id: saleDocument.id },
+    data: {
+      metadata: {
+        source: "checkout",
+        fechaEmision: context.documentInput.fechaEmision,
+        moneda: context.documentInput.moneda,
+        infoAdicional: context.documentInput.infoAdicional,
+        documento: {
+          ...numbering,
+          accessKey,
+          numericCode,
+        },
+      } as Prisma.InputJsonValue,
+    },
+  });
+
+  const sriInvoice = await tx.sriInvoice.create({
+    data: {
+      saleId: context.sale.id,
+      issuerId: context.documentInput.issuerId,
+      secuencial: numbering.formattedSequence,
+      claveAcceso: accessKey,
+      status: SriInvoiceStatus.PENDING_SRI,
+      createRequestPayload: invoicePayload as Prisma.InputJsonValue,
+    },
+  });
+
+  await tx.saleDocument.update({
+    where: { id: saleDocument.id },
+    data: {
+      sriInvoiceId: sriInvoice.id,
+    },
+  });
+
+  const invoice = {
+    sriInvoiceId: sriInvoice.id,
+    externalInvoiceId: sriInvoice.externalInvoiceId,
+    secuencial: sriInvoice.secuencial,
+    status: sriInvoice.status,
+    authorizationNumber: sriInvoice.authorizationNumber,
+    claveAcceso: accessKey,
+    lastError: sriInvoice.lastError,
+    retryCount: sriInvoice.retryCount,
+    documents: null,
+  } satisfies InvoiceSummary;
+
+  logger.info("document:prepared", {
+    saleId: context.sale.id,
+    saleNumber: context.sale.saleNumber.toString(),
+    documentType: saleDocument.type,
+    documentStatus: saleDocument.status,
+    documentNumber: numbering.fullNumber,
+    durationMs: timerDurationMs(startedAt),
+    backgroundAuthorization: true,
+  });
+
+  return {
+    document: {
+      saleDocumentId: saleDocument.id,
+      type: saleDocument.type,
+      status: saleDocument.status,
+      fullNumber: saleDocument.fullNumber,
+      establishmentCode: saleDocument.establishmentCode,
+      emissionPointCode: saleDocument.emissionPointCode,
+      sequenceNumber: saleDocument.sequenceNumber,
+      issuedAt: saleDocument.issuedAt,
+      invoice,
+    },
+    invoice,
+    backgroundAuthorization: {
+      saleDocumentId: saleDocument.id,
+      saleId: context.sale.id,
+      saleNumber: context.sale.saleNumber.toString(),
+      documentNumber: saleDocument.fullNumber,
+      sriInvoiceId: sriInvoice.id,
+      invoicePayload,
+    },
+  };
+}
+
+export async function createDocumentForSale(
+  context: CreatedSaleContext,
+): Promise<PreparedDocumentResult> {
+  return prisma.$transaction((tx) =>
+    createDocumentForSaleInTransaction(tx, context),
+  );
+}
+
+export async function authorizePendingSaleDocument(
+  task: PendingSaleDocumentAuthorization,
+) {
+  const startedAt = startTimer();
+  let pushError: unknown = null;
+
+  try {
+    await pushAndAuthorizeInvoice(task.sriInvoiceId, task.invoicePayload);
+  } catch (error) {
+    pushError = error;
+  }
 
   const finalInvoice = await prisma.sriInvoice.findUnique({
-    where: { id: txResult.sriInvoiceId },
+    where: { id: task.sriInvoiceId },
     include: {
       documents: true,
     },
   });
 
   if (!finalInvoice) {
-    throw new Error("No se pudo recuperar la factura emitida");
+    await prisma.saleDocument.update({
+      where: { id: task.saleDocumentId },
+      data: {
+        status: SaleDocumentStatus.ERROR,
+        issuedAt: null,
+      },
+    });
+
+    logger.error("document:authorize-missing-invoice", {
+      saleId: task.saleId,
+      saleNumber: task.saleNumber,
+      documentNumber: task.documentNumber,
+      sriInvoiceId: task.sriInvoiceId,
+      durationMs: timerDurationMs(startedAt),
+    });
+
+    return;
   }
 
-  const updatedDocument = await prisma.saleDocument.update({
-    where: { id: txResult.saleDocumentId },
+  await prisma.saleDocument.update({
+    where: { id: task.saleDocumentId },
     data: {
       status: toSaleDocumentStatus(finalInvoice.status),
       issuedAt: finalInvoice.authorizedAt ?? null,
     },
   });
 
-  const invoice = toInvoiceSummary(finalInvoice);
+  if (pushError) {
+    logger.error("document:authorize-failed", {
+      saleId: task.saleId,
+      saleNumber: task.saleNumber,
+      documentNumber: task.documentNumber,
+      sriInvoiceId: task.sriInvoiceId,
+      invoiceStatus: finalInvoice.status,
+      lastError: finalInvoice.lastError,
+      durationMs: timerDurationMs(startedAt),
+      message:
+        pushError instanceof Error ? pushError.message : "Error desconocido",
+    });
 
-  return {
-    document: {
-      saleDocumentId: updatedDocument.id,
-      type: updatedDocument.type,
-      status: updatedDocument.status,
-      fullNumber: updatedDocument.fullNumber,
-      establishmentCode: updatedDocument.establishmentCode,
-      emissionPointCode: updatedDocument.emissionPointCode,
-      sequenceNumber: updatedDocument.sequenceNumber,
-      issuedAt: updatedDocument.issuedAt,
-      invoice,
-    },
-    invoice,
-  };
+    return;
+  }
+
+  const invoice = toInvoiceSummary(finalInvoice);
+  const level =
+    finalInvoice.status === SriInvoiceStatus.AUTHORIZED ? "info" : "warn";
+
+  logger[level]("document:authorize-completed", {
+    saleId: task.saleId,
+    saleNumber: task.saleNumber,
+    documentNumber: task.documentNumber,
+    sriInvoiceId: task.sriInvoiceId,
+    invoiceStatus: invoice.status,
+    lastError: invoice.lastError,
+    durationMs: timerDurationMs(startedAt),
+  });
 }

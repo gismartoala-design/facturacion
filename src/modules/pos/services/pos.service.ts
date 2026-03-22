@@ -7,6 +7,7 @@ import {
 import { ensureDefaultBusiness, getBusinessContextById, hasBusinessFeature } from "@/core/business/business.service";
 import { listProducts } from "@/core/inventory/inventory.service";
 import type { SessionPayload } from "@/lib/auth";
+import { createLogger, startTimer, timerDurationMs } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { roundMoney } from "@/lib/utils";
 import {
@@ -16,6 +17,8 @@ import {
   openCashSessionSchema,
   type HoldSalePayload,
 } from "@/modules/pos/services/pos.schemas";
+
+const logger = createLogger("POSService");
 
 type PosCashSessionSummary = {
   id: string;
@@ -176,6 +179,7 @@ async function listPosCustomers() {
 }
 
 export async function getPosBootstrap(session: SessionPayload) {
+  const startedAt = startTimer();
   const business = await getPosBusinessContext(session);
   const defaultIssuerId = business.taxProfile?.issuerId;
 
@@ -199,7 +203,7 @@ export async function getPosBootstrap(session: SessionPayload) {
     getOpenCashSession(session, business.id),
   ]);
 
-  return {
+  const data = {
     business: {
       id: business.id,
       name: business.name,
@@ -221,6 +225,18 @@ export async function getPosBootstrap(session: SessionPayload) {
     customers,
     products,
   };
+
+  logger.info("bootstrap:loaded", {
+    businessId: business.id,
+    operatorId: session.sub,
+    productCount: products.length,
+    customerCount: customers.length,
+    heldSalesCount: heldSales.length,
+    hasCashSession: Boolean(cashSession),
+    durationMs: timerDurationMs(startedAt),
+  });
+
+  return data;
 }
 
 export async function openCashSession(session: SessionPayload, rawInput: unknown) {

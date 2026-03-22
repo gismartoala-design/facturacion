@@ -1,7 +1,11 @@
+import { after } from "next/server";
 import { z } from "zod";
 
 import { ensureDefaultBusiness, getBusinessContextById, hasBusinessFeature } from "@/core/business/business.service";
-import { checkout } from "@/core/sales/checkout.service";
+import {
+  authorizePendingSaleDocument,
+  checkout,
+} from "@/core/sales/checkout.service";
 import { getSession } from "@/lib/auth";
 import { fail, ok } from "@/lib/http";
 
@@ -25,7 +29,15 @@ export async function POST(request: Request) {
     }
 
     const result = await checkout(normalizedPayload);
-    return ok(result, { status: 201 });
+    const { backgroundDocumentTask, ...response } = result;
+
+    if (backgroundDocumentTask) {
+      after(async () => {
+        await authorizePendingSaleDocument(backgroundDocumentTask);
+      });
+    }
+
+    return ok(response, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return fail("Payload invalido", 400, error.flatten());
