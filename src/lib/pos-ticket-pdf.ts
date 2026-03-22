@@ -2,7 +2,7 @@
 
 import type { PosTicketData } from "@/lib/pos-ticket-template";
 
-const TICKET_WIDTH = 48;
+const TICKET_WIDTH = 32;
 
 // Columnas del detalle
 const DESC_WIDTH = 20;
