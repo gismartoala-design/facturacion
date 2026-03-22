@@ -64,6 +64,7 @@ import {
   extractScaleBarcodeWeight,
   findBestScaleBarcodeMatch,
   matchesScaleBarcodePrefix,
+  roundMoney,
 } from "@/lib/utils";
 import { PosCashSessionDialog } from "@/modules/pos/components/pos-cash-session-dialog";
 import { PosHeldSalesDialog } from "@/modules/pos/components/pos-held-sales-dialog";
@@ -451,15 +452,17 @@ export function PosApp({
           const product = productsById.get(line.productId);
           if (!product) return null;
 
-          const subtotal = line.cantidad * line.precioUnitario - line.descuento;
-          const iva = (subtotal * product.tarifaIva) / 100;
+          const subtotal = roundMoney(
+            line.cantidad * line.precioUnitario - line.descuento,
+          );
+          const iva = roundMoney((subtotal * product.tarifaIva) / 100);
 
           return {
             ...line,
             product,
             subtotal,
             iva,
-            total: subtotal + iva,
+            total: roundMoney(subtotal + iva),
           };
         })
         .filter((line): line is LinePreviewRow => Boolean(line)),
@@ -477,43 +480,51 @@ export function PosApp({
 
   const totals = useMemo(
     () => ({
-      subtotal: linePreview.reduce((acc, line) => acc + line.subtotal, 0),
-      discount: linePreview.reduce((acc, line) => acc + line.descuento, 0),
-      tax: linePreview.reduce((acc, line) => acc + line.iva, 0),
-      total: linePreview.reduce((acc, line) => acc + line.total, 0),
+      subtotal: roundMoney(
+        linePreview.reduce((acc, line) => acc + line.subtotal, 0),
+      ),
+      discount: roundMoney(
+        linePreview.reduce((acc, line) => acc + line.descuento, 0),
+      ),
+      tax: roundMoney(linePreview.reduce((acc, line) => acc + line.iva, 0)),
+      total: roundMoney(linePreview.reduce((acc, line) => acc + line.total, 0)),
     }),
     [linePreview],
   );
 
   const allocatedAmount = useMemo(
     () =>
-      paymentLines.reduce(
+      roundMoney(
+        paymentLines.reduce(
         (acc, line) => acc + parseDecimalInput(line.total || "0"),
         0,
+        ),
       ),
     [paymentLines],
   );
 
   const cashPaymentAllocated = useMemo(
     () =>
-      paymentLines.reduce(
+      roundMoney(
+        paymentLines.reduce(
         (acc, line) =>
           acc +
           (line.formaPago === "01" ? parseDecimalInput(line.total || "0") : 0),
         0,
+        ),
       ),
     [paymentLines],
   );
 
   const paymentDelta = useMemo(
-    () => Number((allocatedAmount - totals.total).toFixed(2)),
+    () => roundMoney(allocatedAmount - totals.total),
     [allocatedAmount, totals.total],
   );
 
   const receivedAmount = useMemo(
     () =>
       cashPaymentAllocated > 0
-        ? parseDecimalInput(cashReceived || "0")
+        ? roundMoney(parseDecimalInput(cashReceived || "0"))
         : allocatedAmount,
     [allocatedAmount, cashPaymentAllocated, cashReceived],
   );
@@ -522,7 +533,7 @@ export function PosApp({
   const overAllocatedAmount = paymentDelta > 0 ? paymentDelta : 0;
   const changeAmount =
     cashPaymentAllocated > 0
-      ? Math.max(Number((receivedAmount - cashPaymentAllocated).toFixed(2)), 0)
+      ? Math.max(roundMoney(receivedAmount - cashPaymentAllocated), 0)
       : 0;
 
   const paymentSummaryLabel = useMemo(() => {
@@ -1194,7 +1205,7 @@ export function PosApp({
       const otherTotal = prev
         .slice(0, -1)
         .reduce((acc, line) => acc + parseDecimalInput(line.total || "0"), 0);
-      const nextAmount = Math.max(totals.total - otherTotal, 0);
+      const nextAmount = roundMoney(Math.max(totals.total - otherTotal, 0));
 
       return prev.map((line) =>
         line.id === lastLine.id
