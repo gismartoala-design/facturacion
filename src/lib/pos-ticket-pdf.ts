@@ -5,14 +5,14 @@ import type { PosTicketData } from "@/lib/pos-ticket-template";
 const TICKET_WIDTH = 32;
 
 // Columnas del detalle
-const DESC_WIDTH = 20;
-const QTY_WIDTH = 8;
-const UNIT_WIDTH = 9;
-const TOTAL_WIDTH = 11;
+const DESC_WIDTH = 12;
+const QTY_WIDTH = 5;
+const UNIT_WIDTH = 7;
+const TOTAL_WIDTH = 8;
 
 // Totales
-const MONEY_WIDTH = 12;
-const LABEL_WIDTH = TICKET_WIDTH - MONEY_WIDTH;
+const MONEY_WIDTH = 10;
+const LABEL_WIDTH = 22;
 
 function formatMoney(value: number) {
   return value.toFixed(2);
@@ -308,14 +308,14 @@ export function buildPosTicketEscPos(data: PosTicketData): EscPosBuildResult {
     }
   }
 
-  if (
-    data.documentLabel &&
-    normalizePrintableText(data.documentLabel).trim().toUpperCase() !== documentTitle
-  ) {
-    for (const line of wrapText(data.documentLabel, TICKET_WIDTH)) {
-      esc.line(centerText(line, TICKET_WIDTH));
-    }
-  }
+  // if (
+  //   data.documentLabel &&
+  //   normalizePrintableText(data.documentLabel).trim().toUpperCase() !== documentTitle
+  // ) {
+  //   for (const line of wrapText(data.documentLabel, TICKET_WIDTH)) {
+  //     esc.line(centerText(line, TICKET_WIDTH));
+  //   }
+  // }
 
   if (data.saleNumber) {
     esc.line(centerText(`Venta #${data.saleNumber}`, TICKET_WIDTH));
