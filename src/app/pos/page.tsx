@@ -1,5 +1,10 @@
 import { redirect } from "next/navigation";
 
+import {
+  ensureDefaultBusiness,
+  getBusinessContextById,
+} from "@/core/business/business.service";
+import { hasModule } from "@/core/platform/guards";
 import { getSession } from "@/lib/auth";
 import type { PosBootstrap } from "@/modules/pos/components/pos-app";
 import { getPosBootstrap } from "@/modules/pos/services/pos.service";
@@ -12,7 +17,11 @@ export default async function PosPage() {
     redirect("/login");
   }
 
-  if (!session.features.includes("POS")) {
+  const business = session.businessId
+    ? await getBusinessContextById(session.businessId)
+    : await ensureDefaultBusiness();
+
+  if (!hasModule(business.blueprint, "POS")) {
     redirect("/overview");
   }
 
