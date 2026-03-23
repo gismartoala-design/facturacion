@@ -99,6 +99,7 @@ export function extractScaleBarcodeWeight(
     decimals?: number;
   },
 ) {
+  console.log("extractScaleBarcodeWeight", { query, barcodeValue, options });
   if (!matchesScaleBarcodePrefix(query, barcodeValue)) {
     return null;
   }
@@ -125,7 +126,33 @@ export function extractScaleBarcodeWeight(
   return Number.isFinite(weight) && weight > 0 ? weight : null;
 }
 
-export function findBestScaleBarcodeMatch<T extends { codigoBarras?: string | null }>(
+function getScaleBarcodeCandidates<T extends {
+  codigoBarras?: string | null;
+  codigo?: string | null;
+  sku?: string | null;
+}>(item: T) {
+  return [item.codigoBarras, item.codigo, item.sku]
+    .map((value) => normalizeLookupValue(value))
+    .filter((value, index, values) => value && values.indexOf(value) === index);
+}
+
+export function resolveScaleBarcodeReference<T extends {
+  codigoBarras?: string | null;
+  codigo?: string | null;
+  sku?: string | null;
+}>(item: T, query: string) {
+  return (
+    getScaleBarcodeCandidates(item).find((candidate) =>
+      matchesScaleBarcodePrefix(query, candidate),
+    ) ?? null
+  );
+}
+
+export function findBestScaleBarcodeMatch<T extends {
+  codigoBarras?: string | null;
+  codigo?: string | null;
+  sku?: string | null;
+}>(
   items: readonly T[],
   query: string,
 ) {
@@ -133,8 +160,8 @@ export function findBestScaleBarcodeMatch<T extends { codigoBarras?: string | nu
   let bestPrefixLength = -1;
 
   for (const item of items) {
-    const barcodeValue = normalizeLookupValue(item.codigoBarras);
-    if (!matchesScaleBarcodePrefix(query, barcodeValue)) {
+    const barcodeValue = resolveScaleBarcodeReference(item, query);
+    if (!barcodeValue) {
       continue;
     }
 

@@ -53,7 +53,12 @@ import {
   type MouseEvent,
   type SyntheticEvent,
 } from "react";
-import { alpha, type SxProps, type Theme, useTheme } from "@mui/material/styles";
+import {
+  alpha,
+  type SxProps,
+  type Theme,
+  useTheme,
+} from "@mui/material/styles";
 
 import {
   buildPosTicketHtml,
@@ -65,10 +70,13 @@ import {
   findBestScaleBarcodeMatch,
   matchesScaleBarcodePrefix,
   roundMoney,
+  resolveScaleBarcodeReference,
 } from "@/lib/utils";
 import { PosCashSessionDialog } from "@/modules/pos/components/pos-cash-session-dialog";
 import { PosHeldSalesDialog } from "@/modules/pos/components/pos-held-sales-dialog";
 import { useLocalPrintSocket } from "@/modules/pos/hooks/use-local-print-socket";
+import type { BillingRuntime } from "@/modules/billing/policies/billing-runtime";
+import type { PosRuntime } from "@/modules/pos/policies/pos-runtime";
 import { fetchJson } from "@/shared/dashboard/api";
 import {
   IDENTIFICATION_TYPES,
@@ -139,9 +147,8 @@ export type PosBootstrap = {
     name: string;
     role: "ADMIN" | "SELLER";
   };
-  billingEnabled: boolean;
-  inventoryTrackingEnabled: boolean;
-  useButcheryScaleBarcodeWeight: boolean;
+  billingRuntime: BillingRuntime;
+  posRuntime: PosRuntime;
   defaultDocumentType: PosDocumentType;
   defaultIssuerId: string;
   cashSession: PosCashSession | null;
@@ -331,7 +338,9 @@ function PosDecimalInput({
 
         if (event.key === "Escape") {
           event.preventDefault();
-          setDraft(formatDecimalInput(value, fractionDigits, trimTrailingZeros));
+          setDraft(
+            formatDecimalInput(value, fractionDigits, trimTrailingZeros),
+          );
           event.currentTarget.blur();
         }
       }}
@@ -496,8 +505,8 @@ export function PosApp({
     () =>
       roundMoney(
         paymentLines.reduce(
-        (acc, line) => acc + parseDecimalInput(line.total || "0"),
-        0,
+          (acc, line) => acc + parseDecimalInput(line.total || "0"),
+          0,
         ),
       ),
     [paymentLines],
@@ -507,10 +516,12 @@ export function PosApp({
     () =>
       roundMoney(
         paymentLines.reduce(
-        (acc, line) =>
-          acc +
-          (line.formaPago === "01" ? parseDecimalInput(line.total || "0") : 0),
-        0,
+          (acc, line) =>
+            acc +
+            (line.formaPago === "01"
+              ? parseDecimalInput(line.total || "0")
+              : 0),
+          0,
         ),
       ),
     [paymentLines],
@@ -567,9 +578,16 @@ export function PosApp({
         .filter((line) => line.total > 0),
     [paymentLines],
   );
-  const inventoryTrackingEnabled = bootstrap?.inventoryTrackingEnabled ?? true;
+  const billingRuntime = bootstrap?.billingRuntime;
+  const posRuntime = bootstrap?.posRuntime;
+  const billingEnabled = billingRuntime?.capabilities.electronicBilling ?? false;
+  const inventoryTrackingEnabled =
+    posRuntime?.operationalRules.trackInventoryOnSale ?? true;
   const useButcheryScaleBarcodeWeight =
-    bootstrap?.useButcheryScaleBarcodeWeight ?? false;
+    posRuntime?.capabilities.weightFromBarcode ?? false;
+
+    console.log("billingRuntime", billingRuntime);
+    console.log("posRuntime", posRuntime);
 
   const dataGridColumns = useMemo<GridColDef<LinePreviewRow>[]>(
     () => [
@@ -853,7 +871,8 @@ export function PosApp({
       return {
         ...current,
         products:
-          !current.inventoryTrackingEnabled || soldQtyByProduct.size === 0
+          !current.posRuntime.operationalRules.trackInventoryOnSale ||
+          soldQtyByProduct.size === 0
             ? current.products
             : current.products.map((product) => {
                 const soldQty = soldQtyByProduct.get(product.id);
@@ -901,7 +920,7 @@ export function PosApp({
       });
       startTransition(() => {
         setBootstrap(data);
-        if (!data.billingEnabled) {
+        if (!data.billingRuntime.capabilities.electronicBilling) {
           setDocumentType("NONE");
         }
       });
@@ -1368,11 +1387,15 @@ export function PosApp({
 
   function handleAddByCode() {
     const product = resolveProductByCode(barcodeQuery);
+    const scaleBarcodeReference = product
+      ? resolveScaleBarcodeReference(product, barcodeQuery)
+      : null;
     const embeddedWeight =
       useButcheryScaleBarcodeWeight && product
-        ? extractScaleBarcodeWeight(barcodeQuery, product.codigoBarras)
+        ? extractScaleBarcodeWeight(barcodeQuery, scaleBarcodeReference)
         : null;
-    const quantity = embeddedWeight ?? parseDecimalInput(entryQuantity || "1", 1);
+    const quantity =
+      embeddedWeight ?? parseDecimalInput(entryQuantity || "1", 1);
 
     if (!product) {
       setMessage({
@@ -2173,7 +2196,10 @@ export function PosApp({
                         borderRadius: "12px",
                         display: "grid",
                         placeItems: "center",
-                        backgroundColor: alpha(theme.palette.common.white, 0.82),
+                        backgroundColor: alpha(
+                          theme.palette.common.white,
+                          0.82,
+                        ),
                         color: "primary.main",
                       }}
                     >
@@ -2302,10 +2328,7 @@ export function PosApp({
                 sx={{ width: "100%" }}
               >
                 <Box sx={{ minWidth: 0 }}>
-                  <Typography
-                    sx={{ fontSize: 13, fontWeight: 700 }}
-                    noWrap
-                  >
+                  <Typography sx={{ fontSize: 13, fontWeight: 700 }} noWrap>
                     {printerName}
                   </Typography>
                   <Typography sx={{ fontSize: 11.5, color: "text.secondary" }}>
@@ -2559,7 +2582,7 @@ export function PosApp({
                             </MenuItem>
                             <MenuItem
                               value="INVOICE"
-                              disabled={!bootstrap.billingEnabled}
+                              disabled={!billingEnabled}
                             >
                               Factura
                             </MenuItem>
@@ -2820,23 +2843,33 @@ export function PosApp({
                             value={manualProduct}
                             onChange={(_, value) => setManualProduct(value)}
                             filterOptions={(options, state) => {
-                              const normalized = state.inputValue.trim().toLowerCase();
+                              const normalized = state.inputValue
+                                .trim()
+                                .toLowerCase();
                               if (!normalized) {
                                 return options;
                               }
 
                               return options.filter(
                                 (option) =>
-                                  option.codigo.toLowerCase().includes(normalized) ||
+                                  option.codigo
+                                    .toLowerCase()
+                                    .includes(normalized) ||
                                   (option.codigoBarras ?? "")
                                     .toLowerCase()
                                     .includes(normalized) ||
                                   matchesScaleBarcodePrefix(
                                     normalized,
-                                    option.codigoBarras,
+                                    option.codigoBarras ??
+                                      option.codigo ??
+                                      option.sku,
                                   ) ||
-                                  (option.sku ?? "").toLowerCase().includes(normalized) ||
-                                  option.nombre.toLowerCase().includes(normalized),
+                                  (option.sku ?? "")
+                                    .toLowerCase()
+                                    .includes(normalized) ||
+                                  option.nombre
+                                    .toLowerCase()
+                                    .includes(normalized),
                               );
                             }}
                             getOptionLabel={(option) =>

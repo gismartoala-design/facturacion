@@ -1,7 +1,13 @@
 import { MovementType, Prisma, ReferenceType, SaleDocumentStatus, SaleStatus } from "@prisma/client";
 
-import { parsePosFeatureConfig } from "@/core/business/feature-config";
+import {
+  parsePosFeatureBlueprint,
+  parsePosFeatureConfig,
+} from "@/core/business/feature-config";
+import { mergeBusinessBlueprint } from "@/core/platform/blueprint-config";
+import { mapLegacyPosBlueprint } from "@/core/platform/legacy-mappers";
 import { prisma } from "@/lib/prisma";
+import { resolvePosRuntime } from "@/modules/pos/policies/resolve-pos-runtime";
 
 export async function cancelSaleBySriInvoiceId(sriInvoiceId: string) {
   await prisma.$transaction(async (tx) => {
@@ -60,9 +66,23 @@ export async function cancelSaleBySriInvoiceId(sriInvoiceId: string) {
           },
         })
       : null;
-    const trackInventoryOnSale = parsePosFeatureConfig(
-      posFeature?.config,
-    ).trackInventoryOnSale;
+    const posSettings = parsePosFeatureConfig(posFeature?.config);
+    const persistedPosBlueprint = parsePosFeatureBlueprint(posFeature?.config);
+    const posBlueprint = persistedPosBlueprint
+      ? mergeBusinessBlueprint(
+          mapLegacyPosBlueprint({
+            posEnabled: true,
+            posSettings,
+          }),
+          persistedPosBlueprint,
+        )
+      : mapLegacyPosBlueprint({
+          posEnabled: true,
+          posSettings,
+        });
+    const trackInventoryOnSale = resolvePosRuntime({
+      blueprint: posBlueprint,
+    }).operationalRules.trackInventoryOnSale;
 
     const productQuantities = new Map<string, number>();
     for (const item of invoice.sale.items) {

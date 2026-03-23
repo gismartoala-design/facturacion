@@ -18,6 +18,7 @@ import { alpha, useTheme } from "@mui/material/styles";
 import { Save } from "lucide-react";
 import { useEffect, useState, type SyntheticEvent } from "react";
 
+import type { PosPolicyEditorValue } from "@/modules/pos/policies/pos-policy-editor";
 import { fetchJson } from "@/shared/dashboard/api";
 
 type CompanySettingsPageProps = {
@@ -58,10 +59,7 @@ type BusinessSettingsResponse = {
       active: boolean;
     }>;
   }>;
-  posSettings: {
-    trackInventoryOnSale: boolean;
-    useButcheryScaleBarcodeWeight: boolean;
-  };
+  posPolicy: PosPolicyEditorValue;
 };
 
 type FormState = {
@@ -82,8 +80,8 @@ type FormState = {
   invoiceEstablishmentCode: string;
   invoiceEmissionPointCode: string;
   invoiceNextSequence: number;
+  posPolicyPack: PosPolicyEditorValue["policyPack"];
   trackInventoryOnSale: boolean;
-  useButcheryScaleBarcodeWeight: boolean;
 };
 
 type SnackbarState = {
@@ -109,8 +107,8 @@ const DEFAULT_FORM: FormState = {
   invoiceEstablishmentCode: "001",
   invoiceEmissionPointCode: "001",
   invoiceNextSequence: 1,
+  posPolicyPack: "POS_GENERIC",
   trackInventoryOnSale: true,
-  useButcheryScaleBarcodeWeight: false,
 };
 
 const PROFILE_OPTIONS = [
@@ -154,9 +152,8 @@ function toFormState(data: BusinessSettingsResponse): FormState {
     invoiceEmissionPointCode:
       defaultInvoiceSeries?.emissionPointCode ?? "001",
     invoiceNextSequence: defaultInvoiceSeries?.nextSequence ?? 1,
-    trackInventoryOnSale: data.posSettings?.trackInventoryOnSale ?? true,
-    useButcheryScaleBarcodeWeight:
-      data.posSettings?.useButcheryScaleBarcodeWeight ?? false,
+    posPolicyPack: data.posPolicy.policyPack,
+    trackInventoryOnSale: data.posPolicy.trackInventoryOnSale,
   };
 }
 
@@ -211,9 +208,21 @@ export function CompanySettingsPage({ canEdit }: CompanySettingsPageProps) {
     setSaving(true);
 
     try {
+      const {
+        posPolicyPack,
+        trackInventoryOnSale,
+        ...rest
+      } = form;
+      const payload = {
+        ...rest,
+        posPolicy: {
+          policyPack: posPolicyPack,
+          trackInventoryOnSale,
+        },
+      };
       const data = await fetchJson<BusinessSettingsResponse>("/api/v1/business", {
         method: "PUT",
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       setForm(toFormState(data));
       setSnackbar({
@@ -378,10 +387,25 @@ export function CompanySettingsPage({ canEdit }: CompanySettingsPageProps) {
                   Operacion POS
                 </Typography>
                 <Typography sx={{ mt: 0.5, color: "text.secondary", fontSize: 14 }}>
-                  Define si las ventas del POS deben validar y descontar stock
-                  automaticamente.
+                  Define el perfil operativo del POS y sus reglas base de venta.
                 </Typography>
               </Box>
+
+              <TextField
+                select
+                label="Perfil POS"
+                value={form.posPolicyPack}
+                onChange={(e) =>
+                  updateField(
+                    "posPolicyPack",
+                    e.target.value as FormState["posPolicyPack"],
+                  )
+                }
+                disabled={!canEdit}
+              >
+                <MenuItem value="POS_GENERIC">Generico</MenuItem>
+                <MenuItem value="POS_BUTCHERY">Carniceria</MenuItem>
+              </TextField>
 
               <FormControlLabel
                 control={
@@ -396,25 +420,10 @@ export function CompanySettingsPage({ canEdit }: CompanySettingsPageProps) {
                 label="Controlar inventario al vender"
               />
 
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={form.useButcheryScaleBarcodeWeight}
-                    onChange={(e) =>
-                      updateField(
-                        "useButcheryScaleBarcodeWeight",
-                        e.target.checked,
-                      )
-                    }
-                    disabled={!canEdit}
-                  />
-                }
-                label="Carniceria: tomar peso desde codigo de balanza"
-              />
-
               <Typography sx={{ color: "text.secondary", fontSize: 13 }}>
-                Si el codigo de balanza trae peso embebido, el POS usara ese
-                valor como cantidad automaticamente al escanearlo.
+                {form.posPolicyPack === "POS_BUTCHERY"
+                  ? "El perfil carniceria activa lectura de peso desde codigo de balanza al escanear productos."
+                  : "El perfil generico mantiene un flujo base de POS sin lectura de peso embebido."}
               </Typography>
             </Stack>
           </Paper>

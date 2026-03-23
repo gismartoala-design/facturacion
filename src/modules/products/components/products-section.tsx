@@ -42,7 +42,10 @@ export function ProductsSection({
         product.nombre.toLowerCase().includes(q) ||
         (product.sku ?? "").toLowerCase().includes(q) ||
         (product.codigoBarras ?? "").toLowerCase().includes(q) ||
-        matchesScaleBarcodePrefix(q, product.codigoBarras) ||
+        matchesScaleBarcodePrefix(
+          q,
+          product.codigoBarras ?? product.codigo ?? product.sku,
+        ) ||
         product.codigo.toLowerCase().includes(q) ||
         product.tipoProducto.toLowerCase().includes(q),
     );

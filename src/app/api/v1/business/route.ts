@@ -8,6 +8,34 @@ import {
 } from "@/core/business/business.service";
 import { updateBusinessSettingsSchema } from "@/core/business/schemas";
 import { getSession } from "@/lib/auth";
+import { resolveBillingRuntime } from "@/modules/billing/policies/resolve-billing-runtime";
+import { posBlueprintToEditorValue } from "@/modules/pos/policies/pos-policy-editor";
+import { resolvePosRuntime } from "@/modules/pos/policies/resolve-pos-runtime";
+
+function enrichBusinessContext<
+  T extends {
+    blueprint: Parameters<typeof resolveBillingRuntime>[0]["blueprint"];
+    taxProfile: Parameters<typeof resolveBillingRuntime>[0]["taxProfile"];
+    posSettings?: unknown;
+  },
+>(business: T) {
+  const { blueprint } = business;
+  const businessData = { ...business } as Record<string, unknown>;
+  delete businessData.blueprint;
+  delete businessData.posSettings;
+
+  return {
+    ...businessData,
+    billingRuntime: resolveBillingRuntime({
+      blueprint,
+      taxProfile: business.taxProfile,
+    }),
+    posPolicy: posBlueprintToEditorValue(blueprint),
+    posRuntime: resolvePosRuntime({
+      blueprint,
+    }),
+  };
+}
 
 export async function GET() {
   try {
@@ -23,7 +51,10 @@ export async function GET() {
       ? await getBusinessContextById(session.businessId)
       : await ensureDefaultBusiness();
 
-    return NextResponse.json({ success: true, data: business });
+    return NextResponse.json({
+      success: true,
+      data: enrichBusinessContext(business),
+    });
   } catch (error) {
     return NextResponse.json(
       {
@@ -66,7 +97,10 @@ export async function PUT(request: Request) {
       ? await updateBusinessSettings(session.businessId, input)
       : await updateBusinessSettings((await ensureDefaultBusiness()).id, input);
 
-    return NextResponse.json({ success: true, data: business });
+    return NextResponse.json({
+      success: true,
+      data: enrichBusinessContext(business),
+    });
   } catch (error) {
     if (error instanceof ZodError) {
       return NextResponse.json(

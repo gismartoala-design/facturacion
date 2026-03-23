@@ -1,12 +1,11 @@
 "use client";
 
 import Alert from "@mui/material/Alert";
-import CircularProgress from "@mui/material/CircularProgress";
-import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import { useEffect, useState } from "react";
 
 import { fetchJson } from "@/shared/dashboard/api";
+import type { BillingRuntime } from "@/modules/billing/policies/billing-runtime";
 import {
   type PaginatedResult,
   type Product,
@@ -16,8 +15,9 @@ import {
 } from "@/shared/dashboard/types";
 import { OverviewOperationalDashboard } from "@/modules/overview/components/overview-operational-dashboard";
 
-type SessionInfo = {
-  features: string[];
+type BusinessOverviewContext = {
+  enabledFeatures: string[];
+  billingRuntime: BillingRuntime;
 };
 
 export default function OverviewPage() {
@@ -26,18 +26,17 @@ export default function OverviewPage() {
   const [openQuotes, setOpenQuotes] = useState<Quote[]>([]);
   const [pendingInvoices, setPendingInvoices] = useState<SriInvoice[]>([]);
   const [errorInvoices, setErrorInvoices] = useState<SriInvoice[]>([]);
-  const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
     async function loadData() {
-      setLoading(true);
       setMessage("");
 
       try {
-        const session = await fetchJson<SessionInfo>("/api/v1/auth/me");
-        const quotesEnabled = session.features.includes("QUOTES");
-        const billingEnabled = session.features.includes("BILLING");
+        const business = await fetchJson<BusinessOverviewContext>("/api/v1/business");
+        const quotesEnabled = business.enabledFeatures.includes("QUOTES");
+        const billingEnabled =
+          business.billingRuntime.capabilities.electronicBilling;
 
         const [productsRes, stockRes, openQuotesRes, pendingRes, errorRes] = await Promise.all([
           fetchJson<Product[]>("/api/v1/products"),
@@ -58,8 +57,6 @@ export default function OverviewPage() {
         setErrorInvoices(errorRes.data);
       } catch (error) {
         setMessage(error instanceof Error ? error.message : "Error al cargar datos");
-      } finally {
-        setLoading(false);
       }
     }
 

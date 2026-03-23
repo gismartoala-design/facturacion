@@ -2,11 +2,23 @@ import { BusinessFeatureKey, Prisma } from "@prisma/client";
 
 import {
   DEFAULT_POS_FEATURE_CONFIG,
+  parsePosFeatureBlueprint,
   parsePosFeatureConfig,
-  serializePosFeatureConfig,
+  serializePosFeatureConfigWithBlueprint,
 } from "@/core/business/feature-config";
+import type { BusinessBlueprint } from "@/core/platform/business-blueprint";
+import { mergeBusinessBlueprint } from "@/core/platform/blueprint-config";
+import {
+  mapLegacyBusinessBlueprint,
+} from "@/core/platform/legacy-mappers";
 import { prisma } from "@/lib/prisma";
 import type { UpdateBusinessSettingsInput } from "@/core/business/schemas";
+import {
+  DEFAULT_POS_POLICY_EDITOR,
+  editorValueToPosBlueprint,
+  legacyPosFlagsToPolicyEditorValue,
+  posPolicyToLegacyFlags,
+} from "@/modules/pos/policies/pos-policy-editor";
 
 export const DEFAULT_BUSINESS_SLUG = "default";
 const DEFAULT_DOCUMENT_ISSUER_CODE = "MAIN";
@@ -76,6 +88,8 @@ export type BusinessContext = Prisma.BusinessGetPayload<{
   select: typeof DEFAULT_BUSINESS_SELECT;
 }> & {
   enabledFeatures: BusinessFeatureKey[];
+  blueprint: BusinessBlueprint;
+  // Legacy compatibility snapshot kept while historical configs still exist.
   posSettings: {
     trackInventoryOnSale: boolean;
     useButcheryScaleBarcodeWeight: boolean;
@@ -176,11 +190,20 @@ function toBusinessContext(
   business: Prisma.BusinessGetPayload<{ select: typeof DEFAULT_BUSINESS_SELECT }>,
 ): BusinessContext {
   const posFeature = business.features.find((feature) => feature.key === "POS");
+  const posSettings = parsePosFeatureConfig(posFeature?.config);
+  const legacyBlueprint = mapLegacyBusinessBlueprint({
+    features: business.features,
+    posSettings,
+  });
+  const persistedPosBlueprint = parsePosFeatureBlueprint(posFeature?.config);
 
   return {
     ...business,
     enabledFeatures: toEnabledFeatures(business.features),
-    posSettings: parsePosFeatureConfig(posFeature?.config),
+    blueprint: persistedPosBlueprint
+      ? mergeBusinessBlueprint(legacyBlueprint, persistedPosBlueprint)
+      : legacyBlueprint,
+    posSettings,
   };
 }
 
@@ -223,7 +246,12 @@ export async function ensureDefaultBusiness() {
           enabled,
           ...(key === "POS"
             ? {
-                config: serializePosFeatureConfig(DEFAULT_POS_FEATURE_CONFIG),
+                config: serializePosFeatureConfigWithBlueprint(
+                  DEFAULT_POS_FEATURE_CONFIG,
+                  editorValueToPosBlueprint(DEFAULT_POS_POLICY_EDITOR, {
+                    enabled,
+                  }),
+                ),
               }
             : {}),
         },
@@ -300,6 +328,29 @@ export async function updateBusinessSettings(
   businessId: string,
   input: UpdateBusinessSettingsInput,
 ) {
+  const existingPosFeature = await prisma.businessFeature.findUnique({
+    where: {
+      businessId_key: {
+        businessId,
+        key: "POS",
+      },
+    },
+    select: {
+      enabled: true,
+    },
+  });
+  const posEnabled = existingPosFeature?.enabled ?? DEFAULT_FEATURE_STATE.POS;
+  const nextPosPolicy =
+    input.posPolicy ??
+    legacyPosFlagsToPolicyEditorValue({
+      trackInventoryOnSale: input.trackInventoryOnSale,
+      useButcheryScaleBarcodeWeight: input.useButcheryScaleBarcodeWeight,
+    });
+  const nextPosLegacyFlags = posPolicyToLegacyFlags(nextPosPolicy);
+  const nextPosBlueprint = editorValueToPosBlueprint(nextPosPolicy, {
+    enabled: posEnabled,
+  });
+
   const business = await prisma.business.update({
     where: { id: businessId },
     data: {
@@ -399,19 +450,21 @@ export async function updateBusinessSettings(
       },
     },
     update: {
-      config: serializePosFeatureConfig({
-        trackInventoryOnSale: input.trackInventoryOnSale,
-        useButcheryScaleBarcodeWeight: input.useButcheryScaleBarcodeWeight,
-      }),
+      config: serializePosFeatureConfigWithBlueprint(
+        nextPosLegacyFlags,
+        nextPosBlueprint,
+      ),
     },
     create: {
       businessId,
       key: "POS",
       enabled: DEFAULT_FEATURE_STATE.POS,
-      config: serializePosFeatureConfig({
-        trackInventoryOnSale: input.trackInventoryOnSale,
-        useButcheryScaleBarcodeWeight: input.useButcheryScaleBarcodeWeight,
-      }),
+      config: serializePosFeatureConfigWithBlueprint(
+        nextPosLegacyFlags,
+        editorValueToPosBlueprint(nextPosPolicy, {
+          enabled: DEFAULT_FEATURE_STATE.POS,
+        }),
+      ),
     },
   });
 
