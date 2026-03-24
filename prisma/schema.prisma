@@ -134,6 +134,7 @@ model DocumentIssuer {
   name        String
   legalName   String?
   ruc         String?
+  externalIssuerId String?
   environment String             @default("PRUEBAS")
   active      Boolean            @default(true)
   series      DocumentSeries[]

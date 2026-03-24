@@ -22,6 +22,18 @@ export type SriInvoiceArtifacts = {
   responseAuthUrl?: string | null;
 };
 
+export class SriHttpError extends Error {
+  statusCode: number | null;
+  responseBody: unknown;
+
+  constructor(message: string, options?: { statusCode?: number | null; responseBody?: unknown }) {
+    super(message);
+    this.name = "SriHttpError";
+    this.statusCode = options?.statusCode ?? null;
+    this.responseBody = options?.responseBody ?? null;
+  }
+}
+
 export type SriInvoiceIssueResponse = {
   id?: string | null;
   issuerId?: string | null;
@@ -56,7 +68,77 @@ export type SriInvoiceIssueResponse = {
   updatedAt?: string | null;
 };
 
+export type SriEnvelope<T> = {
+  success: boolean;
+  data: T;
+  timestamp?: string;
+};
+
+function normalizeSriErrorMessage(responseBody: unknown, statusCode: number | null) {
+  if (responseBody && typeof responseBody === "object") {
+    const record = responseBody as Record<string, unknown>;
+    const directMessage =
+      typeof record.message === "string"
+        ? record.message
+        : typeof record.error === "string"
+          ? record.error
+          : null;
+
+    if (directMessage) {
+      return directMessage;
+    }
+  }
+
+  return statusCode
+    ? `El servicio SRI respondio HTTP ${statusCode}`
+    : "No se pudo consumir el servicio SRI";
+}
+
+function isSriEnvelope(value: unknown): value is SriEnvelope<SriInvoiceIssueResponse> {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const record = value as Record<string, unknown>;
+  return typeof record.success === "boolean" && "data" in record;
+}
+
 export async function createInvoice(payload: unknown) {
-  const { data } = await http.post<SriInvoiceIssueResponse>("/api/v1/invoices/issue", payload);
-  return data;
+  try {
+    const { data } = await http.post<SriInvoiceIssueResponse | SriEnvelope<SriInvoiceIssueResponse>>(
+      "/api/v1/invoices/issue",
+      payload,
+    );
+
+    if (isSriEnvelope(data)) {
+      if (!data.success) {
+        throw new SriHttpError(
+          normalizeSriErrorMessage(data, 200),
+          {
+            statusCode: 200,
+            responseBody: data,
+          },
+        );
+      }
+
+      return data.data;
+    }
+
+    return data;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const statusCode = error.response?.status ?? null;
+      const responseBody = error.response?.data;
+
+      throw new SriHttpError(
+        normalizeSriErrorMessage(responseBody, statusCode),
+        {
+          statusCode,
+          responseBody,
+        },
+      );
+    }
+
+    throw error;
+  }
 }

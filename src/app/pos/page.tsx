@@ -13,6 +13,8 @@ import { PosApp } from "@/modules/pos/components/pos-app";
 export default async function PosPage() {
   const session = await getSession();
 
+  console.log("Session in POS page:", session); // Debugging log
+
   if (!session) {
     redirect("/login");
   }

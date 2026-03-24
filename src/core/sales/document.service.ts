@@ -99,7 +99,7 @@ function toInvoicePayload(
     puntoEmision: params.emissionPointCode,
     secuencial: params.formattedSequence,
     claveAcceso: params.accessKey,
-    autorizar: true,
+    // autorizar: true,
     clienteTipoIdentificacion: context.customer.tipoIdentificacion,
     clienteIdentificacion: context.customer.identificacion,
     clienteRazonSocial: context.customer.razonSocial,
@@ -259,6 +259,7 @@ export async function createDocumentForSaleInTransaction(
     where: { id: context.documentInput.issuerId },
     select: {
       ruc: true,
+      externalIssuerId: true,
       environment: true,
     },
   });
@@ -266,6 +267,12 @@ export async function createDocumentForSaleInTransaction(
   if (!issuer?.ruc) {
     throw new Error(
       "El emisor documental no tiene RUC configurado para generar la clave de acceso",
+    );
+  }
+
+  if (!issuer.externalIssuerId) {
+    throw new Error(
+      "El emisor documental no tiene externalIssuerId configurado para el gateway SRI",
     );
   }
 
@@ -283,7 +290,7 @@ export async function createDocumentForSaleInTransaction(
     tipoEmision: "1",
   });
   const invoicePayload = toInvoicePayload(context, {
-    issuerId: context.documentInput.issuerId,
+    issuerId: issuer.externalIssuerId,
     establishmentCode: numbering.establishmentCode,
     emissionPointCode: numbering.emissionPointCode,
     formattedSequence: numbering.formattedSequence,

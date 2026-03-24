@@ -586,9 +586,6 @@ export function PosApp({
   const useButcheryScaleBarcodeWeight =
     posRuntime?.capabilities.weightFromBarcode ?? false;
 
-    console.log("billingRuntime", billingRuntime);
-    console.log("posRuntime", posRuntime);
-
   const dataGridColumns = useMemo<GridColDef<LinePreviewRow>[]>(
     () => [
       {
