@@ -1,11 +1,13 @@
+import { after } from "next/server";
 import { z } from "zod";
 
 import { ensureDefaultBusiness, getBusinessContextById } from "@/core/business/business.service";
 import { getSession } from "@/lib/auth";
 import { fail, ok } from "@/lib/http";
 import { resolveBillingRuntime } from "@/modules/billing/policies/resolve-billing-runtime";
+import { authorizePendingSaleDocument } from "@/modules/billing/services/sale-document-authorization.service";
 import { resolvePosRuntime } from "@/modules/pos/policies/resolve-pos-runtime";
-import { runDirectSaleCheckout } from "@/modules/sales/services/direct-sale-checkout.service";
+import { runPosCheckout } from "@/modules/pos/services/pos-checkout.service";
 
 export async function POST(request: Request) {
   try {
@@ -18,7 +20,8 @@ export async function POST(request: Request) {
     const payload = await request.json();
     const normalizedPayload = {
       ...payload,
-      createdById: typeof payload?.createdById === "string" ? payload.createdById : session.sub,
+      createdById:
+        typeof payload?.createdById === "string" ? payload.createdById : session.sub,
     };
     const billingRuntime = resolveBillingRuntime({
       blueprint: business.blueprint,
@@ -32,9 +35,19 @@ export async function POST(request: Request) {
       normalizedPayload.documentType = "NONE";
     }
 
-    const result = await runDirectSaleCheckout(normalizedPayload, {
-      inventoryTrackingEnabled: posRuntime.operationalRules.trackInventoryOnSale,
-    });
+    const result = await runPosCheckout(
+      normalizedPayload,
+      {
+        inventoryTrackingEnabled: posRuntime.operationalRules.trackInventoryOnSale,
+      },
+      {
+        scheduleDocumentAuthorization(task) {
+          after(async () => {
+            await authorizePendingSaleDocument(task);
+          });
+        },
+      },
+    );
 
     return ok(result, { status: 201 });
   } catch (error) {
@@ -42,7 +55,8 @@ export async function POST(request: Request) {
       return fail("Payload invalido", 400, error.flatten());
     }
 
-    const message = error instanceof Error ? error.message : "No se pudo procesar checkout";
+    const message =
+      error instanceof Error ? error.message : "No se pudo procesar checkout POS";
     return fail(message, 400);
   }
 }

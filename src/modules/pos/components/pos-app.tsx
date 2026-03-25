@@ -1713,7 +1713,7 @@ export function PosApp({
           : customer;
 
       const result = await fetchJson<CheckoutResponse>(
-        "/api/v1/sales/checkout",
+        "/api/v1/pos/checkout",
         {
           method: "POST",
           body: JSON.stringify({

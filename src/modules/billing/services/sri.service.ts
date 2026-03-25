@@ -11,6 +11,7 @@ import {
   createInvoice,
   SriHttpError,
 } from "@/modules/billing/services/sri.client";
+import { preparePendingSaleDocumentAuthorizationBySriInvoiceId } from "@/modules/billing/services/sale-document-preparation.service";
 
 const logger = createLogger("SRIService");
 
@@ -240,9 +241,19 @@ export async function retrySriInvoiceAuthorization(sriInvoiceId: string) {
     throw new Error("Factura local no encontrada");
   }
 
-  if (!invoice.createRequestPayload) {
-    throw new Error("La factura no tiene payload guardado para reintento");
-  }
+  const hasStoredPayload =
+    invoice.createRequestPayload &&
+    typeof invoice.createRequestPayload === "object" &&
+    !Array.isArray(invoice.createRequestPayload) &&
+    Object.keys(invoice.createRequestPayload).length > 0;
+
+  const createRequestPayload = hasStoredPayload
+    ? invoice.createRequestPayload
+    : (
+        await preparePendingSaleDocumentAuthorizationBySriInvoiceId(
+          sriInvoiceId,
+        )
+      ).invoicePayload;
 
   if (invoice.sale.status === SaleStatus.CANCELLED) {
     throw new Error("No se puede reintentar una factura de una venta anulada");
@@ -254,7 +265,7 @@ export async function retrySriInvoiceAuthorization(sriInvoiceId: string) {
   });
 
   try {
-    const response = await createInvoice(invoice.createRequestPayload);
+    const response = await createInvoice(createRequestPayload);
     const localStatus = toLocalSriInvoiceStatus(response.status);
     const authorizedAt = response.authorizedAt
       ? new Date(response.authorizedAt)
@@ -262,7 +273,7 @@ export async function retrySriInvoiceAuthorization(sriInvoiceId: string) {
 
     await logIntegration({
       operation: "RETRY",
-      requestPayload: invoice.createRequestPayload,
+      requestPayload: createRequestPayload,
       responsePayload: response,
       success: localStatus !== SriInvoiceStatus.ERROR,
       httpStatus: 200,
@@ -369,7 +380,7 @@ export async function retrySriInvoiceAuthorization(sriInvoiceId: string) {
 
     await logIntegration({
       operation: "RETRY",
-      requestPayload: invoice.createRequestPayload,
+      requestPayload: createRequestPayload,
       responsePayload: responseBody,
       httpStatus,
       success: false,

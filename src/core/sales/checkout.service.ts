@@ -1,6 +1,6 @@
 import {
-  authorizePendingSaleDocument,
   createDocumentForSaleInTransaction,
+  type InvoiceSummary,
   type PendingSaleDocumentAuthorization,
 } from "@/core/sales/document.service";
 import { createSaleInTransaction } from "@/core/sales/sale.service";
@@ -10,7 +10,7 @@ import { prisma } from "@/lib/prisma";
 
 const logger = createLogger("SalesCheckout");
 
-type CheckoutOptions = {
+export type CheckoutOptions = {
   inventoryTrackingEnabled?: boolean;
 };
 
@@ -32,6 +32,36 @@ export type CheckoutResult = {
   >["invoice"];
   backgroundDocumentTask: PendingSaleDocumentAuthorization | null;
 };
+
+export type CheckoutResponse = Omit<CheckoutResult, "backgroundDocumentTask">;
+
+function toInvoiceSummary(rawInvoice: {
+  id: string;
+  externalInvoiceId: string | null;
+  secuencial: string | null;
+  status: InvoiceSummary["status"];
+  authorizationNumber: string | null;
+  claveAcceso: string | null;
+  lastError: string | null;
+  retryCount: number;
+  documents: {
+    xmlSignedPath: string | null;
+    xmlAuthorizedPath: string | null;
+    ridePdfPath: string | null;
+  } | null;
+}): InvoiceSummary {
+  return {
+    sriInvoiceId: rawInvoice.id,
+    externalInvoiceId: rawInvoice.externalInvoiceId,
+    secuencial: rawInvoice.secuencial,
+    status: rawInvoice.status,
+    authorizationNumber: rawInvoice.authorizationNumber,
+    claveAcceso: rawInvoice.claveAcceso,
+    lastError: rawInvoice.lastError,
+    retryCount: rawInvoice.retryCount,
+    documents: rawInvoice.documents,
+  };
+}
 
 export async function checkout(rawInput: unknown, options?: CheckoutOptions) {
   const startedAt = startTimer();
@@ -85,4 +115,52 @@ export async function checkout(rawInput: unknown, options?: CheckoutOptions) {
   }
 }
 
-export { authorizePendingSaleDocument };
+export async function refreshCheckoutResult(
+  result: CheckoutResult,
+): Promise<CheckoutResult> {
+  if (!result.invoice) {
+    return result;
+  }
+
+  const saleDocument = await prisma.saleDocument.findUnique({
+    where: { id: result.document.saleDocumentId },
+    include: {
+      sriInvoice: {
+        include: {
+          documents: true,
+        },
+      },
+    },
+  });
+
+  if (!saleDocument) {
+    return result;
+  }
+
+  const invoice = saleDocument.sriInvoice
+    ? toInvoiceSummary(saleDocument.sriInvoice)
+    : null;
+
+  return {
+    ...result,
+    document: {
+      saleDocumentId: saleDocument.id,
+      type: saleDocument.type,
+      status: saleDocument.status,
+      fullNumber: saleDocument.fullNumber,
+      establishmentCode: saleDocument.establishmentCode,
+      emissionPointCode: saleDocument.emissionPointCode,
+      sequenceNumber: saleDocument.sequenceNumber,
+      issuedAt: saleDocument.issuedAt,
+      invoice,
+    },
+    invoice,
+  } satisfies CheckoutResult;
+}
+
+export function toCheckoutResponse(result: CheckoutResult): CheckoutResponse {
+  const { backgroundDocumentTask: _backgroundDocumentTask, ...response } =
+    result;
+
+  return response;
+}
