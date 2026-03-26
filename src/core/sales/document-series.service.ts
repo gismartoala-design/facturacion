@@ -38,9 +38,7 @@ export async function reserveDocumentNumber(
       sequence_number: number;
     }>
   >`
-    UPDATE "DocumentSeries"
-    SET "nextSequence" = "nextSequence" + 1
-    WHERE id = (
+    WITH selected_series AS (
       SELECT id
       FROM "DocumentSeries"
       WHERE "issuerId" = ${issuerId}::uuid
@@ -49,13 +47,36 @@ export async function reserveDocumentNumber(
       ORDER BY "establishmentCode" ASC, "emissionPointCode" ASC
       LIMIT 1
       FOR UPDATE
+    ),
+    series_state AS (
+      SELECT
+        ds.id,
+        ds."issuerId",
+        ds."establishmentCode",
+        ds."emissionPointCode",
+        ds."nextSequence",
+        COALESCE(MAX(sd."sequenceNumber"), 0) + 1 AS min_available_sequence
+      FROM "DocumentSeries" ds
+      JOIN selected_series ss ON ss.id = ds.id
+      LEFT JOIN "SaleDocument" sd ON sd."documentSeriesId" = ds.id
+      GROUP BY
+        ds.id,
+        ds."issuerId",
+        ds."establishmentCode",
+        ds."emissionPointCode",
+        ds."nextSequence"
     )
+    UPDATE "DocumentSeries" ds
+    SET "nextSequence" =
+      GREATEST(series_state."nextSequence", series_state.min_available_sequence) + 2
+    FROM series_state
+    WHERE ds.id = series_state.id
     RETURNING
-      id,
-      "issuerId" AS issuer_id,
-      "establishmentCode" AS establishment_code,
-      "emissionPointCode" AS emission_point_code,
-      "nextSequence" - 1 AS sequence_number
+      ds.id,
+      ds."issuerId" AS issuer_id,
+      ds."establishmentCode" AS establishment_code,
+      ds."emissionPointCode" AS emission_point_code,
+      GREATEST(series_state."nextSequence", series_state.min_available_sequence) AS sequence_number
   `;
 
   const reservedSeries = reservedSeriesRows[0];
