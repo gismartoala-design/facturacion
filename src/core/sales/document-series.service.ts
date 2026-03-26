@@ -29,41 +29,54 @@ export async function reserveDocumentNumber(
   issuerId: string,
   documentType: "INVOICE",
 ): Promise<ReserveDocumentNumberResult> {
-  const series = await tx.documentSeries.findFirst({
-    where: {
-      issuerId,
-      documentType,
-      active: true,
-    },
-    orderBy: [{ establishmentCode: "asc" }, { emissionPointCode: "asc" }],
-  });
+  const reservedSeriesRows = await tx.$queryRaw<
+    Array<{
+      id: string;
+      issuer_id: string;
+      establishment_code: string;
+      emission_point_code: string;
+      sequence_number: number;
+    }>
+  >`
+    UPDATE "DocumentSeries"
+    SET "nextSequence" = "nextSequence" + 1
+    WHERE id = (
+      SELECT id
+      FROM "DocumentSeries"
+      WHERE "issuerId" = ${issuerId}
+        AND "documentType" = ${documentType}
+        AND active = true
+      ORDER BY "establishmentCode" ASC, "emissionPointCode" ASC
+      LIMIT 1
+      FOR UPDATE
+    )
+    RETURNING
+      id,
+      "issuerId" AS issuer_id,
+      "establishmentCode" AS establishment_code,
+      "emissionPointCode" AS emission_point_code,
+      "nextSequence" - 1 AS sequence_number
+  `;
 
-  if (!series) {
+  const reservedSeries = reservedSeriesRows[0];
+
+  if (!reservedSeries) {
     throw new Error("No existe una serie documental activa para este emisor");
   }
 
-  const updatedSeries = await tx.documentSeries.update({
-    where: { id: series.id },
-    data: {
-      nextSequence: {
-        increment: 1,
-      },
-    },
-  });
-
-  const sequenceNumber = updatedSeries.nextSequence - 1;
+  const sequenceNumber = reservedSeries.sequence_number;
   const formattedSequence = formatDocumentSequence(sequenceNumber);
 
   return {
-    documentSeriesId: series.id,
-    issuerId: series.issuerId,
-    establishmentCode: series.establishmentCode,
-    emissionPointCode: series.emissionPointCode,
+    documentSeriesId: reservedSeries.id,
+    issuerId: reservedSeries.issuer_id,
+    establishmentCode: reservedSeries.establishment_code,
+    emissionPointCode: reservedSeries.emission_point_code,
     sequenceNumber,
     formattedSequence,
     fullNumber: buildDocumentFullNumber(
-      series.establishmentCode,
-      series.emissionPointCode,
+      reservedSeries.establishment_code,
+      reservedSeries.emission_point_code,
       sequenceNumber,
     ),
   };
