@@ -64,6 +64,10 @@ import {
   buildPosTicketHtml,
   type PosTicketData,
 } from "@/lib/pos-ticket-template";
+import {
+  buildCashCloseTicketHtml,
+  type CashCloseTicketData,
+} from "@/lib/cash-close-ticket-template";
 import { createLogger, startTimer, timerDurationMs } from "@/lib/logger";
 import {
   extractScaleBarcodeWeight,
@@ -87,6 +91,7 @@ import {
   type Product,
 } from "@/shared/dashboard/types";
 import { buildPosTicketEscPos } from "@/lib/pos-ticket-pdf";
+import { buildCashCloseTicketEscPos } from "@/lib/cash-close-ticket-pdf";
 
 type PosAppProps = {
   initialSession: {
@@ -1508,9 +1513,10 @@ export function PosApp({
 
     try {
       const useCashMgmt = cashRuntime?.enabled;
+      let closedSession: PosCashSession | null = null;
 
       if (useCashMgmt && cashSession?.id) {
-        await fetchJson<PosCashSession>(
+        closedSession = await fetchJson<PosCashSession>(
           `/api/v1/cash-management/sessions/${cashSession.id}/close`,
           {
             method: "POST",
@@ -1521,13 +1527,52 @@ export function PosApp({
           },
         );
       } else {
-        await fetchJson<PosCashSession>("/api/v1/pos/cash-session", {
+        closedSession = await fetchJson<PosCashSession>("/api/v1/pos/cash-session", {
           method: "PATCH",
           body: JSON.stringify({
             closingAmount: parseDecimalInput(closingAmount || "0"),
             notes: closingNotes,
           }),
         });
+      }
+
+      if (bootstrap && closedSession) {
+        const closeTicketData: CashCloseTicketData = {
+          businessName: bootstrap.business.name,
+          businessLegalName: bootstrap.business.legalName,
+          businessRuc: bootstrap.business.ruc,
+          businessAddress: bootstrap.business.address,
+          businessPhone: bootstrap.business.phone,
+          businessEmail: bootstrap.business.email,
+          operatorName: bootstrap.operator.name,
+          sessionId: closedSession.id,
+          openedAt: formatDateTime(closedSession.openedAt),
+          closedAt: formatDateTime(closedSession.closedAt ?? new Date()),
+          openingAmount: closedSession.openingAmount,
+          salesCashTotal: closedSession.salesCashTotal ?? 0,
+          movementsTotal: closedSession.movementsTotal ?? 0,
+          expectedClosing:
+            closedSession.expectedClosing ??
+            closedSession.openingAmount +
+              (closedSession.salesCashTotal ?? 0) +
+              (closedSession.movementsTotal ?? 0),
+          declaredClosing:
+            closedSession.declaredClosing ??
+            closedSession.closingAmount ??
+            parseDecimalInput(closingAmount || "0"),
+          difference:
+            closedSession.difference ??
+            (closedSession.declaredClosing ??
+              closedSession.closingAmount ??
+              parseDecimalInput(closingAmount || "0")) -
+              (closedSession.expectedClosing ??
+                closedSession.openingAmount +
+                  (closedSession.salesCashTotal ?? 0) +
+                  (closedSession.movementsTotal ?? 0)),
+          notes: closedSession.notes ?? closingNotes,
+        };
+
+        void printCashCloseTicket(closeTicketData);
       }
 
       setCashSessionInBootstrap(null);
@@ -1901,7 +1946,7 @@ export function PosApp({
     window.location.href = "/login";
   }
 
-  function printTicketInBrowser(html: string) {
+  function printHtmlDocument(html: string, blockedMessage: string) {
     const blob = new Blob([html], { type: "text/html;charset=utf-8" });
     const blobUrl = URL.createObjectURL(blob);
     const printWindow = window.open(blobUrl, "_blank", "width=420,height=720");
@@ -1909,7 +1954,7 @@ export function PosApp({
       URL.revokeObjectURL(blobUrl);
       setMessage({
         tone: "error",
-        text: "El navegador bloqueo la ventana de impresion",
+        text: blockedMessage,
       });
       return;
     }
@@ -1922,11 +1967,12 @@ export function PosApp({
   async function printTicket(ticketData: PosTicketData) {
     const printStartedAt = startTimer();
     if (!selectedPrinter) {
-      printTicketInBrowser(
+      printHtmlDocument(
         buildPosTicketHtml(ticketData, {
           autoPrint: false,
           autoClose: false,
         }),
+        "El navegador bloqueo la ventana de impresion",
       );
       posLogger.info("print:browser-fallback", {
         saleNumber: ticketData.saleNumber,
@@ -1962,11 +2008,56 @@ export function PosApp({
         durationMs: timerDurationMs(printStartedAt),
         message: error instanceof Error ? error.message : "Error desconocido",
       });
-      printTicketInBrowser(
+      printHtmlDocument(
         buildPosTicketHtml(ticketData, {
           autoPrint: false,
           autoClose: false,
         }),
+        "El navegador bloqueo la ventana de impresion",
+      );
+    }
+  }
+
+  async function printCashCloseTicket(ticketData: CashCloseTicketData) {
+    const printStartedAt = startTimer();
+
+    if (!selectedPrinter) {
+      printHtmlDocument(
+        buildCashCloseTicketHtml(ticketData, {
+          autoPrint: false,
+          autoClose: false,
+        }),
+        "El navegador bloqueo la ventana de impresion del cierre",
+      );
+      posLogger.info("cash-close-print:browser-fallback", {
+        sessionId: ticketData.sessionId,
+        durationMs: timerDurationMs(printStartedAt),
+        reason: "no-selected-printer",
+      });
+      return;
+    }
+
+    try {
+      const ticket = buildCashCloseTicketEscPos(ticketData);
+      await printDocumentBytes(selectedPrinter, ticket.bytes);
+      posLogger.info("cash-close-print:completed", {
+        sessionId: ticketData.sessionId,
+        printerName: selectedPrinter,
+        durationMs: timerDurationMs(printStartedAt),
+      });
+    } catch (error) {
+      posLogger.warn("cash-close-print:fallback", {
+        sessionId: ticketData.sessionId,
+        printerName: selectedPrinter,
+        durationMs: timerDurationMs(printStartedAt),
+        message: error instanceof Error ? error.message : "Error desconocido",
+      });
+      printHtmlDocument(
+        buildCashCloseTicketHtml(ticketData, {
+          autoPrint: false,
+          autoClose: false,
+        }),
+        "El navegador bloqueo la ventana de impresion del cierre",
       );
     }
   }

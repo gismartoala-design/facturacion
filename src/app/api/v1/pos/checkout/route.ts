@@ -62,14 +62,17 @@ export async function POST(request: Request) {
     if (activeCashSession) {
       const payments: Array<{ formaPago: string; total: number }> =
         Array.isArray(normalizedPayload?.payments) ? normalizedPayload.payments : [];
-      const cashPayment = payments.find((p) => p.formaPago === "01");
-      if (cashPayment && cashPayment.total > 0) {
+      const cashPaymentTotal = payments
+        .filter((p) => p.formaPago === "01" && p.total > 0)
+        .reduce((acc, payment) => acc + payment.total, 0);
+
+      if (cashPaymentTotal > 0) {
         after(async () => {
           await registerSaleCashIn({
             sessionId: activeCashSession.id,
             businessId: business.id,
             saleId: result.saleId,
-            amount: cashPayment.total,
+            amount: cashPaymentTotal,
             createdById: session.sub,
           });
         });

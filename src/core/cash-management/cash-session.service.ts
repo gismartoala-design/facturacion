@@ -27,7 +27,7 @@ export type CashSessionSummary = {
   movementsTotal: number;
 };
 
-async function computeExpectedClosing(sessionId: string, openingAmount: Prisma.Decimal): Promise<Prisma.Decimal> {
+async function computeExpectedClosing(sessionId: string): Promise<Prisma.Decimal> {
   const movements = await prisma.cashMovement.findMany({
     where: { sessionId },
     select: { type: true, amount: true },
@@ -50,7 +50,7 @@ async function computeExpectedClosing(sessionId: string, openingAmount: Prisma.D
       return acc.sub(amount);
     }
     return acc;
-  }, new Prisma.Decimal(0)).add(openingAmount);
+  }, new Prisma.Decimal(0));
 }
 
 async function toCashSessionSummary(raw: {
@@ -176,7 +176,7 @@ export async function closeCashSession(
     throw new Error("La sesion ya fue cerrada");
   }
 
-  const expectedClosing = await computeExpectedClosing(existing.id, existing.openingAmount);
+  const expectedClosing = await computeExpectedClosing(existing.id);
   const declaredDecimal = new Prisma.Decimal(input.declaredAmount);
   const difference = declaredDecimal.sub(expectedClosing);
 
