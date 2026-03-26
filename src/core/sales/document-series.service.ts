@@ -43,8 +43,8 @@ export async function reserveDocumentNumber(
     WHERE id = (
       SELECT id
       FROM "DocumentSeries"
-      WHERE "issuerId" = ${issuerId}
-        AND "documentType" = ${documentType}
+      WHERE "issuerId" = ${issuerId}::uuid
+        AND "documentType" = ${documentType}::"DocumentSeriesType"
         AND active = true
       ORDER BY "establishmentCode" ASC, "emissionPointCode" ASC
       LIMIT 1
