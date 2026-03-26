@@ -2,11 +2,14 @@ import { after } from "next/server";
 import { z } from "zod";
 
 import { ensureDefaultBusiness, getBusinessContextById } from "@/core/business/business.service";
+import { getActiveCashSession } from "@/core/cash-management/cash-session.service";
+import { registerSaleCashIn } from "@/core/cash-management/cash-movement.service";
 import { getSession } from "@/lib/auth";
 import { fail, ok } from "@/lib/http";
 import { resolveBillingRuntime } from "@/modules/billing/policies/resolve-billing-runtime";
 import { authorizePendingSaleDocument } from "@/modules/billing/services/sale-document-authorization.service";
 import { resolvePosRuntime } from "@/modules/pos/policies/resolve-pos-runtime";
+import { resolveCashRuntime } from "@/modules/cash-management/policies/resolve-cash-runtime";
 import { runPosCheckout } from "@/modules/pos/services/pos-checkout.service";
 
 export async function POST(request: Request) {
@@ -30,10 +33,16 @@ export async function POST(request: Request) {
     const posRuntime = resolvePosRuntime({
       blueprint: business.blueprint,
     });
+    const cashRuntime = resolveCashRuntime(business.blueprint);
 
     if (!billingRuntime.capabilities.electronicBilling) {
       normalizedPayload.documentType = "NONE";
     }
+
+    // Obtener sesión de caja activa antes del checkout si Cash Management está habilitado
+    const activeCashSession = cashRuntime.enabled
+      ? await getActiveCashSession(business.id, session.sub)
+      : null;
 
     const result = await runPosCheckout(
       normalizedPayload,
@@ -48,6 +57,24 @@ export async function POST(request: Request) {
         },
       },
     );
+
+    // Registrar movimiento de efectivo en caja si aplica
+    if (activeCashSession) {
+      const payments: Array<{ formaPago: string; total: number }> =
+        Array.isArray(normalizedPayload?.payments) ? normalizedPayload.payments : [];
+      const cashPayment = payments.find((p) => p.formaPago === "01");
+      if (cashPayment && cashPayment.total > 0) {
+        after(async () => {
+          await registerSaleCashIn({
+            sessionId: activeCashSession.id,
+            businessId: business.id,
+            saleId: result.saleId,
+            amount: cashPayment.total,
+            createdById: session.sub,
+          });
+        });
+      }
+    }
 
     return ok(
       {

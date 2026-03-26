@@ -77,6 +77,7 @@ import { PosHeldSalesDialog } from "@/modules/pos/components/pos-held-sales-dial
 import { useLocalPrintSocket } from "@/modules/pos/hooks/use-local-print-socket";
 import type { BillingRuntime } from "@/modules/billing/policies/billing-runtime";
 import type { PosRuntime } from "@/modules/pos/policies/pos-runtime";
+import type { CashRuntime } from "@/modules/cash-management/policies/cash-runtime";
 import { fetchJson } from "@/shared/dashboard/api";
 import {
   IDENTIFICATION_TYPES,
@@ -100,14 +101,21 @@ type PosDocumentType = "NONE" | "INVOICE";
 
 type PosCashSession = {
   id: string;
-  status: "OPEN" | "CLOSED";
+  status: "OPEN" | "CLOSED" | "PENDING_APPROVAL";
   openingAmount: number;
-  closingAmount: number | null;
   notes: string | null;
   openedAt: string;
   closedAt: string | null;
-  salesCount: number;
-  salesTotal: number;
+  // Legacy fields (PosCashSession)
+  closingAmount?: number | null;
+  salesCount?: number;
+  salesTotal?: number;
+  // New Cash Management fields (CashSession)
+  declaredClosing?: number | null;
+  expectedClosing?: number | null;
+  difference?: number | null;
+  salesCashTotal?: number;
+  movementsTotal?: number;
 };
 
 type PosHeldSalePayload = {
@@ -154,6 +162,7 @@ export type PosBootstrap = {
   };
   billingRuntime: BillingRuntime;
   posRuntime: PosRuntime;
+  cashRuntime?: CashRuntime;
   defaultDocumentType: PosDocumentType;
   defaultIssuerId: string;
   cashSession: PosCashSession | null;
@@ -597,6 +606,7 @@ export function PosApp({
   );
   const billingRuntime = bootstrap?.billingRuntime;
   const posRuntime = bootstrap?.posRuntime;
+  const cashRuntime = bootstrap?.cashRuntime;
   const billingEnabled = billingRuntime?.capabilities.electronicBilling ?? false;
   const inventoryTrackingEnabled =
     posRuntime?.operationalRules.trackInventoryOnSale ?? true;
@@ -905,9 +915,9 @@ export function PosApp({
         cashSession: current.cashSession
           ? {
               ...current.cashSession,
-              salesCount: current.cashSession.salesCount + 1,
+              salesCount: (current.cashSession.salesCount ?? 0) + 1,
               salesTotal: Number(
-                (current.cashSession.salesTotal + saleTotal).toFixed(2),
+                ((current.cashSession.salesTotal ?? 0) + saleTotal).toFixed(2),
               ),
             }
           : current.cashSession,
@@ -1463,18 +1473,21 @@ export function PosApp({
     setCashSubmitting(true);
 
     try {
-      const cashSession = await fetchJson<PosCashSession>(
-        "/api/v1/pos/cash-session",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            openingAmount: parseDecimalInput(openingAmount || "0"),
-            notes: openingNotes,
-          }),
-        },
-      );
+      const useCashMgmt = cashRuntime?.enabled;
+      const endpoint = useCashMgmt
+        ? "/api/v1/cash-management/sessions"
+        : "/api/v1/pos/cash-session";
+      const body = {
+        openingAmount: parseDecimalInput(openingAmount || "0"),
+        notes: openingNotes,
+      };
 
-      setCashSessionInBootstrap(cashSession);
+      const newSession = await fetchJson<PosCashSession>(endpoint, {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+
+      setCashSessionInBootstrap(newSession);
       setMessage({ tone: "success", text: "Caja abierta correctamente" });
       setOpeningNotes("");
       setClosingAmount("");
@@ -1494,13 +1507,28 @@ export function PosApp({
     setCashSubmitting(true);
 
     try {
-      await fetchJson<PosCashSession>("/api/v1/pos/cash-session", {
-        method: "PATCH",
-        body: JSON.stringify({
-          closingAmount: parseDecimalInput(closingAmount || "0"),
-          notes: closingNotes,
-        }),
-      });
+      const useCashMgmt = cashRuntime?.enabled;
+
+      if (useCashMgmt && cashSession?.id) {
+        await fetchJson<PosCashSession>(
+          `/api/v1/cash-management/sessions/${cashSession.id}/close`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              declaredAmount: parseDecimalInput(closingAmount || "0"),
+              notes: closingNotes,
+            }),
+          },
+        );
+      } else {
+        await fetchJson<PosCashSession>("/api/v1/pos/cash-session", {
+          method: "PATCH",
+          body: JSON.stringify({
+            closingAmount: parseDecimalInput(closingAmount || "0"),
+            notes: closingNotes,
+          }),
+        });
+      }
 
       setCashSessionInBootstrap(null);
       setMessage({ tone: "success", text: "Caja cerrada correctamente" });
@@ -3520,6 +3548,7 @@ export function PosApp({
         open={cashDialogOpen}
         submitting={cashSubmitting}
         cashSession={cashSession}
+        cashRuntime={cashRuntime}
         openingAmount={openingAmount}
         openingNotes={openingNotes}
         closingAmount={closingAmount}

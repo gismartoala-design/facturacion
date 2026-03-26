@@ -3,6 +3,8 @@ import { z } from "zod";
 
 import { parseBusinessBlueprint, serializeBusinessBlueprint } from "@/core/platform/blueprint-config";
 import type { BusinessBlueprint } from "@/core/platform/business-blueprint";
+import type { CashPolicyEditorValue } from "@/modules/cash-management/policies/cash-policy-editor";
+import { cashPolicyToBlueprint } from "@/modules/cash-management/policies/cash-policy-editor";
 
 export const DEFAULT_POS_FEATURE_CONFIG = {
   trackInventoryOnSale: true,
@@ -62,5 +64,29 @@ export function serializePosFeatureConfigWithBlueprint(
     trackInventoryOnSale: config.trackInventoryOnSale,
     useButcheryScaleBarcodeWeight: config.useButcheryScaleBarcodeWeight,
     blueprint: serializeBusinessBlueprint(blueprint),
+  } satisfies Prisma.InputJsonObject;
+}
+
+/**
+ * Serializes POS config + blueprint with an optional Cash Management policy merged in.
+ * Cash Management modules/capabilities are folded into the same blueprint JSON.
+ */
+export function serializePosFeatureConfigWithBlueprintAndCash(
+  config: PosFeatureConfig,
+  posBlueprint: BusinessBlueprint,
+  cashPolicy: CashPolicyEditorValue,
+): Prisma.InputJsonValue {
+  const cashFragment = cashPolicyToBlueprint(cashPolicy);
+
+  const mergedBlueprint: BusinessBlueprint = {
+    ...posBlueprint,
+    modules: Array.from(new Set([...posBlueprint.modules, ...cashFragment.modules])),
+    capabilities: Array.from(new Set([...posBlueprint.capabilities, ...cashFragment.capabilities])),
+  };
+
+  return {
+    trackInventoryOnSale: config.trackInventoryOnSale,
+    useButcheryScaleBarcodeWeight: config.useButcheryScaleBarcodeWeight,
+    blueprint: serializeBusinessBlueprint(mergedBlueprint),
   } satisfies Prisma.InputJsonObject;
 }

@@ -53,6 +53,21 @@ enum PosCashSessionStatus {
   CLOSED
 }
 
+enum CashSessionStatus {
+  OPEN
+  CLOSED
+  PENDING_APPROVAL
+}
+
+enum CashMovementType {
+  OPENING_FLOAT
+  SALE_CASH_IN
+  MANUAL_IN
+  WITHDRAWAL
+  REFUND_OUT
+  CLOSING_ADJUSTMENT
+}
+
 enum QuoteStatus {
   OPEN
   CONVERTED
@@ -79,23 +94,28 @@ enum DocumentSeriesType {
 }
 
 model Business {
-  id          String            @id @default(uuid()) @db.Uuid
-  name        String
-  legalName   String?
-  ruc         String?           @unique
-  phone       String?
-  email       String?
-  address     String?
-  slug        String            @unique
-  isActive    Boolean           @default(true)
-  users       User[]
-  features    BusinessFeature[]
-  taxProfile  TaxProfile?
+  id              String            @id @default(uuid()) @db.Uuid
+  name            String
+  legalName       String?
+  ruc             String?           @unique
+  phone           String?
+  email           String?
+  address         String?
+  slug            String            @unique
+  isActive        Boolean           @default(true)
+  /// Blueprint canónico del negocio. Fuente de verdad para módulos, edición y capabilities.
+  /// Reemplaza al blueprint embebido en BusinessFeature.config (sistema legado).
+  blueprintConfig Json?
+  users           User[]
+  features        BusinessFeature[]
+  taxProfile      TaxProfile?
   documentIssuers DocumentIssuer[]
   posCashSessions PosCashSession[]
-  posHeldSales PosHeldSale[]
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
+  posHeldSales    PosHeldSale[]
+  cashSessions    CashSession[]
+  cashMovements   CashMovement[]
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
 }
 
 model BusinessFeature {
@@ -175,6 +195,10 @@ model User {
   openedCashSessions PosCashSession[] @relation("PosCashSessionOpenedBy")
   closedCashSessions PosCashSession[] @relation("PosCashSessionClosedBy")
   heldSales          PosHeldSale[]
+  openedCashMgmtSessions CashSession[]  @relation("CashSessionOpenedBy")
+  closedCashMgmtSessions CashSession[]  @relation("CashSessionClosedBy")
+  cashMovements      CashMovement[]
+  approvedReconciliations CashReconciliation[] @relation("CashReconciliationApprovedBy")
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
 
@@ -297,6 +321,7 @@ model Sale {
   document      SaleDocument?
   sriInvoice    SriInvoice?
   sourceQuotes  Quote[]      @relation("QuoteConvertedSale")
+  cashMovements CashMovement[]
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
@@ -442,4 +467,94 @@ model IntegrationLog {
   createdAt       DateTime @default(now())
 
   @@index([service, operation, createdAt])
+}
+
+// ============================================================
+// CASH MANAGEMENT
+// ============================================================
+
+model CashSession {
+  id              String            @id @default(uuid()) @db.Uuid
+  businessId      String            @db.Uuid
+  business        Business          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  openedById      String            @db.Uuid
+  openedBy        User              @relation("CashSessionOpenedBy", fields: [openedById], references: [id], onDelete: Restrict)
+  closedById      String?           @db.Uuid
+  closedBy        User?             @relation("CashSessionClosedBy", fields: [closedById], references: [id], onDelete: SetNull)
+
+  status          CashSessionStatus @default(OPEN)
+  openingAmount   Decimal           @db.Decimal(12, 2)
+  declaredClosing Decimal?          @db.Decimal(12, 2)
+  expectedClosing Decimal?          @db.Decimal(12, 2)
+  difference      Decimal?          @db.Decimal(12, 2)
+
+  notes           String?
+  openedAt        DateTime          @default(now())
+  closedAt        DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  movements       CashMovement[]
+  reconciliation  CashReconciliation?
+  counts          CashCount[]
+
+  @@index([businessId, status, openedAt])
+  @@index([openedById, status])
+}
+
+model CashMovement {
+  id          String           @id @default(uuid()) @db.Uuid
+  businessId  String           @db.Uuid
+  business    Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  sessionId   String           @db.Uuid
+  session     CashSession      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  type        CashMovementType
+  amount      Decimal          @db.Decimal(12, 2)
+
+  saleId      String?          @db.Uuid
+  sale        Sale?            @relation(fields: [saleId], references: [id], onDelete: SetNull)
+
+  description String?
+  createdById String           @db.Uuid
+  createdBy   User             @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt   DateTime         @default(now())
+
+  @@index([sessionId, type])
+  @@index([businessId, createdAt])
+}
+
+model CashCount {
+  id           String      @id @default(uuid()) @db.Uuid
+  sessionId    String      @db.Uuid
+  session      CashSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  denomination Decimal     @db.Decimal(10, 2)
+  quantity     Int
+  subtotal     Decimal     @db.Decimal(12, 2)
+
+  createdAt    DateTime    @default(now())
+
+  @@index([sessionId])
+}
+
+model CashReconciliation {
+  id             String      @id @default(uuid()) @db.Uuid
+  sessionId      String      @unique @db.Uuid
+  session        CashSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  expectedAmount Decimal     @db.Decimal(12, 2)
+  declaredAmount Decimal     @db.Decimal(12, 2)
+  difference     Decimal     @db.Decimal(12, 2)
+
+  reason         String?
+  approvedById   String?     @db.Uuid
+  approvedBy     User?       @relation("CashReconciliationApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedAt     DateTime?
+
+  createdAt      DateTime    @default(now())
+
+  @@index([sessionId])
 }

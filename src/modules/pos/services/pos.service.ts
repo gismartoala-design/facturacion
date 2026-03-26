@@ -10,6 +10,8 @@ import { createLogger, startTimer, timerDurationMs } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { resolveBillingRuntime } from "@/modules/billing/policies/resolve-billing-runtime";
 import { resolvePosRuntime } from "@/modules/pos/policies/resolve-pos-runtime";
+import { resolveCashRuntime } from "@/modules/cash-management/policies/resolve-cash-runtime";
+import { getActiveCashSession } from "@/core/cash-management/cash-session.service";
 import { roundMoney } from "@/lib/utils";
 import {
   closeCashSessionSchema,
@@ -186,6 +188,7 @@ export async function getPosBootstrap(session: SessionPayload) {
   const posRuntime = resolvePosRuntime({
     blueprint: business.blueprint,
   });
+  const cashRuntime = resolveCashRuntime(business.blueprint);
   const defaultIssuerId = business.taxProfile?.issuerId;
 
   if (!defaultIssuerId) {
@@ -205,7 +208,9 @@ export async function getPosBootstrap(session: SessionPayload) {
       },
       take: 12,
     }),
-    getOpenCashSession(session, business.id),
+    cashRuntime.enabled
+      ? getActiveCashSession(business.id, session.sub)
+      : getOpenCashSession(session, business.id),
   ]);
 
   const data = {
@@ -225,6 +230,7 @@ export async function getPosBootstrap(session: SessionPayload) {
     },
     billingRuntime,
     posRuntime,
+    cashRuntime,
     features: business.enabledFeatures,
     defaultDocumentType: getDefaultDocumentType(
       billingRuntime.capabilities.electronicBilling,

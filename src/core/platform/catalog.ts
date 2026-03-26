@@ -11,6 +11,7 @@ export const MODULE_CATALOG: Record<ModuleKey, { label: string }> = {
   QUOTES: { label: "Cotizaciones" },
   REPORTS: { label: "Reportes" },
   ACCOUNTS_RECEIVABLE: { label: "Cuentas por cobrar" },
+  CASH_MANAGEMENT: { label: "Gestion de caja" },
 };
 
 export const EDITION_CATALOG: Record<EditionKey, { label: string }> = {
@@ -33,4 +34,11 @@ export const CAPABILITY_CATALOG: Record<CapabilityKey, { label: string }> = {
   POS_KITCHEN_TICKETS: { label: "Tickets de cocina" },
   AUDIT_LOG: { label: "Bitacora de auditoria" },
   APPROVAL_FLOWS: { label: "Flujos de aprobacion" },
+  CASH_SESSION_REQUIRED: { label: "Apertura de caja obligatoria" },
+  CASH_DECLARED_CLOSING: { label: "Cierre con monto declarado" },
+  CASH_WITHDRAWALS: { label: "Retiros de caja" },
+  CASH_DEPOSITS: { label: "Aportes de caja" },
+  CASH_SHIFT_RECONCILIATION: { label: "Arqueo por denominacion" },
+  CASH_BLIND_CLOSE: { label: "Cierre ciego" },
+  CASH_APPROVAL_CLOSE: { label: "Cierre con aprobacion" },
 };

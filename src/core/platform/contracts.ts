@@ -4,6 +4,7 @@ export const MODULE_KEYS = [
   "QUOTES",
   "REPORTS",
   "ACCOUNTS_RECEIVABLE",
+  "CASH_MANAGEMENT",
 ] as const;
 
 export type ModuleKey = (typeof MODULE_KEYS)[number];
@@ -32,6 +33,13 @@ export const CAPABILITY_KEYS = [
   "POS_KITCHEN_TICKETS",
   "AUDIT_LOG",
   "APPROVAL_FLOWS",
+  "CASH_SESSION_REQUIRED",
+  "CASH_DECLARED_CLOSING",
+  "CASH_WITHDRAWALS",
+  "CASH_DEPOSITS",
+  "CASH_SHIFT_RECONCILIATION",
+  "CASH_BLIND_CLOSE",
+  "CASH_APPROVAL_CLOSE",
 ] as const;
 
 export type CapabilityKey = (typeof CAPABILITY_KEYS)[number];
