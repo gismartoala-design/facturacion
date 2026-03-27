@@ -1,8 +1,12 @@
+import {
+  ensureDefaultBusiness,
+  getBusinessContextById,
+} from "@/core/business/business.service";
+import { getBusinessLogoAsset } from "@/core/business/business-logo.service";
+import { getSession } from "@/lib/auth";
 import { fail } from "@/lib/http";
 import { getQuoteDetail } from "@/services/quotes/quote.service";
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFImage, type PDFPage } from "pdf-lib";
-import { existsSync, readFileSync } from "node:fs";
-import path from "node:path";
 
 export const runtime = "nodejs";
 
@@ -216,16 +220,18 @@ function drawTotalsRow(
   drawText(page, value, x + width - valueWidth - 8, y - 12, ctx.regularFont, 8.5);
 }
 
-async function buildQuotePdf(quote: Awaited<ReturnType<typeof getQuoteDetail>>) {
+async function buildQuotePdf(
+  quote: Awaited<ReturnType<typeof getQuoteDetail>>,
+  logoBytes?: Buffer | null,
+) {
   const pdfDoc = await PDFDocument.create();
   const regularFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
   let logoImage: PDFImage | undefined;
-  const logoPath = path.join(process.cwd(), "public", "logo.png");
-  if (existsSync(logoPath)) {
+  if (logoBytes) {
     try {
-      logoImage = await pdfDoc.embedPng(readFileSync(logoPath));
+      logoImage = await pdfDoc.embedPng(logoBytes);
     } catch (error) {
       console.error("No se pudo incrustar el logo en el PDF", error);
     }
@@ -429,14 +435,19 @@ async function buildQuotePdf(quote: Awaited<ReturnType<typeof getQuoteDetail>>) 
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const session = await getSession();
+    const business = session?.businessId
+      ? await getBusinessContextById(session.businessId)
+      : await ensureDefaultBusiness();
     const { id } = await params;
     const quote = await getQuoteDetail(id);
+    const logoAsset = await getBusinessLogoAsset(business.logoStorageKey);
 
     if (quote.status !== "OPEN") {
       return fail("Solo se puede descargar PDF de cotizaciones abiertas", 400);
     }
 
-    const pdfBuffer = await buildQuotePdf(quote);
+    const pdfBuffer = await buildQuotePdf(quote, logoAsset?.bytes ?? null);
 
     return new Response(pdfBuffer as BodyInit, {
       status: 200,

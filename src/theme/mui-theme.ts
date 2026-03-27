@@ -1,30 +1,66 @@
 import type {} from "@mui/x-data-grid/themeAugmentation";
 import { alpha, createTheme } from "@mui/material/styles";
 
+const colors = {
+  primary: "#8b5cf6",
+  primaryLight: "#f5f3ff",
+  primaryDark: "#7c3aed",
+  secondary: "#6366f1",
+  secondaryLight: "#e0e7ff",
+  secondaryDark: "#4f46e5",
+  background: "#f8fafc",
+  sidebar: "#ffffff",
+  card: "#ffffff",
+  text: "#1e293b",
+  textMuted: "#64748b",
+  border: "#e2e8f0",
+  accent: "#3b82f6",
+  danger: "#ef4444",
+  success: "#10b981",
+};
+
 export const muiTheme = createTheme({
   palette: {
     mode: "light",
     primary: {
-      main: "#4a3c58",
-      light: "#b1a1c6",
-      dark: "#3d3249",
+      main: colors.primary,
+      light: colors.primaryLight,
+      dark: colors.primaryDark,
       contrastText: "#ffffff",
     },
     secondary: {
-      main: "#b1a1c6",
-      light: "#d9d0e5",
-      dark: "#8f7da8",
-      contrastText: "#2c2235",
+      main: colors.secondary,
+      light: colors.secondaryLight,
+      dark: colors.secondaryDark,
+      contrastText: "#ffffff",
+    },
+    info: {
+      main: colors.accent,
+      light: alpha(colors.accent, 0.16),
+      dark: "#2563eb",
+      contrastText: "#ffffff",
+    },
+    error: {
+      main: colors.danger,
+      light: alpha(colors.danger, 0.14),
+      dark: "#dc2626",
+      contrastText: "#ffffff",
+    },
+    success: {
+      main: colors.success,
+      light: alpha(colors.success, 0.14),
+      dark: "#059669",
+      contrastText: "#ffffff",
     },
     background: {
-      default: "#fdfcf5",
-      paper: "#ffffff",
+      default: colors.background,
+      paper: colors.card,
     },
     text: {
-      primary: "#4a3c58",
-      secondary: "rgba(74, 60, 88, 0.7)",
+      primary: colors.text,
+      secondary: colors.textMuted,
     },
-    divider: "rgba(232, 213, 229, 0.85)",
+    divider: colors.border,
   },
   shape: {
     borderRadius: 16,
@@ -57,9 +93,9 @@ export const muiTheme = createTheme({
       styleOverrides: {
         root: {
           backgroundImage: "none",
-          backgroundColor: "#ffffff",
-          border: `1px solid ${alpha("#e8d5e5", 0.72)}`,
-          boxShadow: "0 14px 34px rgba(74, 60, 88, 0.06)",
+          backgroundColor: colors.card,
+          border: `1px solid ${alpha(colors.border, 0.9)}`,
+          boxShadow: "0 14px 34px rgba(15, 23, 42, 0.06)",
         },
       },
     },
@@ -67,9 +103,9 @@ export const muiTheme = createTheme({
       styleOverrides: {
         paper: {
           borderRadius: 24,
-          backgroundColor: "#fdfcf5",
-          border: `1px solid ${alpha("#e8d5e5", 0.88)}`,
-          boxShadow: "0 28px 64px rgba(74, 60, 88, 0.18)",
+          backgroundColor: colors.card,
+          border: `1px solid ${alpha(colors.border, 0.96)}`,
+          boxShadow: "0 28px 64px rgba(15, 23, 42, 0.14)",
           backgroundImage: "none",
         },
       },
@@ -78,7 +114,7 @@ export const muiTheme = createTheme({
       styleOverrides: {
         root: {
           padding: "20px 24px 14px",
-          color: "#4a3c58",
+          color: colors.text,
           fontSize: 20,
           fontWeight: 700,
           lineHeight: 1.2,
@@ -89,7 +125,7 @@ export const muiTheme = createTheme({
       styleOverrides: {
         root: {
           padding: "0 24px 24px",
-          color: "rgba(74, 60, 88, 0.78)",
+          color: alpha(colors.text, 0.78),
         },
       },
     },
@@ -115,39 +151,39 @@ export const muiTheme = createTheme({
           paddingInline: 16,
         },
         containedPrimary: {
-          backgroundColor: "#4a3c58",
+          backgroundColor: colors.primary,
           color: "#ffffff",
           "&:hover": {
-            backgroundColor: "#3d3249",
+            backgroundColor: colors.primaryDark,
           },
         },
         containedSecondary: {
-          backgroundColor: "#b1a1c6",
-          color: "#2c2235",
+          backgroundColor: colors.secondary,
+          color: "#ffffff",
           "&:hover": {
-            backgroundColor: "#9b89b1",
+            backgroundColor: colors.secondaryDark,
           },
         },
         containedError: {
-          backgroundColor: "#b91c1c",
+          backgroundColor: colors.danger,
           color: "#ffffff",
           "&:hover": {
-            backgroundColor: "#991b1b",
+            backgroundColor: "#dc2626",
           },
         },
         outlined: {
-          borderColor: alpha("#e8d5e5", 0.9),
-          color: "#4a3c58",
-          backgroundColor: alpha("#ffffff", 0.88),
+          borderColor: alpha(colors.border, 0.95),
+          color: colors.text,
+          backgroundColor: alpha(colors.sidebar, 0.88),
           "&:hover": {
-            borderColor: alpha("#d7bfd3", 1),
-            backgroundColor: "#fdfcf5",
+            borderColor: alpha(colors.primary, 0.28),
+            backgroundColor: alpha(colors.primaryLight, 0.72),
           },
         },
         text: {
-          color: "#4a3c58",
+          color: colors.text,
           "&:hover": {
-            backgroundColor: alpha("#b1a1c6", 0.08),
+            backgroundColor: alpha(colors.primary, 0.08),
           },
         },
       },
@@ -162,10 +198,10 @@ export const muiTheme = createTheme({
     MuiInputLabel: {
       styleOverrides: {
         root: {
-          color: "rgba(74, 60, 88, 0.72)",
+          color: alpha(colors.text, 0.72),
           fontWeight: 600,
           "&.Mui-focused": {
-            color: "#4a3c58",
+            color: colors.primary,
           },
         },
       },
@@ -174,26 +210,26 @@ export const muiTheme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: 14,
-          backgroundColor: "rgba(253, 252, 245, 0.76)",
-          color: "#4a3c58",
+          backgroundColor: alpha(colors.primaryLight, 0.5),
+          color: colors.text,
           transition:
             "border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease",
           "& .MuiOutlinedInput-notchedOutline": {
-            borderColor: alpha("#e8d5e5", 0.85),
+            borderColor: alpha(colors.border, 0.9),
           },
           "&:hover .MuiOutlinedInput-notchedOutline": {
-            borderColor: alpha("#d7bfd3", 1),
+            borderColor: alpha(colors.secondary, 0.45),
           },
           "&.Mui-focused": {
-            backgroundColor: "#ffffff",
-            boxShadow: `0 0 0 4px ${alpha("#b1a1c6", 0.12)}`,
+            backgroundColor: colors.card,
+            boxShadow: `0 0 0 4px ${alpha(colors.primary, 0.12)}`,
           },
           "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-            borderColor: "#b1a1c6",
+            borderColor: colors.primary,
             borderWidth: 1,
           },
           "&.Mui-error .MuiOutlinedInput-notchedOutline": {
-            borderColor: "#dc2626",
+            borderColor: colors.danger,
           },
         },
         input: {
@@ -205,13 +241,13 @@ export const muiTheme = createTheme({
     MuiTableCell: {
       styleOverrides: {
         root: {
-          borderColor: alpha("#e8d5e5", 0.7),
-          color: "#4a3c58",
+          borderColor: alpha(colors.border, 0.82),
+          color: colors.text,
           fontSize: 13,
         },
         head: {
-          backgroundColor: "#fdf7fb",
-          color: "#4a3c58",
+          backgroundColor: colors.primaryLight,
+          color: colors.text,
           fontSize: 12,
           fontWeight: 700,
           letterSpacing: "0.08em",
@@ -228,11 +264,11 @@ export const muiTheme = createTheme({
           borderRadius: 0,
           border: "1px solid transparent",
           backgroundColor: "transparent",
-          color: "#4a3c58",
+          color: colors.text,
           "& .MuiDataGrid-columnHeaders": {
-            backgroundColor: "#dfe5ec !important",
+            backgroundColor: `${colors.primaryLight} !important`,
             borderRadius: "16px",
-            boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.32)",
+            boxShadow: `inset 0 0 0 1px ${alpha(colors.primary, 0.08)}`,
           },
           "& .MuiDataGrid-columnHeader": {
             backgroundColor: "transparent !important",
@@ -245,12 +281,12 @@ export const muiTheme = createTheme({
           },
           "& .MuiDataGrid-toolbarContainer": {
             padding: "12px 14px 10px",
-            backgroundColor: alpha("#ffffff", 0.55),
+            backgroundColor: alpha(colors.sidebar, 0.72),
             "& .MuiButton-root": {
               marginRight: 10,
-              color: "#4a3c58",
+              color: colors.text,
               "&:hover": {
-                backgroundColor: alpha("#b1a1c6", 0.08),
+                backgroundColor: alpha(colors.primary, 0.08),
               },
             },
           },
@@ -258,7 +294,7 @@ export const muiTheme = createTheme({
             padding: 0,
           },
           "& .MuiDataGrid-columnSeparator": {
-            color: alpha("#8b96a8", 0.42),
+            color: alpha(colors.border, 0.72),
             opacity: 1,
           },
           "& .MuiDataGrid-cell:focus, & .MuiDataGrid-cell:focus-within, & .MuiDataGrid-columnHeader:focus, & .MuiDataGrid-columnHeader:focus-within":
@@ -267,17 +303,17 @@ export const muiTheme = createTheme({
             },
         },
         columnHeaders: {
-          backgroundColor: "#dfe5ec",
+          backgroundColor: colors.primaryLight,
           borderBottom: 0,
           borderRadius: 18,
           minHeight: "52px !important",
           maxHeight: "52px !important",
           marginBottom: "6px",
           overflow: "hidden",
-          boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.32)",
+          boxShadow: `inset 0 0 0 1px ${alpha(colors.primary, 0.08)}`,
         },
         columnHeaderTitle: {
-          color: "#344050",
+          color: colors.text,
           fontWeight: 600,
           fontSize: 14,
           letterSpacing: 0,
@@ -293,7 +329,7 @@ export const muiTheme = createTheme({
           maxHeight: "50px !important",
           transition: "background-color 140ms ease",
           "&:hover": {
-            backgroundColor: alpha("#f6e6da", 0.32),
+            backgroundColor: alpha(colors.accent, 0.05),
           },
         },
         footerContainer: {
@@ -301,7 +337,7 @@ export const muiTheme = createTheme({
           minHeight: 50,
         },
         selectedRowCount: {
-          color: "#4a3c58",
+          color: colors.text,
         },
       },
     },

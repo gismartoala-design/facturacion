@@ -8,14 +8,14 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import type { Product } from "@/components/mvp-dashboard-types";
+import type { Product } from "@/shared/dashboard/types";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
+
+import { matchesScaleBarcodePrefix } from "@/lib/utils";
 
 type ProductsSectionProps = {
   products: Product[];
@@ -41,6 +41,11 @@ export function ProductsSection({
       (product) =>
         product.nombre.toLowerCase().includes(q) ||
         (product.sku ?? "").toLowerCase().includes(q) ||
+        (product.codigoBarras ?? "").toLowerCase().includes(q) ||
+        matchesScaleBarcodePrefix(
+          q,
+          product.codigoBarras ?? product.codigo ?? product.sku,
+        ) ||
         product.codigo.toLowerCase().includes(q) ||
         product.tipoProducto.toLowerCase().includes(q),
     );
@@ -59,6 +64,22 @@ export function ProductsSection({
         flex: 0.9,
         renderCell: (params) => (
           <span className="font-semibold text-[#4a3c58]">{params.row.codigo}</span>
+        ),
+      },
+      {
+        field: "codigoBarras",
+        headerName: "Barra / prefijo",
+        minWidth: 160,
+        flex: 1,
+        renderCell: (params) => (
+          <Typography
+            sx={{
+              fontSize: 12.5,
+              color: params.row.codigoBarras ? "text.primary" : "text.secondary",
+            }}
+          >
+            {params.row.codigoBarras || "-"}
+          </Typography>
         ),
       },
       {
@@ -198,7 +219,7 @@ export function ProductsSection({
             <div className="relative w-full sm:max-w-80">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#b1a1c6]" />
               <Input
-                placeholder="Buscar por nombre, SKU o codigo..."
+                placeholder="Buscar por nombre, SKU, codigo o barras..."
                 value={search}
                 onChange={(e) => handleSearch(e.target.value)}
                 className="border-[#e8d5e5]/70 bg-[#fdfcf5]/75 pl-9"

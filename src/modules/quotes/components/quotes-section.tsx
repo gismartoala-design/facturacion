@@ -11,7 +11,7 @@ import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import { FilePenLine, FilePlus2, Printer, ReceiptText, RefreshCcw, XCircle } from "lucide-react";
 import { useMemo } from "react";
 
-import type { Quote, QuoteStatus } from "@/components/mvp-dashboard-types";
+import type { Quote, QuoteStatus } from "@/shared/dashboard/types";
 
 export type QuoteFilter = "ALL" | QuoteStatus;
 

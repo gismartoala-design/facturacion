@@ -27,6 +27,7 @@ export async function GET(request: Request) {
         where,
         include: {
           sale: true,
+          saleDocument: true,
           documents: true,
         },
         orderBy: {
@@ -44,6 +45,7 @@ export async function GET(request: Request) {
       saleStatus: invoice.sale.status,
       externalInvoiceId: invoice.externalInvoiceId,
       secuencial: invoice.secuencial,
+      documentFullNumber: invoice.saleDocument?.fullNumber ?? null,
       status: invoice.status,
       authorizationNumber: invoice.authorizationNumber,
       claveAcceso: invoice.claveAcceso,

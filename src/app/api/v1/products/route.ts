@@ -1,7 +1,7 @@
 import { z } from "zod";
 
+import { createProduct, listProducts } from "@/core/inventory/inventory.service";
 import { fail, ok } from "@/lib/http";
-import { createProduct, listProducts } from "@/services/inventory/inventory.service";
 
 export async function GET() {
   try {

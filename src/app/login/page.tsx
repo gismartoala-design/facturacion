@@ -1,22 +1,29 @@
 "use client";
 
+import {
+  Alert,
+  Box,
+  Button,
+  Paper,
+  Stack,
+  TextField,
+  Typography,
+} from "@mui/material";
+import { alpha, useTheme } from "@mui/material/styles";
 import { Loader2 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { useState, type FormEvent } from "react";
 
 export default function LoginPage() {
+  const theme = useTheme();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
     setError("");
@@ -42,34 +49,109 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-50 p-4">
-      {/* Background orbs */}
-      <div className="absolute left-1/4 top-0 h-125 w-125 -translate-x-1/2 -translate-y-1/2 rounded-full bg-indigo-200/40 blur-[100px] pointer-events-none" />
-      <div className="absolute bottom-0 right-1/4 h-150 w-150 translate-x-1/3 translate-y-1/3 rounded-full bg-purple-200/40 blur-[120px] pointer-events-none" />
+    <Box
+      sx={{
+        position: "relative",
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        overflow: "hidden",
+        backgroundColor: "background.default",
+        px: 2,
+        py: 4,
+      }}
+    >
+      <Box
+        aria-hidden
+        sx={{
+          pointerEvents: "none",
+          position: "absolute",
+          inset: 0,
+          background:
+            "radial-gradient(circle at top left, rgba(139,92,246,0.14), transparent 32%), radial-gradient(circle at bottom right, rgba(99,102,241,0.12), transparent 34%)",
+        }}
+      />
 
-      <div className="relative z-10 w-full max-w-sm">
-        <div className="rounded-3xl border border-white/60 bg-white/80 p-8 shadow-[0_8px_30px_rgb(0,0,0,0.06)] backdrop-blur-xl">
-          {/* Logo */}
-          <div className="mb-6 flex flex-col items-center gap-2">
-            <div className="relative flex h-22 w-22 items-center justify-center overflow-hidden rounded-[28px] border border-slate-200/80 bg-white shadow-[0_14px_32px_rgba(15,23,42,0.10)]">
+      <Paper
+        sx={{
+          position: "relative",
+          zIndex: 1,
+          width: "100%",
+          maxWidth: 420,
+          borderRadius: "28px",
+          px: { xs: 3, sm: 4 },
+          py: { xs: 3.5, sm: 4.5 },
+          borderColor: alpha(theme.palette.divider, 0.9),
+          backgroundColor: alpha(theme.palette.background.paper, 0.9),
+          backdropFilter: "blur(14px)",
+          boxShadow: "0 24px 60px rgba(15,23,42,0.12)",
+        }}
+      >
+        <Stack spacing={3}>
+          <Stack spacing={1.25} alignItems="center" textAlign="center">
+            <Box
+              sx={{
+                position: "relative",
+                width: 92,
+                height: 92,
+                overflow: "hidden",
+                borderRadius: "28px",
+                border: "1px solid",
+                borderColor: "divider",
+                backgroundColor: alpha(theme.palette.primary.light, 0.55),
+                boxShadow: `0 18px 36px ${alpha(theme.palette.primary.main, 0.12)}`,
+              }}
+            >
               <Image
-                src="/logo-original.jpg"
+                src="/logo/logo-intuit.jpg"
                 alt="Logo de ARGSOFT"
                 fill
                 className="object-cover"
                 priority
               />
-            </div>
-            <p className="text-xs font-bold tracking-[0.2em] text-indigo-900/60 uppercase">ARGSOFT</p>
-            <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">Iniciar sesion</h1>
-            <p className="text-sm text-slate-500">Ingresa tus credenciales para continuar</p>
-          </div>
+            </Box>
 
-          <form className="space-y-4" onSubmit={onSubmit}>
-            <div>
-              <Label htmlFor="email">Correo electronico</Label>
-              <Input
+            <Typography
+              sx={{
+                fontSize: 11,
+                fontWeight: 800,
+                letterSpacing: "0.22em",
+                textTransform: "uppercase",
+                color: "primary.main",
+              }}
+            >
+              INTUIT
+            </Typography>
+
+            <Typography
+              variant="h4"
+              sx={{
+                fontSize: { xs: 28, sm: 32 },
+                fontWeight: 800,
+                letterSpacing: "-0.03em",
+                color: "text.primary",
+              }}
+            >
+              Iniciar sesion
+            </Typography>
+
+            <Typography
+              sx={{
+                maxWidth: 280,
+                fontSize: 14,
+                color: "text.secondary",
+              }}
+            >
+              Ingresa tus credenciales para continuar al panel operativo.
+            </Typography>
+          </Stack>
+
+          <Box component="form" onSubmit={onSubmit}>
+            <Stack spacing={2}>
+              <TextField
                 id="email"
+                label="Correo electronico"
                 type="email"
                 autoComplete="email"
                 value={email}
@@ -77,11 +159,10 @@ export default function LoginPage() {
                 required
                 placeholder="admin@empresa.com"
               />
-            </div>
-            <div>
-              <Label htmlFor="password">Contrasena</Label>
-              <Input
+
+              <TextField
                 id="password"
+                label="Contrasena"
                 type="password"
                 autoComplete="current-password"
                 value={password}
@@ -89,24 +170,37 @@ export default function LoginPage() {
                 required
                 placeholder="••••••••"
               />
-            </div>
 
-            {error ? (
-              <p className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-600">{error}</p>
-            ) : null}
+              {error ? (
+                <Alert severity="error" variant="filled" sx={{ borderRadius: "16px" }}>
+                  {error}
+                </Alert>
+              ) : null}
 
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Ingresando...
-                </>
-              ) : (
-                "Ingresar"
-              )}
-            </Button>
-          </form>
-        </div>
-      </div>
-    </div>
+              <Button
+                type="submit"
+                variant="contained"
+                size="large"
+                disabled={loading}
+                sx={{
+                  minHeight: 48,
+                  borderRadius: "16px",
+                  fontSize: 15,
+                }}
+              >
+                {loading ? (
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Ingresando...</span>
+                  </Stack>
+                ) : (
+                  "Ingresar"
+                )}
+              </Button>
+            </Stack>
+          </Box>
+        </Stack>
+      </Paper>
+    </Box>
   );
 }

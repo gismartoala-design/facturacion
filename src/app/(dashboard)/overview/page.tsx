@@ -1,20 +1,24 @@
 "use client";
 
 import Alert from "@mui/material/Alert";
-import CircularProgress from "@mui/material/CircularProgress";
-import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import { useEffect, useState } from "react";
 
-import { fetchJson } from "@/components/mvp-dashboard-api";
+import { fetchJson } from "@/shared/dashboard/api";
+import type { BillingRuntime } from "@/modules/billing/policies/billing-runtime";
 import {
   type PaginatedResult,
   type Product,
   type Quote,
   type SriInvoice,
   type StockItem,
-} from "@/components/mvp-dashboard-types";
+} from "@/shared/dashboard/types";
 import { OverviewOperationalDashboard } from "@/modules/overview/components/overview-operational-dashboard";
+
+type BusinessOverviewContext = {
+  enabledFeatures: string[];
+  billingRuntime: BillingRuntime;
+};
 
 export default function OverviewPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -22,21 +26,28 @@ export default function OverviewPage() {
   const [openQuotes, setOpenQuotes] = useState<Quote[]>([]);
   const [pendingInvoices, setPendingInvoices] = useState<SriInvoice[]>([]);
   const [errorInvoices, setErrorInvoices] = useState<SriInvoice[]>([]);
-  const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
     async function loadData() {
-      setLoading(true);
       setMessage("");
 
       try {
+        const business = await fetchJson<BusinessOverviewContext>("/api/v1/business");
+        const quotesEnabled = business.enabledFeatures.includes("QUOTES");
+        const billingEnabled =
+          business.billingRuntime.capabilities.electronicBilling;
+
         const [productsRes, stockRes, openQuotesRes, pendingRes, errorRes] = await Promise.all([
           fetchJson<Product[]>("/api/v1/products"),
           fetchJson<StockItem[]>("/api/v1/stock"),
-          fetchJson<Quote[]>("/api/v1/quotes?status=OPEN"),
-          fetchJson<PaginatedResult<SriInvoice>>("/api/v1/sri-invoices?status=PENDING_SRI&limit=100"),
-          fetchJson<PaginatedResult<SriInvoice>>("/api/v1/sri-invoices?status=ERROR&limit=100"),
+          quotesEnabled ? fetchJson<Quote[]>("/api/v1/quotes?status=OPEN") : Promise.resolve([]),
+          billingEnabled
+            ? fetchJson<PaginatedResult<SriInvoice>>("/api/v1/sri-invoices?status=PENDING_SRI&limit=100")
+            : Promise.resolve({ data: [], pagination: { page: 1, limit: 100, total: 0, totalPages: 0 } }),
+          billingEnabled
+            ? fetchJson<PaginatedResult<SriInvoice>>("/api/v1/sri-invoices?status=ERROR&limit=100")
+            : Promise.resolve({ data: [], pagination: { page: 1, limit: 100, total: 0, totalPages: 0 } }),
         ]);
 
         setProducts(productsRes);
@@ -46,8 +57,6 @@ export default function OverviewPage() {
         setErrorInvoices(errorRes.data);
       } catch (error) {
         setMessage(error instanceof Error ? error.message : "Error al cargar datos");
-      } finally {
-        setLoading(false);
       }
     }
 
@@ -55,7 +64,7 @@ export default function OverviewPage() {
   }, []);
 
   return (
-    <Stack spacing={2}>
+    <Stack>
       {message ? (
         <Alert
           severity="error"

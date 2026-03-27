@@ -1,5 +1,5 @@
+import { countUsers, createUser } from "@/core/auth/auth.service";
 import { fail, ok } from "@/lib/http";
-import { countUsers, createUser } from "@/services/auth/auth.service";
 
 /**
  * POST /api/v1/auth/seed

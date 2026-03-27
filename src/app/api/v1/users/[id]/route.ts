@@ -1,8 +1,8 @@
 import { z } from "zod";
 
+import { deleteUser, updateUser } from "@/core/auth/auth.service";
 import { getSession } from "@/lib/auth";
 import { fail, ok } from "@/lib/http";
-import { deleteUser, updateUser } from "@/services/auth/auth.service";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {

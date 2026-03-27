@@ -12,7 +12,7 @@ export default function DashboardLoading() {
       <div className="relative flex flex-col items-center gap-4">
         <div className="flex h-28 w-28 items-center justify-center rounded-[30px] border border-white/70 bg-white/82 shadow-[0_18px_44px_rgba(74,60,88,0.12)] backdrop-blur-xl">
           <Image
-            src="/logo-original.jpg"
+            src="/logo/logo-intuit.jpg"
             alt="ARGSOFT"
             width={72}
             height={72}

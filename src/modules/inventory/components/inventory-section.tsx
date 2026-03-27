@@ -8,7 +8,7 @@ import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import { ArrowLeftRight } from "lucide-react";
 import { useMemo } from "react";
 
-import type { StockItem } from "@/components/mvp-dashboard-types";
+import type { StockItem } from "@/shared/dashboard/types";
 
 type InventorySectionProps = {
   stock: StockItem[];

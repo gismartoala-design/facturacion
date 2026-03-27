@@ -12,7 +12,7 @@ import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import { FileUp, X } from "lucide-react";
 import { useMemo } from "react";
 
-import type { Quote } from "@/components/mvp-dashboard-types";
+import type { Quote } from "@/shared/dashboard/types";
 
 type OpenQuotesDialogProps = {
   isOpen: boolean;

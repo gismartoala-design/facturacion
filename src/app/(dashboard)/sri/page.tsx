@@ -4,10 +4,10 @@ import Alert from "@mui/material/Alert";
 import Snackbar from "@mui/material/Snackbar";
 import { useEffect, useState } from "react";
 
-import { fetchJson } from "@/components/mvp-dashboard-api";
-import { InvoiceDetailModal } from "@/components/mvp-dashboard-modals";
-import { type PaginatedResult, type SriInvoice, type SriInvoiceDetail } from "@/components/mvp-dashboard-types";
-import { SriSection } from "@/modules/sri/components/sri-section";
+import { fetchJson } from "@/shared/dashboard/api";
+import { InvoiceDetailModal } from "@/shared/dashboard/modals";
+import { type PaginatedResult, type SriInvoice, type SriInvoiceDetail } from "@/shared/dashboard/types";
+import { BillingSection } from "@/modules/billing/components/billing-section";
 
 export type SriStatusFilter = "NOT_AUTHORIZED" | "ALL" | "DRAFT" | "AUTHORIZED" | "PENDING_SRI" | "ERROR";
 
@@ -135,7 +135,7 @@ export default function SriPage() {
 
   return (
     <>
-      <SriSection
+      <BillingSection
         loading={loading}
         invoices={invoices}
         pagination={{ page, limit: 10, total, totalPages }}

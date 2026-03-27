@@ -14,7 +14,14 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
           { externalInvoiceId: id },
         ],
       },
-      include: { documents: true },
+      include: {
+        documents: true,
+        saleDocument: {
+          select: {
+            fullNumber: true,
+          },
+        },
+      },
     });
 
     if (!invoice) {
@@ -45,7 +52,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
       status: 200,
       headers: {
         "Content-Type": artifactResponse.headers.get("content-type") ?? "application/pdf",
-        "Content-Disposition": `attachment; filename=\"factura-${invoice.secuencial ?? invoice.id}.pdf\"`,
+        "Content-Disposition": `attachment; filename=\"factura-${invoice.saleDocument?.fullNumber ?? invoice.secuencial ?? invoice.id}.pdf\"`,
       },
     });
   } catch (error) {

@@ -1,8 +1,8 @@
 import { z } from "zod";
 
+import { createUser, listUsers } from "@/core/auth/auth.service";
 import { getSession } from "@/lib/auth";
 import { fail, ok } from "@/lib/http";
-import { createUser, listUsers } from "@/services/auth/auth.service";
 
 export async function GET() {
   try {

@@ -5,8 +5,8 @@ import { Loader2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
-import { fetchJson } from "@/components/mvp-dashboard-api";
-import { CustomerPickerModal, ProductPickerModal } from "@/components/mvp-dashboard-modals";
+import { fetchJson } from "@/shared/dashboard/api";
+import { CustomerPickerModal, ProductPickerModal } from "@/shared/dashboard/modals";
 import {
   SalesMessagePopover,
   type SalesMessage,
@@ -23,19 +23,37 @@ import {
   type Product,
   type QuoteDetail,
   type Quote,
-} from "@/components/mvp-dashboard-types";
+} from "@/shared/dashboard/types";
+import { matchesScaleBarcodePrefix } from "@/lib/utils";
 
 type CheckoutResponse = {
+  saleId: string;
   saleNumber: string;
+  document: {
+    saleDocumentId: string;
+    type: "NONE" | "INVOICE";
+    status: "NOT_REQUIRED" | "PENDING" | "ISSUED" | "ERROR" | "VOIDED";
+    fullNumber: string | null;
+    establishmentCode: string | null;
+    emissionPointCode: string | null;
+    sequenceNumber: number | null;
+    issuedAt: string | null;
+  };
   invoice: {
     sriInvoiceId: string;
     status: "DRAFT" | "AUTHORIZED" | "PENDING_SRI" | "ERROR";
   } | null;
 };
 
-function buildInitialCheckoutForm(): CheckoutForm {
+type BusinessCheckoutConfig = {
+  taxProfile: {
+    issuerId: string | null;
+  } | null;
+};
+
+function buildInitialCheckoutForm(defaultIssuerId = ""): CheckoutForm {
   return {
-    issuerId: "5fc1d44c-9a58-4383-b475-2c3adb49afc9",
+    issuerId: defaultIssuerId,
     fechaEmision: format(new Date(), "dd/MM/yyyy"),
     tipoIdentificacion: "04",
     identificacion: "",
@@ -66,13 +84,15 @@ export default function CheckoutPage() {
   const [saving, setSaving] = useState(false);
   const [savingQuote, setSavingQuote] = useState(false);
   const [message, setMessage] = useState<SalesMessage | null>(null);
+  const [printableSaleId, setPrintableSaleId] = useState<string | null>(null);
   const [authorizedSriInvoiceId, setAuthorizedSriInvoiceId] = useState<string | null>(null);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [quotesLoading, setQuotesLoading] = useState(false);
   const [isQuotesModalOpen, setIsQuotesModalOpen] = useState(false);
   const [editingQuoteId, setEditingQuoteId] = useState<string | null>(null);
+  const [defaultIssuerId, setDefaultIssuerId] = useState("");
 
-  const [checkout, setCheckout] = useState<CheckoutForm>(buildInitialCheckoutForm);
+  const [checkout, setCheckout] = useState<CheckoutForm>(() => buildInitialCheckoutForm());
 
   const linePreview = useMemo<LinePreviewItem[]>(() => {
     return lineItems
@@ -110,6 +130,7 @@ export default function CheckoutPage() {
   const canResetCheckout = useMemo(
     () =>
       lineItems.length > 0 ||
+      Boolean(printableSaleId) ||
       Boolean(authorizedSriInvoiceId) ||
       checkout.tipoIdentificacion !== "04" ||
       checkout.formaPago !== "01" ||
@@ -118,7 +139,7 @@ export default function CheckoutPage() {
       checkout.direccion.trim() !== "" ||
       checkout.email.trim() !== "" ||
       checkout.telefono.trim() !== "",
-    [lineItems.length, authorizedSriInvoiceId, checkout],
+    [lineItems.length, printableSaleId, authorizedSriInvoiceId, checkout],
   );
 
   const filteredProducts = useMemo(() => {
@@ -130,6 +151,12 @@ export default function CheckoutPage() {
     return products.filter(
       (product) =>
         product.codigo.toLowerCase().includes(term) ||
+        (product.codigoBarras ?? "").toLowerCase().includes(term) ||
+        matchesScaleBarcodePrefix(
+          term,
+          product.codigoBarras ?? product.codigo ?? product.sku,
+        ) ||
+        (product.sku ?? "").toLowerCase().includes(term) ||
         product.nombre.toLowerCase().includes(term) ||
         product.id.toLowerCase().includes(term),
     );
@@ -139,13 +166,20 @@ export default function CheckoutPage() {
     setLoading(true);
 
     try {
-      const [productsRes, customersRes] = await Promise.all([
+      const [productsRes, customersRes, businessRes] = await Promise.all([
         fetchJson<Product[]>("/api/v1/products"),
         fetchJson<Customer[]>("/api/v1/customers"),
+        fetchJson<BusinessCheckoutConfig>("/api/v1/business"),
       ]);
 
+      const issuerId = businessRes.taxProfile?.issuerId ?? "";
       setProducts(productsRes);
       setCustomers(customersRes);
+      setDefaultIssuerId(issuerId);
+      setCheckout((current) => ({
+        ...current,
+        issuerId: current.issuerId || issuerId,
+      }));
     } catch (error) {
       setMessage({ text: error instanceof Error ? error.message : "No se pudo cargar checkout", tone: "error" });
     } finally {
@@ -347,13 +381,14 @@ export default function CheckoutPage() {
   }
 
   function onResetCheckout() {
-    setCheckout(buildInitialCheckoutForm());
+    setCheckout(buildInitialCheckoutForm(defaultIssuerId));
     setLineItems([]);
     setSelectedProductIds([]);
     setCustomerSearch("");
     setProductSearch("");
     setIsCustomerPickerOpen(false);
     setIsProductPickerOpen(false);
+    setPrintableSaleId(null);
     setAuthorizedSriInvoiceId(null);
     setEditingQuoteId(null);
     setMessage({
@@ -389,6 +424,7 @@ export default function CheckoutPage() {
     }
 
     setSaving(true);
+    setPrintableSaleId(null);
     setAuthorizedSriInvoiceId(null);
 
     try {
@@ -396,12 +432,23 @@ export default function CheckoutPage() {
         method: "POST",
         body: JSON.stringify(buildCheckoutPayload()),
       });
+      setPrintableSaleId(result.saleId);
 
       if (result.invoice?.status === "AUTHORIZED") {
         setAuthorizedSriInvoiceId(result.invoice.sriInvoiceId);
-        setMessage({ text: `Venta #${result.saleNumber} registrada y factura autorizada correctamente`, tone: "success" });
+        setMessage({
+          text: result.document.fullNumber
+            ? `Venta #${result.saleNumber} registrada. Factura ${result.document.fullNumber} autorizada correctamente`
+            : `Venta #${result.saleNumber} registrada y factura autorizada correctamente`,
+          tone: "success",
+        });
       } else {
-        setMessage({ text: `Venta #${result.saleNumber} registrada. La factura aun no se encuentra autorizada.`, tone: "info" });
+        setMessage({
+          text: result.document.fullNumber
+            ? `Venta #${result.saleNumber} registrada. Factura ${result.document.fullNumber} emitida localmente y pendiente de autorizacion.`
+            : `Venta #${result.saleNumber} registrada. La factura aun no se encuentra autorizada.`,
+          tone: "info",
+        });
       }
 
       setLineItems([]);
@@ -409,6 +456,7 @@ export default function CheckoutPage() {
       setProductSearch("");
       await loadCheckoutData();
     } catch (error) {
+      setPrintableSaleId(null);
       setAuthorizedSriInvoiceId(null);
       setMessage({ text: error instanceof Error ? error.message : "No se pudo registrar la venta", tone: "error" });
     } finally {
@@ -528,7 +576,7 @@ export default function CheckoutPage() {
             <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
             {isQuoteMode
               ? "Guardando cotizacion..."
-              : "Registrando venta y procesando factura..."}
+              : "Registrando venta y preparando documento..."}
           </div>
         </div>
       ) : null}
@@ -543,15 +591,16 @@ export default function CheckoutPage() {
         checkoutTotal={checkoutTotal}
         selectedIdentificationType={selectedIdentificationType}
         selectedPaymentMethod={selectedPaymentMethod}
-        canPrintDocuments={Boolean(authorizedSriInvoiceId)}
+        canPrintPdf={Boolean(printableSaleId)}
+        canPrintXml={Boolean(authorizedSriInvoiceId)}
         canPrintQuote={isQuoteMode && Boolean(editingQuoteId)}
         canResetCheckout={canResetCheckout}
         saving={saving}
         savingQuote={savingQuote}
         editingQuoteId={editingQuoteId}
-        onPrintRide={() => {
-          if (!authorizedSriInvoiceId) return;
-          window.open(`/api/v1/sri-invoices/${authorizedSriInvoiceId}/ride`, "_blank", "noopener,noreferrer");
+        onPrintPdf={() => {
+          if (!printableSaleId) return;
+          window.open(`/api/v1/sales/${printableSaleId}/print`, "_blank", "noopener,noreferrer");
         }}
         onPrintXml={() => {
           if (!authorizedSriInvoiceId) return;

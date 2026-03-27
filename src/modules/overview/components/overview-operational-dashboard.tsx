@@ -20,7 +20,7 @@ import type {
   Quote,
   SriInvoice,
   StockItem,
-} from "@/components/mvp-dashboard-types";
+} from "@/shared/dashboard/types";
 
 type OverviewOperationalDashboardProps = {
   products: Product[];

@@ -14,7 +14,7 @@ import type { Dispatch, FormEvent, SetStateAction } from "react";
 import type {
   Product,
   StockAdjustmentForm,
-} from "@/components/mvp-dashboard-types";
+} from "@/shared/dashboard/types";
 
 type InventoryAdjustmentModalProps = {
   isOpen: boolean;

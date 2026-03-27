@@ -3,7 +3,7 @@
 import { Loader2, Pencil, Trash2, UserPlus } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { fetchJson } from "@/components/mvp-dashboard-api";
+import { fetchJson } from "@/shared/dashboard/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";

@@ -7,8 +7,8 @@ import Snackbar from "@mui/material/Snackbar";
 import Stack from "@mui/material/Stack";
 import { useEffect, useState } from "react";
 
-import { fetchJson } from "@/components/mvp-dashboard-api";
-import type { Quote, QuoteStatus } from "@/components/mvp-dashboard-types";
+import { fetchJson } from "@/shared/dashboard/api";
+import type { Quote, QuoteStatus } from "@/shared/dashboard/types";
 import {
   QuotesSection,
   type QuoteFilter,

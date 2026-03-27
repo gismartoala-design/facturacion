@@ -1,0 +1,2 @@
+-- RenameIndex
+ALTER INDEX "DocumentSeries_issuerId_documentType_establishmentCode_emission" RENAME TO "DocumentSeries_issuerId_documentType_establishmentCode_emis_key";

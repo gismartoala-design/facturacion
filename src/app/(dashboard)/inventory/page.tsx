@@ -7,8 +7,8 @@ import Snackbar from "@mui/material/Snackbar";
 import Stack from "@mui/material/Stack";
 import { useEffect, useState } from "react";
 
-import { fetchJson } from "@/components/mvp-dashboard-api";
-import { type Product, type StockAdjustmentForm, type StockItem } from "@/components/mvp-dashboard-types";
+import { fetchJson } from "@/shared/dashboard/api";
+import { type Product, type StockAdjustmentForm, type StockItem } from "@/shared/dashboard/types";
 import { InventoryAdjustmentModal } from "@/modules/inventory/components/inventory-adjustment-modal";
 import { InventorySection } from "@/modules/inventory/components/inventory-section";
 
