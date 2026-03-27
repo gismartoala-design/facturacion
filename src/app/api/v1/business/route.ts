@@ -16,6 +16,8 @@ function enrichBusinessContext<
   T extends {
     blueprint: Parameters<typeof resolveBillingRuntime>[0]["blueprint"];
     taxProfile: Parameters<typeof resolveBillingRuntime>[0]["taxProfile"];
+    logoStorageKey?: string | null;
+    updatedAt: Date;
     posSettings?: unknown;
   },
 >(business: T) {

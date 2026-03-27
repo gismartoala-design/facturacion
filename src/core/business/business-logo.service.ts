@@ -62,7 +62,7 @@ async function uploadToGoogleCloudStorage(
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": contentType,
       },
-      body: bytes,
+      body: new Uint8Array(bytes),
     },
   );
 
