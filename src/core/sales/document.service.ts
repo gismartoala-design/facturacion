@@ -158,6 +158,8 @@ export async function createDocumentForSaleInTransaction(
     },
   });
 
+  logger
+
   await tx.saleDocument.update({
     where: { id: saleDocument.id },
     data: {

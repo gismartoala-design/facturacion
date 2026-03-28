@@ -29,75 +29,66 @@ export async function reserveDocumentNumber(
   issuerId: string,
   documentType: "INVOICE",
 ): Promise<ReserveDocumentNumberResult> {
-  const reservedSeriesRows = await tx.$queryRaw<
-    Array<{
-      id: string;
-      issuer_id: string;
-      establishment_code: string;
-      emission_point_code: string;
-      sequence_number: number;
-    }>
-  >`
-    WITH selected_series AS (
-      SELECT id
-      FROM "DocumentSeries"
-      WHERE "issuerId" = ${issuerId}::uuid
-        AND "documentType" = ${documentType}::"DocumentSeriesType"
-        AND active = true
-      ORDER BY "establishmentCode" ASC, "emissionPointCode" ASC
-      LIMIT 1
-      FOR UPDATE
-    ),
-    series_state AS (
-      SELECT
-        ds.id,
-        ds."issuerId",
-        ds."establishmentCode",
-        ds."emissionPointCode",
-        ds."nextSequence",
-        COALESCE(MAX(sd."sequenceNumber"), 0) + 1 AS min_available_sequence
-      FROM "DocumentSeries" ds
-      JOIN selected_series ss ON ss.id = ds.id
-      LEFT JOIN "SaleDocument" sd ON sd."documentSeriesId" = ds.id
-      GROUP BY
-        ds.id,
-        ds."issuerId",
-        ds."establishmentCode",
-        ds."emissionPointCode",
-        ds."nextSequence"
-    )
-    UPDATE "DocumentSeries" ds
-    SET "nextSequence" =
-      GREATEST(series_state."nextSequence", series_state.min_available_sequence) + 2
-    FROM series_state
-    WHERE ds.id = series_state.id
-    RETURNING
-      ds.id,
-      ds."issuerId" AS issuer_id,
-      ds."establishmentCode" AS establishment_code,
-      ds."emissionPointCode" AS emission_point_code,
-      GREATEST(series_state."nextSequence", series_state.min_available_sequence) AS sequence_number
-  `;
+  // 1. Encontrar la serie documental activa
+  const documentSeries = await tx.documentSeries.findFirst({
+    where: {
+      issuerId,
+      documentType,
+      active: true,
+    },
+    orderBy: [
+      { establishmentCode: "asc" },
+      { emissionPointCode: "asc" },
+    ],
+    select: {
+      id: true,
+      issuerId: true,
+      establishmentCode: true,
+      emissionPointCode: true,
+      nextSequence: true,
+    },
+  });
 
-  const reservedSeries = reservedSeriesRows[0];
-
-  if (!reservedSeries) {
+  if (!documentSeries) {
     throw new Error("No existe una serie documental activa para este emisor");
   }
 
-  const sequenceNumber = reservedSeries.sequence_number;
+  // 2. Calcular el mínimo número disponible
+  const maxSequenceResult = await tx.saleDocument.aggregate({
+    where: {
+      documentSeriesId: documentSeries.id,
+    },
+    _max: {
+      sequenceNumber: true,
+    },
+  });
+
+  const minAvailableSequence = (maxSequenceResult._max.sequenceNumber ?? 0) + 1;
+
+  // 3. Determinar el número de secuencia a usar
+  const sequenceNumber = Math.max(documentSeries.nextSequence, minAvailableSequence);
+
+  // 4. Actualizar nextSequence para la próxima reserva
+  await tx.documentSeries.update({
+    where: { id: documentSeries.id },
+    data: {
+      nextSequence: sequenceNumber + 1,
+    },
+  });
+
+  // 5. Formatear y retornar
   const formattedSequence = formatDocumentSequence(sequenceNumber);
 
   return {
-    documentSeriesId: reservedSeries.id,
-    issuerId: reservedSeries.issuer_id,
-    establishmentCode: reservedSeries.establishment_code,
-    emissionPointCode: reservedSeries.emission_point_code,
+    documentSeriesId: documentSeries.id,
+    issuerId: documentSeries.issuerId,
+    establishmentCode: documentSeries.establishmentCode,
+    emissionPointCode: documentSeries.emissionPointCode,
     sequenceNumber,
     formattedSequence,
     fullNumber: buildDocumentFullNumber(
-      reservedSeries.establishment_code,
-      reservedSeries.emission_point_code,
+      documentSeries.establishmentCode,
+      documentSeries.emissionPointCode,
       sequenceNumber,
     ),
   };

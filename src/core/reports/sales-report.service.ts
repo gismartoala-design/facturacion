@@ -3,6 +3,8 @@ import { Prisma, SaleDocumentStatus, SaleDocumentType, SaleStatus } from "@prism
 import { roundMoney, resolveProductCode } from "@/lib/utils";
 
 const DEFAULT_RANGE_DAYS = 30;
+const REPORT_TIME_ZONE = "America/Guayaquil";
+const REPORT_TIME_ZONE_OFFSET = "-05:00";
 
 export type SalesReportInput = {
   businessId: string;
@@ -105,49 +107,52 @@ export type SaleReportDetailResult = {
 };
 
 function formatDateInput(value: Date) {
-  const year = value.getFullYear();
-  const month = `${value.getMonth() + 1}`.padStart(2, "0");
-  const day = `${value.getDate()}`.padStart(2, "0");
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: REPORT_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = formatter.formatToParts(value);
+  const year = parts.find((part) => part.type === "year")?.value ?? "0000";
+  const month = parts.find((part) => part.type === "month")?.value ?? "01";
+  const day = parts.find((part) => part.type === "day")?.value ?? "01";
   return `${year}-${month}-${day}`;
 }
 
-function parseDateInput(value: string | null | undefined, fallback: Date) {
+function parseDateInput(value: string | null | undefined, fallback: string) {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return new Date(fallback);
+    return fallback;
   }
 
-  const parsed = new Date(`${value}T00:00:00`);
-  if (Number.isNaN(parsed.getTime())) {
-    return new Date(fallback);
-  }
+  return value;
+}
 
-  return parsed;
+function addDays(dateInput: string, days: number) {
+  const date = new Date(`${dateInput}T12:00:00${REPORT_TIME_ZONE_OFFSET}`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return formatDateInput(date);
 }
 
 function normalizeRange(from?: string | null, to?: string | null) {
-  const today = new Date();
-  const defaultTo = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const defaultFrom = new Date(defaultTo);
-  defaultFrom.setDate(defaultFrom.getDate() - (DEFAULT_RANGE_DAYS - 1));
+  const defaultTo = formatDateInput(new Date());
+  const defaultFrom = addDays(defaultTo, -(DEFAULT_RANGE_DAYS - 1));
 
   let fromDate = parseDateInput(from, defaultFrom);
   let toDate = parseDateInput(to, defaultTo);
 
-  if (fromDate.getTime() > toDate.getTime()) {
+  if (fromDate > toDate) {
     [fromDate, toDate] = [toDate, fromDate];
   }
 
-  const rangeStart = new Date(fromDate);
-  rangeStart.setHours(0, 0, 0, 0);
-
-  const rangeEnd = new Date(toDate);
-  rangeEnd.setHours(23, 59, 59, 999);
+  const rangeStart = new Date(`${fromDate}T00:00:00.000${REPORT_TIME_ZONE_OFFSET}`);
+  const rangeEnd = new Date(`${toDate}T23:59:59.999${REPORT_TIME_ZONE_OFFSET}`);
 
   return {
     rangeStart,
     rangeEnd,
-    from: formatDateInput(fromDate),
-    to: formatDateInput(toDate),
+    from: fromDate,
+    to: toDate,
   };
 }
 

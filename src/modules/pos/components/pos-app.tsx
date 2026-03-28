@@ -2339,7 +2339,8 @@ export function PosApp({
               sx: {
                 mt: 1,
                 width: 320,
-                overflow: "hidden",
+                maxHeight: "85vh",
+                overflowY: "auto",
                 borderRadius: "22px",
                 border: `1px solid ${subtleBorder}`,
                 backgroundColor: alpha(theme.palette.background.paper, 0.98),
@@ -2463,77 +2464,79 @@ export function PosApp({
               Impresoras disponibles
             </Typography>
           </Box>
-          {localPrinters.length === 0 ? (
-            <MenuItem
-              disabled
-              sx={{ minHeight: 40, mx: 0.75, borderRadius: "14px" }}
-            >
-              <Typography sx={{ fontSize: 12.5, color: "text.secondary" }}>
-                Sin impresoras detectadas
-              </Typography>
-            </MenuItem>
-          ) : null}
-          {localPrinters.map((printerName) => (
-            <MenuItem
-              key={printerName}
-              selected={printerName === selectedPrinter}
-              onClick={() => {
-                setSelectedPrinter(printerName);
-                closeToolbarMenu();
-                setMessage({
-                  tone: "success",
-                  text: `Impresora seleccionada: ${printerName}`,
-                });
-              }}
-              sx={{
-                minHeight: 44,
-                mx: 0.75,
-                borderRadius: "14px",
-                mb: 0.25,
-                "&.Mui-selected": {
-                  backgroundColor: alpha(theme.palette.primary.main, 0.1),
-                },
-                "&.Mui-selected:hover": {
-                  backgroundColor: alpha(theme.palette.primary.main, 0.14),
-                },
-              }}
-            >
-              <Stack
-                direction="row"
-                spacing={1}
-                alignItems="center"
-                justifyContent="space-between"
-                sx={{ width: "100%" }}
+          <Box sx={{ maxHeight: 280, overflowY: "auto", px: 0.75, pb: 0.5 }}>
+            {localPrinters.length === 0 ? (
+              <MenuItem
+                disabled
+                sx={{ minHeight: 40, mx: 0, borderRadius: "14px" }}
               >
-                <Box sx={{ minWidth: 0 }}>
-                  <Typography sx={{ fontSize: 13, fontWeight: 700 }} noWrap>
-                    {printerName}
-                  </Typography>
-                  <Typography sx={{ fontSize: 11.5, color: "text.secondary" }}>
-                    {printerName === selectedPrinter
-                      ? "Impresora activa para tickets"
-                      : "Disponible para seleccionar"}
-                  </Typography>
-                </Box>
-                {printerName === selectedPrinter ? (
-                  <Box
-                    sx={{
-                      width: 24,
-                      height: 24,
-                      borderRadius: "999px",
-                      display: "grid",
-                      placeItems: "center",
-                      backgroundColor: alpha(theme.palette.primary.main, 0.12),
-                      color: "primary.main",
-                      flexShrink: 0,
-                    }}
-                  >
-                    <Check className="h-3.5 w-3.5" />
+                <Typography sx={{ fontSize: 12.5, color: "text.secondary" }}>
+                  Sin impresoras detectadas
+                </Typography>
+              </MenuItem>
+            ) : null}
+            {localPrinters.map((printerName) => (
+              <MenuItem
+                key={printerName}
+                selected={printerName === selectedPrinter}
+                onClick={() => {
+                  setSelectedPrinter(printerName);
+                  closeToolbarMenu();
+                  setMessage({
+                    tone: "success",
+                    text: `Impresora seleccionada: ${printerName}`,
+                  });
+                }}
+                sx={{
+                  minHeight: 44,
+                  mx: 0,
+                  borderRadius: "14px",
+                  mb: 0.25,
+                  "&.Mui-selected": {
+                    backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                  },
+                  "&.Mui-selected:hover": {
+                    backgroundColor: alpha(theme.palette.primary.main, 0.14),
+                  },
+                }}
+              >
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  alignItems="center"
+                  justifyContent="space-between"
+                  sx={{ width: "100%" }}
+                >
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography sx={{ fontSize: 13, fontWeight: 700 }} noWrap>
+                      {printerName}
+                    </Typography>
+                    <Typography sx={{ fontSize: 11.5, color: "text.secondary" }}>
+                      {printerName === selectedPrinter
+                        ? "Impresora activa para tickets"
+                        : "Disponible para seleccionar"}
+                    </Typography>
                   </Box>
-                ) : null}
-              </Stack>
-            </MenuItem>
-          ))}
+                  {printerName === selectedPrinter ? (
+                    <Box
+                      sx={{
+                        width: 24,
+                        height: 24,
+                        borderRadius: "999px",
+                        display: "grid",
+                        placeItems: "center",
+                        backgroundColor: alpha(theme.palette.primary.main, 0.12),
+                        color: "primary.main",
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Check className="h-3.5 w-3.5" />
+                    </Box>
+                  ) : null}
+                </Stack>
+              </MenuItem>
+            ))}
+          </Box>
           {selectedPrinter ? (
             <MenuItem
               onClick={() => {

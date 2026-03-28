@@ -5,9 +5,10 @@ import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
-import { ArrowLeftRight } from "lucide-react";
-import { useMemo } from "react";
+import { ArrowLeftRight, Search } from "lucide-react";
+import { useMemo, useState } from "react";
 
+import { Input } from "@/components/ui/input";
 import type { StockItem } from "@/shared/dashboard/types";
 
 type InventorySectionProps = {
@@ -19,7 +20,21 @@ export function InventorySection({
   stock,
   onOpenStockModal,
 }: InventorySectionProps) {
+  const [search, setSearch] = useState("");
   const lowStockCount = stock.filter((row) => row.lowStock).length;
+  const filteredStock = useMemo(() => {
+    const normalized = search.trim().toLowerCase();
+    if (!normalized) {
+      return stock;
+    }
+
+    return stock.filter(
+      (row) =>
+        row.codigo.toLowerCase().includes(normalized) ||
+        row.productName.toLowerCase().includes(normalized),
+    );
+  }, [search, stock]);
+
   const columns = useMemo<GridColDef<StockItem>[]>(
     () => [
       {
@@ -125,7 +140,7 @@ export function InventorySection({
           >
             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
               <Chip
-                label={`${stock.length} registros`}
+                label={`${filteredStock.length} registros`}
                 size="small"
                 sx={{
                   borderRadius: "999px",
@@ -158,6 +173,33 @@ export function InventorySection({
             </MuiButton>
           </Stack>
 
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={2}
+            alignItems={{ xs: "stretch", sm: "center" }}
+            justifyContent="space-between"
+          >
+            <Box sx={{ position: "relative", width: "100%", maxWidth: 360 }}>
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#b1a1c6]" />
+              <Input
+                placeholder="Buscar por codigo o producto..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="border-[#e8d5e5]/70 bg-[#fdfcf5]/75 pl-9"
+              />
+            </Box>
+
+            {search ? (
+              <MuiButton
+                type="button"
+                variant="outlined"
+                onClick={() => setSearch("")}
+              >
+                Limpiar
+              </MuiButton>
+            ) : null}
+          </Stack>
+
           <Box
             sx={{
               overflow: "hidden",
@@ -167,7 +209,7 @@ export function InventorySection({
             }}
           >
             <DataGrid
-              rows={stock}
+              rows={filteredStock}
               columns={columns}
               getRowId={(row) => row.productId}
               disableRowSelectionOnClick
@@ -180,6 +222,11 @@ export function InventorySection({
                 sorting: {
                   sortModel: [{ field: "lowStock", sort: "desc" }],
                 },
+              }}
+              localeText={{
+                noRowsLabel: search
+                  ? `Sin resultados para "${search}".`
+                  : "Sin registros de inventario aun.",
               }}
             />
           </Box>

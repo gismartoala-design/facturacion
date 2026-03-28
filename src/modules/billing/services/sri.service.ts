@@ -241,19 +241,10 @@ export async function retrySriInvoiceAuthorization(sriInvoiceId: string) {
     throw new Error("Factura local no encontrada");
   }
 
-  const hasStoredPayload =
-    invoice.createRequestPayload &&
-    typeof invoice.createRequestPayload === "object" &&
-    !Array.isArray(invoice.createRequestPayload) &&
-    Object.keys(invoice.createRequestPayload).length > 0;
-
-  const createRequestPayload = hasStoredPayload
-    ? invoice.createRequestPayload
-    : (
-        await preparePendingSaleDocumentAuthorizationBySriInvoiceId(
-          sriInvoiceId,
-        )
-      ).invoicePayload;
+  const { invoicePayload: createRequestPayload } =
+    await preparePendingSaleDocumentAuthorizationBySriInvoiceId(
+      sriInvoiceId,
+    );
 
   if (invoice.sale.status === SaleStatus.CANCELLED) {
     throw new Error("No se puede reintentar una factura de una venta anulada");

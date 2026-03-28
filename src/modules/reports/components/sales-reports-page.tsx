@@ -11,7 +11,6 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import IconButton from "@mui/material/IconButton";
 import InputAdornment from "@mui/material/InputAdornment";
-import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
@@ -99,7 +98,6 @@ type SalesReportResponse = {
 type FiltersForm = {
   from: string;
   to: string;
-  sellerId: string;
 };
 
 type SaleReportDetailResponse = {
@@ -170,7 +168,6 @@ export function SalesReportsPage() {
   const [filters, setFilters] = useState<FiltersForm>({
     from: "",
     to: "",
-    sellerId: "",
   });
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -201,7 +198,6 @@ export function SalesReportsPage() {
           setFilters({
             from: nextReport.filters.from,
             to: nextReport.filters.to,
-            sellerId: nextReport.filters.sellerId ?? "",
           });
         });
       } catch (loadError) {
@@ -456,23 +452,11 @@ export function SalesReportsPage() {
       params.delete("to");
     }
 
-    if (filters.sellerId && !report?.filters.sellerLocked) {
-      params.set("sellerId", filters.sellerId);
-    } else {
-      params.delete("sellerId");
-    }
-
-    /*
-      startRoutingTransition(() => {
-        router.replace(params.toString() ? `${pathname}?${params.toString()}` : pathname);
-      });
-    */
-
-    //cambio realizado 
-    //actualiza la fecha de reporte automaticamente sin actualizar la pagina
     const newUrl = params.toString() ? `${pathname}?${params.toString()}` : pathname;
 
-    router.replace(newUrl);
+    startRoutingTransition(() => {
+      router.replace(newUrl);
+    });
   }
 
   function resetFilters() {
@@ -482,6 +466,7 @@ export function SalesReportsPage() {
   }
 
   const shellBorder = alpha(theme.palette.divider, 0.76);
+  const busy = loading || isPending;
 
   return (
     <Stack spacing={2.5} sx={{ px: { xs: 1, sm: 2 }, py: { xs: 1, sm: 2 } }}>
@@ -523,7 +508,7 @@ export function SalesReportsPage() {
               display: "grid",
               gridTemplateColumns: {
                 xs: "1fr",
-                md: "repeat(4, minmax(0, 1fr))",
+                md: "repeat(3, minmax(0, 1fr))",
               },
             }}
           >
@@ -545,60 +530,40 @@ export function SalesReportsPage() {
               }
               InputLabelProps={{ shrink: true }}
             />
-            <TextField
-              select
-              label="Vendedor"
-              value={filters.sellerId}
-              onChange={(event) =>
-                setFilters((current) => ({
-                  ...current,
-                  sellerId: event.target.value,
-                }))
-              }
-              disabled={report?.filters.sellerLocked}
-            >
-              <MenuItem value="">Todos</MenuItem>
-              {(report?.sellerOptions ?? []).map((seller) => (
-                <MenuItem key={seller.id} value={seller.id}>
-                  {seller.name} · {seller.role === "ADMIN" ? "Admin" : "Vendedor"}
-                </MenuItem>
-              ))}
-            </TextField>
             <Stack direction="row" spacing={1}>
               <Button
                 type="submit"
                 variant="contained"
-                disabled={isPending}
+                disabled={busy}
                 startIcon={<CalendarRange className="h-4 w-4" />}
                 sx={{ flex: 1 }}
               >
-                {isPending ? "Actualizando..." : "Aplicar"}
+                {busy ? "Actualizando..." : "Aplicar"}
               </Button>
               <Button
                 type="button"
                 variant="outlined"
                 onClick={resetFilters}
-                disabled={isPending}
+                disabled={busy}
                 startIcon={<RefreshCcw className="h-4 w-4" />}
               >
                 Limpiar
               </Button>
             </Stack>
+            <TextField
+              label="Buscar en resultados"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Venta, cliente, vendedor, documento o medio de pago"
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Search className="h-4 w-4" />
+                  </InputAdornment>
+                ),
+              }}
+            />
           </Stack>
-
-          <TextField
-            label="Buscar en resultados"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Venta, cliente, vendedor, documento o medio de pago"
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Search className="h-4 w-4" />
-                </InputAdornment>
-              ),
-            }}
-          />
 
           {report?.filters.sellerLocked ? (
             <Chip
@@ -632,6 +597,24 @@ export function SalesReportsPage() {
               Cargando reporte de ventas...
             </Typography>
           </Stack>
+        </Paper>
+      ) : null}
+
+      {loading && report ? (
+        <Paper
+          sx={{
+            borderRadius: "20px",
+            px: 2,
+            py: 1.5,
+            display: "flex",
+            alignItems: "center",
+            gap: 1.25,
+          }}
+        >
+          <CircularProgress size={18} />
+          <Typography color="text.secondary">
+            Actualizando reporte...
+          </Typography>
         </Paper>
       ) : null}
 
@@ -751,6 +734,7 @@ export function SalesReportsPage() {
                 rows={filteredRows}
                 columns={dataGridColumns}
                 getRowId={(row) => row.saleId}
+                loading={loading}
                 disableRowSelectionOnClick
                 density="compact"
                 pageSizeOptions={[10, 25, 50, 100]}

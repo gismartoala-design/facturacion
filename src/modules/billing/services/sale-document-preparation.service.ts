@@ -21,6 +21,10 @@ function sriEnvironmentCode(environment: string | null | undefined) {
   return environment === "PRODUCCION" ? "2" : "1";
 }
 
+function sriEnvironmentLabel(environment: string | null | undefined) {
+  return environment === "PRODUCCION" ? "PRODUCCION" : "PRUEBAS";
+}
+
 function sriCurrencyCode(currency: string | null | undefined) {
   if (!currency) {
     return "DOLAR";
@@ -123,16 +127,6 @@ export async function preparePendingSaleDocumentAuthorization(
     throw new Error("Factura local no encontrada para el documento de venta");
   }
 
-  if (
-    isPreparedInvoicePayload(saleDocument.sriInvoice.createRequestPayload) &&
-    saleDocument.sriInvoice.claveAcceso
-  ) {
-    return {
-      invoicePayload: saleDocument.sriInvoice.createRequestPayload,
-      accessKey: saleDocument.sriInvoice.claveAcceso,
-    };
-  }
-
   if (!saleDocument.issuerId) {
     throw new Error("El documento de venta no tiene emisor configurado");
   }
@@ -160,6 +154,30 @@ export async function preparePendingSaleDocumentAuthorization(
     throw new Error(
       "El emisor documental no tiene externalIssuerId configurado para el gateway SRI",
     );
+  }
+
+  const ambiente = sriEnvironmentLabel(issuer.environment);
+
+  if (
+    isPreparedInvoicePayload(saleDocument.sriInvoice.createRequestPayload) &&
+    saleDocument.sriInvoice.claveAcceso
+  ) {
+    const invoicePayload = {
+      ...(saleDocument.sriInvoice.createRequestPayload as Prisma.JsonObject),
+      ambiente,
+    } as Prisma.JsonObject;
+
+    await prisma.sriInvoice.update({
+      where: { id: task.sriInvoiceId },
+      data: {
+        createRequestPayload: invoicePayload,
+      },
+    });
+
+    return {
+      invoicePayload,
+      accessKey: saleDocument.sriInvoice.claveAcceso,
+    };
   }
 
   const metadata = parseDocumentMetadata(saleDocument.metadata);
@@ -200,6 +218,7 @@ export async function preparePendingSaleDocumentAuthorization(
     propina: 0,
     importeTotal: Number(saleDocument.sale.total),
     moneda: sriCurrencyCode(metadata.moneda),
+    ambiente,
     infoAdicional: metadata.infoAdicional,
     detalles: saleDocument.sale.items.map((line) => ({
       codigoPrincipal: resolveProductCode(
