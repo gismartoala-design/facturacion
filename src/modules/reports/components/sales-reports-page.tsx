@@ -9,6 +9,7 @@ import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
+import Grid from "@mui/material/Grid";
 import IconButton from "@mui/material/IconButton";
 import InputAdornment from "@mui/material/InputAdornment";
 import Paper from "@mui/material/Paper";
@@ -501,69 +502,70 @@ export function SalesReportsPage() {
         }}
       >
         <Stack spacing={1.75}>
-          <Stack
-            direction={{ xs: "column", lg: "row" }}
-            spacing={1.25}
-            sx={{
-              display: "grid",
-              gridTemplateColumns: {
-                xs: "1fr",
-                md: "repeat(3, minmax(0, 1fr))",
-              },
-            }}
-          >
-            <TextField
-              label="Desde"
-              type="date"
-              value={filters.from}
-              onChange={(event) =>
-                setFilters((current) => ({ ...current, from: event.target.value }))
-              }
-              InputLabelProps={{ shrink: true }}
-            />
-            <TextField
-              label="Hasta"
-              type="date"
-              value={filters.to}
-              onChange={(event) =>
-                setFilters((current) => ({ ...current, to: event.target.value }))
-              }
-              InputLabelProps={{ shrink: true }}
-            />
-            <Stack direction="row" spacing={1}>
-              <Button
-                type="submit"
-                variant="contained"
-                disabled={busy}
-                startIcon={<CalendarRange className="h-4 w-4" />}
-                sx={{ flex: 1 }}
-              >
-                {busy ? "Actualizando..." : "Aplicar"}
-              </Button>
-              <Button
-                type="button"
-                variant="outlined"
-                onClick={resetFilters}
-                disabled={busy}
-                startIcon={<RefreshCcw className="h-4 w-4" />}
-              >
-                Limpiar
-              </Button>
-            </Stack>
-            <TextField
-              label="Buscar en resultados"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Venta, cliente, vendedor, documento o medio de pago"
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Search className="h-4 w-4" />
-                  </InputAdornment>
-                ),
-              }}
-            />
-          </Stack>
+          <Grid container spacing={1.25}>
+            <Grid size={{ xs: 12, md: 4 }}>
+              <TextField
+                fullWidth
+                label="Desde"
+                type="date"
+                value={filters.from}
+                onChange={(event) =>
+                  setFilters((current) => ({ ...current, from: event.target.value }))
+                }
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, md: 4 }}>
+              <TextField
+                fullWidth
+                label="Hasta"
+                type="date"
+                value={filters.to}
+                onChange={(event) =>
+                  setFilters((current) => ({ ...current, to: event.target.value }))
+                }
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, md: 4 }}>
+              <Stack direction="row" spacing={1}>
+                <Button
+                  type="submit"
+                  variant="contained"
+                  disabled={busy}
+                  startIcon={<CalendarRange className="h-4 w-4" />}
+                  sx={{ flex: 1 }}
+                >
+                  {busy ? "Actualizando..." : "Aplicar"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outlined"
+                  onClick={resetFilters}
+                  disabled={busy}
+                  startIcon={<RefreshCcw className="h-4 w-4" />}
+                >
+                  Limpiar
+                </Button>
+              </Stack>
+            </Grid>
+            <Grid size={{ xs: 12 }}>
+              <TextField
+                fullWidth
+                label="Buscar en resultados"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Venta, cliente, vendedor, documento o medio de pago"
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Search className="h-4 w-4" />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </Grid>
+          </Grid>
 
           {report?.filters.sellerLocked ? (
             <Chip
@@ -620,17 +622,7 @@ export function SalesReportsPage() {
 
       {report ? (
         <>
-          <Box
-            sx={{
-              display: "grid",
-              gap: 1.25,
-              gridTemplateColumns: {
-                xs: "1fr",
-                md: "repeat(2, minmax(0, 1fr))",
-                xl: "repeat(4, minmax(0, 1fr))",
-              },
-            }}
-          >
+          <Grid container spacing={1.25}>
             {[
               {
                 label: "Ventas",
@@ -663,37 +655,38 @@ export function SalesReportsPage() {
             ].map((card) => {
               const Icon = card.icon;
               return (
-                <Paper
-                  key={card.label}
-                  sx={{ borderRadius: "22px", p: 2, borderColor: shellBorder }}
-                >
-                  <Stack spacing={1}>
-                    <Box
-                      sx={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: "13px",
-                        display: "grid",
-                        placeItems: "center",
-                        backgroundColor: card.tone,
-                      }}
-                    >
-                      <Icon className="h-4.5 w-4.5" />
-                    </Box>
-                    <Typography sx={{ color: "text.secondary", fontSize: 13 }}>
-                      {card.label}
-                    </Typography>
-                    <Typography sx={{ fontSize: 26, fontWeight: 800, lineHeight: 1 }}>
-                      {card.value}
-                    </Typography>
-                    <Typography sx={{ color: "text.secondary", fontSize: 12.5 }}>
-                      {card.meta}
-                    </Typography>
-                  </Stack>
-                </Paper>
+                <Grid key={card.label} size={{ xs: 12, md: 6, xl: 3 }}>
+                  <Paper
+                    sx={{ borderRadius: "22px", p: 2, borderColor: shellBorder }}
+                  >
+                    <Stack spacing={1}>
+                      <Box
+                        sx={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: "13px",
+                          display: "grid",
+                          placeItems: "center",
+                          backgroundColor: card.tone,
+                        }}
+                      >
+                        <Icon className="h-4.5 w-4.5" />
+                      </Box>
+                      <Typography sx={{ color: "text.secondary", fontSize: 13 }}>
+                        {card.label}
+                      </Typography>
+                      <Typography sx={{ fontSize: 26, fontWeight: 800, lineHeight: 1 }}>
+                        {card.value}
+                      </Typography>
+                      <Typography sx={{ color: "text.secondary", fontSize: 12.5 }}>
+                        {card.meta}
+                      </Typography>
+                    </Stack>
+                  </Paper>
+                </Grid>
               );
             })}
-          </Box>
+          </Grid>
 
           <Paper sx={{ borderRadius: "24px", p: 0, borderColor: shellBorder, overflow: "hidden" }}>
             <Stack
@@ -770,89 +763,86 @@ export function SalesReportsPage() {
             </Box>
           </Paper>
 
-          <Box
-            sx={{
-              display: "grid",
-              gap: 1.25,
-              gridTemplateColumns: {
-                xs: "1fr",
-                xl: "repeat(3, minmax(0, 1fr))",
-              },
-            }}
-          >
-            <Paper sx={{ borderRadius: "22px", p: 2, borderColor: shellBorder }}>
-              <Stack spacing={1.25}>
-                <Typography sx={{ fontWeight: 800, fontSize: 16 }}>
-                  Resumen documental
-                </Typography>
-                {report.documentSummary.map((item) => (
-                  <Stack
-                    key={item.key}
-                    direction="row"
-                    justifyContent="space-between"
-                    sx={{ py: 0.85, borderBottom: `1px solid ${shellBorder}` }}
-                  >
-                    <Typography sx={{ fontSize: 13.5 }}>{item.label}</Typography>
-                    <Typography sx={{ fontWeight: 700, fontSize: 13.5 }}>
-                      {item.salesCount} · {formatCurrency(item.total)}
-                    </Typography>
-                  </Stack>
-                ))}
-              </Stack>
-            </Paper>
-
-            <Paper sx={{ borderRadius: "22px", p: 2, borderColor: shellBorder }}>
-              <Stack spacing={1.25}>
-                <Typography sx={{ fontWeight: 800, fontSize: 16 }}>
-                  Medios de pago
-                </Typography>
-                {report.paymentMethods.map((item) => (
-                  <Stack
-                    key={item.code}
-                    direction="row"
-                    justifyContent="space-between"
-                    sx={{ py: 0.85, borderBottom: `1px solid ${shellBorder}` }}
-                  >
-                    <Typography sx={{ fontSize: 13.5 }}>
-                      {paymentMethodLabel(item.code)}
-                    </Typography>
-                    <Typography sx={{ fontWeight: 700, fontSize: 13.5 }}>
-                      {item.salesCount} · {formatCurrency(item.total)}
-                    </Typography>
-                  </Stack>
-                ))}
-              </Stack>
-            </Paper>
-
-            <Paper sx={{ borderRadius: "22px", p: 2, borderColor: shellBorder }}>
-              <Stack spacing={1.25}>
-                <Typography sx={{ fontWeight: 800, fontSize: 16 }}>
-                  Top productos
-                </Typography>
-                {report.topProducts.slice(0, 8).map((item) => (
-                  <Stack
-                    key={item.productId}
-                    direction="row"
-                    justifyContent="space-between"
-                    spacing={1}
-                    sx={{ py: 0.85, borderBottom: `1px solid ${shellBorder}` }}
-                  >
-                    <Box sx={{ minWidth: 0 }}>
-                      <Typography sx={{ fontSize: 13.5, fontWeight: 700 }} noWrap>
-                        {item.productName}
+          <Grid container spacing={1.25}>
+            <Grid size={{ xs: 12, xl: 4 }}>
+              <Paper sx={{ borderRadius: "22px", p: 2, borderColor: shellBorder }}>
+                <Stack spacing={1.25}>
+                  <Typography sx={{ fontWeight: 800, fontSize: 16 }}>
+                    Resumen documental
+                  </Typography>
+                  {report.documentSummary.map((item) => (
+                    <Stack
+                      key={item.key}
+                      direction="row"
+                      justifyContent="space-between"
+                      sx={{ py: 0.85, borderBottom: `1px solid ${shellBorder}` }}
+                    >
+                      <Typography sx={{ fontSize: 13.5 }}>{item.label}</Typography>
+                      <Typography sx={{ fontWeight: 700, fontSize: 13.5 }}>
+                        {item.salesCount} · {formatCurrency(item.total)}
                       </Typography>
-                      <Typography sx={{ fontSize: 12, color: "text.secondary" }} noWrap>
-                        {item.productCode} · {formatCompactNumber(item.quantity)} uds
+                    </Stack>
+                  ))}
+                </Stack>
+              </Paper>
+            </Grid>
+
+            <Grid size={{ xs: 12, xl: 4 }}>
+              <Paper sx={{ borderRadius: "22px", p: 2, borderColor: shellBorder }}>
+                <Stack spacing={1.25}>
+                  <Typography sx={{ fontWeight: 800, fontSize: 16 }}>
+                    Medios de pago
+                  </Typography>
+                  {report.paymentMethods.map((item) => (
+                    <Stack
+                      key={item.code}
+                      direction="row"
+                      justifyContent="space-between"
+                      sx={{ py: 0.85, borderBottom: `1px solid ${shellBorder}` }}
+                    >
+                      <Typography sx={{ fontSize: 13.5 }}>
+                        {paymentMethodLabel(item.code)}
                       </Typography>
-                    </Box>
-                    <Typography sx={{ fontWeight: 700, fontSize: 13.5 }}>
-                      {formatCurrency(item.total)}
-                    </Typography>
-                  </Stack>
-                ))}
-              </Stack>
-            </Paper>
-          </Box>
+                      <Typography sx={{ fontWeight: 700, fontSize: 13.5 }}>
+                        {item.salesCount} · {formatCurrency(item.total)}
+                      </Typography>
+                    </Stack>
+                  ))}
+                </Stack>
+              </Paper>
+            </Grid>
+
+            <Grid size={{ xs: 12, xl: 4 }}>
+              <Paper sx={{ borderRadius: "22px", p: 2, borderColor: shellBorder }}>
+                <Stack spacing={1.25}>
+                  <Typography sx={{ fontWeight: 800, fontSize: 16 }}>
+                    Top productos
+                  </Typography>
+                  {report.topProducts.slice(0, 8).map((item) => (
+                    <Stack
+                      key={item.productId}
+                      direction="row"
+                      justifyContent="space-between"
+                      spacing={1}
+                      sx={{ py: 0.85, borderBottom: `1px solid ${shellBorder}` }}
+                    >
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography sx={{ fontSize: 13.5, fontWeight: 700 }} noWrap>
+                          {item.productName}
+                        </Typography>
+                        <Typography sx={{ fontSize: 12, color: "text.secondary" }} noWrap>
+                          {item.productCode} · {formatCompactNumber(item.quantity)} uds
+                        </Typography>
+                      </Box>
+                      <Typography sx={{ fontWeight: 700, fontSize: 13.5 }}>
+                        {formatCurrency(item.total)}
+                      </Typography>
+                    </Stack>
+                  ))}
+                </Stack>
+              </Paper>
+            </Grid>
+          </Grid>
         </>
       ) : null}
 
@@ -881,50 +871,47 @@ export function SalesReportsPage() {
             </Alert>
           ) : selectedSaleDetail ? (
             <Stack spacing={2}>
-              <Box
-                sx={{
-                  display: "grid",
-                  gap: 1.25,
-                  gridTemplateColumns: {
-                    xs: "1fr",
-                    md: "repeat(3, minmax(0, 1fr))",
-                  },
-                }}
-              >
-                <Paper sx={{ p: 1.5, borderRadius: "18px" }}>
-                  <Typography sx={{ color: "text.secondary", fontSize: 12.5 }}>
-                    Venta
-                  </Typography>
-                  <Typography sx={{ fontWeight: 800 }}>
-                    #{selectedSaleDetail.saleNumber}
-                  </Typography>
-                  <Typography sx={{ color: "text.secondary", fontSize: 12.5 }}>
-                    {formatDateTime(selectedSaleDetail.createdAt)}
-                  </Typography>
-                </Paper>
-                <Paper sx={{ p: 1.5, borderRadius: "18px" }}>
-                  <Typography sx={{ color: "text.secondary", fontSize: 12.5 }}>
-                    Cliente
-                  </Typography>
-                  <Typography sx={{ fontWeight: 800 }}>
-                    {selectedSaleDetail.customerName}
-                  </Typography>
-                  <Typography sx={{ color: "text.secondary", fontSize: 12.5 }}>
-                    Vendedor: {selectedSaleDetail.sellerName}
-                  </Typography>
-                </Paper>
-                <Paper sx={{ p: 1.5, borderRadius: "18px" }}>
-                  <Typography sx={{ color: "text.secondary", fontSize: 12.5 }}>
-                    Documento
-                  </Typography>
-                  <Typography sx={{ fontWeight: 800 }}>
-                    {selectedSaleDetail.documentLabel}
-                  </Typography>
-                  <Typography sx={{ color: "text.secondary", fontSize: 12.5 }}>
-                    {selectedSaleDetail.documentNumber ?? "Sin numeracion"}
-                  </Typography>
-                </Paper>
-              </Box>
+              <Grid container spacing={1.25}>
+                <Grid size={{ xs: 12, md: 4 }}>
+                  <Paper sx={{ p: 1.5, borderRadius: "18px" }}>
+                    <Typography sx={{ color: "text.secondary", fontSize: 12.5 }}>
+                      Venta
+                    </Typography>
+                    <Typography sx={{ fontWeight: 800 }}>
+                      #{selectedSaleDetail.saleNumber}
+                    </Typography>
+                    <Typography sx={{ color: "text.secondary", fontSize: 12.5 }}>
+                      {formatDateTime(selectedSaleDetail.createdAt)}
+                    </Typography>
+                  </Paper>
+                </Grid>
+                <Grid size={{ xs: 12, md: 4 }}>
+                  <Paper sx={{ p: 1.5, borderRadius: "18px" }}>
+                    <Typography sx={{ color: "text.secondary", fontSize: 12.5 }}>
+                      Cliente
+                    </Typography>
+                    <Typography sx={{ fontWeight: 800 }}>
+                      {selectedSaleDetail.customerName}
+                    </Typography>
+                    <Typography sx={{ color: "text.secondary", fontSize: 12.5 }}>
+                      Vendedor: {selectedSaleDetail.sellerName}
+                    </Typography>
+                  </Paper>
+                </Grid>
+                <Grid size={{ xs: 12, md: 4 }}>
+                  <Paper sx={{ p: 1.5, borderRadius: "18px" }}>
+                    <Typography sx={{ color: "text.secondary", fontSize: 12.5 }}>
+                      Documento
+                    </Typography>
+                    <Typography sx={{ fontWeight: 800 }}>
+                      {selectedSaleDetail.documentLabel}
+                    </Typography>
+                    <Typography sx={{ color: "text.secondary", fontSize: 12.5 }}>
+                      {selectedSaleDetail.documentNumber ?? "Sin numeracion"}
+                    </Typography>
+                  </Paper>
+                </Grid>
+              </Grid>
 
               <Paper sx={{ borderRadius: "18px", overflow: "hidden" }}>
                 <Box
@@ -978,68 +965,63 @@ export function SalesReportsPage() {
                 </Stack>
               </Paper>
 
-              <Box
-                sx={{
-                  display: "grid",
-                  gap: 1.25,
-                  gridTemplateColumns: {
-                    xs: "1fr",
-                    md: "1fr 280px",
-                  },
-                }}
-              >
-                <Paper sx={{ p: 1.5, borderRadius: "18px" }}>
-                  <Typography sx={{ color: "text.secondary", fontSize: 12.5, mb: 1 }}>
-                    Medios de pago
-                  </Typography>
-                  <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap">
-                    {selectedSaleDetail.paymentMethods.map((code) => (
-                      <Chip
-                        key={`${selectedSaleDetail.saleId}-${code}`}
-                        label={paymentMethodLabel(code)}
-                        size="small"
-                        variant="outlined"
-                      />
-                    ))}
-                  </Stack>
-                </Paper>
-                <Paper sx={{ p: 1.5, borderRadius: "18px" }}>
-                  <Stack spacing={0.75}>
-                    <Stack direction="row" justifyContent="space-between">
-                      <Typography sx={{ color: "text.secondary", fontSize: 13 }}>
-                        Subtotal
-                      </Typography>
-                      <Typography sx={{ fontSize: 13 }}>
-                        {formatCurrency(selectedSaleDetail.subtotal)}
-                      </Typography>
+              <Grid container spacing={1.25}>
+                <Grid size={{ xs: 12, md: 7 }}>
+                  <Paper sx={{ p: 1.5, borderRadius: "18px" }}>
+                    <Typography sx={{ color: "text.secondary", fontSize: 12.5, mb: 1 }}>
+                      Medios de pago
+                    </Typography>
+                    <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap">
+                      {selectedSaleDetail.paymentMethods.map((code) => (
+                        <Chip
+                          key={`${selectedSaleDetail.saleId}-${code}`}
+                          label={paymentMethodLabel(code)}
+                          size="small"
+                          variant="outlined"
+                        />
+                      ))}
                     </Stack>
-                    <Stack direction="row" justifyContent="space-between">
-                      <Typography sx={{ color: "text.secondary", fontSize: 13 }}>
-                        IVA
-                      </Typography>
-                      <Typography sx={{ fontSize: 13 }}>
-                        {formatCurrency(selectedSaleDetail.taxTotal)}
-                      </Typography>
+                  </Paper>
+                </Grid>
+                <Grid size={{ xs: 12, md: 5 }}>
+                  <Paper sx={{ p: 1.5, borderRadius: "18px" }}>
+                    <Stack spacing={0.75}>
+                      <Stack direction="row" justifyContent="space-between">
+                        <Typography sx={{ color: "text.secondary", fontSize: 13 }}>
+                          Subtotal
+                        </Typography>
+                        <Typography sx={{ fontSize: 13 }}>
+                          {formatCurrency(selectedSaleDetail.subtotal)}
+                        </Typography>
+                      </Stack>
+                      <Stack direction="row" justifyContent="space-between">
+                        <Typography sx={{ color: "text.secondary", fontSize: 13 }}>
+                          IVA
+                        </Typography>
+                        <Typography sx={{ fontSize: 13 }}>
+                          {formatCurrency(selectedSaleDetail.taxTotal)}
+                        </Typography>
+                      </Stack>
+                      <Stack direction="row" justifyContent="space-between">
+                        <Typography sx={{ color: "text.secondary", fontSize: 13 }}>
+                          Descuento
+                        </Typography>
+                        <Typography sx={{ fontSize: 13 }}>
+                          {formatCurrency(selectedSaleDetail.discountTotal)}
+                        </Typography>
+                      </Stack>
+                      <Stack direction="row" justifyContent="space-between">
+                        <Typography sx={{ fontWeight: 800 }}>
+                          Total
+                        </Typography>
+                        <Typography sx={{ fontWeight: 800 }}>
+                          {formatCurrency(selectedSaleDetail.total)}
+                        </Typography>
+                      </Stack>
                     </Stack>
-                    <Stack direction="row" justifyContent="space-between">
-                      <Typography sx={{ color: "text.secondary", fontSize: 13 }}>
-                        Descuento
-                      </Typography>
-                      <Typography sx={{ fontSize: 13 }}>
-                        {formatCurrency(selectedSaleDetail.discountTotal)}
-                      </Typography>
-                    </Stack>
-                    <Stack direction="row" justifyContent="space-between">
-                      <Typography sx={{ fontWeight: 800 }}>
-                        Total
-                      </Typography>
-                      <Typography sx={{ fontWeight: 800 }}>
-                        {formatCurrency(selectedSaleDetail.total)}
-                      </Typography>
-                    </Stack>
-                  </Stack>
-                </Paper>
-              </Box>
+                  </Paper>
+                </Grid>
+              </Grid>
             </Stack>
           ) : null}
         </DialogContent>
