@@ -1,5 +1,12 @@
 import { z } from "zod";
 
+const dbUuidSchema = z
+  .string()
+  .regex(
+    /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/,
+    "Invalid database UUID",
+  );
+
 export const accountingEntryLineSchema = z.object({
   accountCode: z.string().trim().min(1).max(40),
   debit: z.number().min(0).max(999999).default(0),
@@ -8,7 +15,7 @@ export const accountingEntryLineSchema = z.object({
 });
 
 export const createDraftEntrySchema = z.object({
-  businessId: z.string().uuid(),
+  businessId: dbUuidSchema,
   sourceType: z.enum(["SALE", "COLLECTION", "CASH_MOVEMENT", "REFUND", "ADJUSTMENT"]),
   sourceId: z.string().uuid(),
   lines: z.array(accountingEntryLineSchema).min(1),

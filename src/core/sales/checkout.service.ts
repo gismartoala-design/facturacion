@@ -267,10 +267,12 @@ export async function checkout(rawInput: unknown, options?: CheckoutOptions) {
     });
     const { saleContext, documentResult, receivable } = await prisma.$transaction(
       async (tx) => {
+        // Genera la venta
         const saleContext = await createSaleInTransaction(tx, input, {
           startedAt,
           inventoryTrackingEnabled: options?.inventoryTrackingEnabled,
         });
+        // Registra asiento contable de la venta
         if (options?.businessId) {
           await postSaleEntryInTransaction(tx, {
             businessId: options.businessId,
@@ -280,6 +282,7 @@ export async function checkout(rawInput: unknown, options?: CheckoutOptions) {
             total: saleContext.totals.total,
           });
         }
+        // Registra Cobros
         await createImmediateCollectionsInTransaction(
           tx,
           input,

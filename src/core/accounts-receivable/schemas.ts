@@ -1,7 +1,14 @@
 import { z } from "zod";
 
+const dbUuidSchema = z
+  .string()
+  .regex(
+    /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/,
+    "Invalid database UUID",
+  );
+
 export const createCollectionDraftSchema = z.object({
-  businessId: z.string().uuid(),
+  businessId: dbUuidSchema,
   customerId: z.string().uuid(),
   cashSessionId: z.string().uuid().optional().nullable(),
   amount: z.number().positive().max(999999),
@@ -41,7 +48,7 @@ export const reverseCollectionApplicationSchema = z.object({
 });
 
 export const createReceivableSchema = z.object({
-  businessId: z.string().uuid(),
+  businessId: dbUuidSchema,
   customerId: z.string().uuid(),
   saleId: z.string().uuid().optional().nullable(),
   documentType: z.string().trim().min(2).max(40),
