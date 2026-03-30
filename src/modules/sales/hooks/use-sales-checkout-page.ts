@@ -41,6 +41,12 @@ type CheckoutResponse = {
     sriInvoiceId: string;
     status: "DRAFT" | "AUTHORIZED" | "PENDING_SRI" | "ERROR";
   } | null;
+  receivable: {
+    id: string;
+    pendingAmount: number;
+    dueAt: string | null;
+    status: "OPEN" | "PARTIALLY_PAID" | "PAID" | "OVERDUE" | "CANCELLED";
+  } | null;
 };
 
 type BusinessCheckoutConfig = {
@@ -62,6 +68,7 @@ const WALK_IN_CUSTOMER = {
   email: "",
   telefono: "",
 };
+const CREDIT_PAYMENT_METHOD = "15";
 
 function buildInitialCheckoutForm(defaultIssuerId = ""): CheckoutForm {
   return {
@@ -74,6 +81,8 @@ function buildInitialCheckoutForm(defaultIssuerId = ""): CheckoutForm {
     email: "",
     telefono: "",
     formaPago: "01",
+    paymentAmount: "",
+    paymentTermDays: "30",
   };
 }
 
@@ -217,6 +226,8 @@ export function useSalesCheckoutPage() {
       Boolean(authorizedSriInvoiceId) ||
       checkout.tipoIdentificacion !== "04" ||
       checkout.formaPago !== "01" ||
+      checkout.paymentAmount.trim() !== "" ||
+      checkout.paymentTermDays.trim() !== "30" ||
       checkout.identificacion.trim() !== "" ||
       checkout.razonSocial.trim() !== "" ||
       checkout.direccion.trim() !== "" ||
@@ -288,6 +299,8 @@ export function useSalesCheckoutPage() {
       email: quote.customer.email ?? "",
       telefono: quote.customer.telefono ?? "",
       formaPago: quote.formaPago,
+      paymentAmount: "",
+      paymentTermDays: "30",
     });
     setLineItems(
       quote.items.map((item) => ({
@@ -667,6 +680,62 @@ export function useSalesCheckoutPage() {
     });
   }
 
+  function buildDirectSalePayments() {
+    const normalizedTotal = Number(checkoutTotal.toFixed(2));
+    const normalizedPaymentAmount = Math.max(
+      0,
+      Math.min(
+        Number(parseDecimalInput(checkout.paymentAmount, normalizedTotal).toFixed(2)),
+        normalizedTotal,
+      ),
+    );
+    const paymentTermDays = Math.max(
+      0,
+      Math.round(parseDecimalInput(checkout.paymentTermDays, 30)),
+    );
+
+    if (checkout.formaPago === CREDIT_PAYMENT_METHOD) {
+      return [
+        {
+          formaPago: CREDIT_PAYMENT_METHOD,
+          total: normalizedTotal,
+          plazo: paymentTermDays,
+          unidadTiempo: "DIAS",
+        },
+      ];
+    }
+
+    const pendingAmount = Number(
+      Math.max(normalizedTotal - normalizedPaymentAmount, 0).toFixed(2),
+    );
+
+    if (pendingAmount > 0) {
+      return [
+        {
+          formaPago: checkout.formaPago,
+          total: normalizedPaymentAmount,
+          plazo: 0,
+          unidadTiempo: "DIAS",
+        },
+        {
+          formaPago: CREDIT_PAYMENT_METHOD,
+          total: pendingAmount,
+          plazo: paymentTermDays,
+          unidadTiempo: "DIAS",
+        },
+      ];
+    }
+
+    return [
+      {
+        formaPago: checkout.formaPago,
+        total: normalizedTotal,
+        plazo: 0,
+        unidadTiempo: "DIAS",
+      },
+    ];
+  }
+
   function buildCheckoutPayload() {
     return {
       issuerId: checkout.issuerId,
@@ -688,14 +757,16 @@ export function useSalesCheckoutPage() {
         precioUnitario: line.precioUnitario,
         tarifaIva: line.product.tarifaIva,
       })),
-      payments: [
-        {
-          formaPago: checkout.formaPago,
-          total: Number(checkoutTotal.toFixed(2)),
-          plazo: 0,
-          unidadTiempo: "DIAS",
-        },
-      ],
+      payments: isQuoteMode
+        ? [
+            {
+              formaPago: checkout.formaPago,
+              total: Number(checkoutTotal.toFixed(2)),
+              plazo: 0,
+              unidadTiempo: "DIAS",
+            },
+          ]
+        : buildDirectSalePayments(),
       infoAdicional: {},
     };
   }
@@ -710,6 +781,17 @@ export function useSalesCheckoutPage() {
     );
     if (identificationValidationError) {
       setMessage({ text: identificationValidationError, tone: "error" });
+      return;
+    }
+
+    if (
+      checkout.formaPago !== CREDIT_PAYMENT_METHOD &&
+      parseDecimalInput(checkout.paymentAmount, checkoutTotal) <= 0
+    ) {
+      setMessage({
+        text: "El abono inicial debe ser mayor a cero o selecciona credito completo.",
+        tone: "error",
+      });
       return;
     }
 
@@ -728,15 +810,23 @@ export function useSalesCheckoutPage() {
         setAuthorizedSriInvoiceId(result.invoice.sriInvoiceId);
         setMessage({
           text: result.document.fullNumber
-            ? `Venta #${result.saleNumber} registrada. Factura ${result.document.fullNumber} autorizada correctamente`
-            : `Venta #${result.saleNumber} registrada y factura autorizada correctamente`,
+            ? result.receivable
+              ? `Venta #${result.saleNumber} registrada. Factura ${result.document.fullNumber} autorizada y saldo pendiente ${result.receivable.pendingAmount.toFixed(2)} generado en cartera.`
+              : `Venta #${result.saleNumber} registrada. Factura ${result.document.fullNumber} autorizada correctamente`
+            : result.receivable
+              ? `Venta #${result.saleNumber} registrada, factura autorizada y saldo pendiente ${result.receivable.pendingAmount.toFixed(2)} generado en cartera.`
+              : `Venta #${result.saleNumber} registrada y factura autorizada correctamente`,
           tone: "success",
         });
       } else {
         setMessage({
           text: result.document.fullNumber
-            ? `Venta #${result.saleNumber} registrada. Factura ${result.document.fullNumber} emitida localmente y pendiente de autorizacion.`
-            : `Venta #${result.saleNumber} registrada. La factura aun no se encuentra autorizada.`,
+            ? result.receivable
+              ? `Venta #${result.saleNumber} registrada. Factura ${result.document.fullNumber} emitida localmente y saldo pendiente ${result.receivable.pendingAmount.toFixed(2)} generado en cartera.`
+              : `Venta #${result.saleNumber} registrada. Factura ${result.document.fullNumber} emitida localmente y pendiente de autorizacion.`
+            : result.receivable
+              ? `Venta #${result.saleNumber} registrada. La factura aun no se encuentra autorizada y se genero un saldo pendiente de ${result.receivable.pendingAmount.toFixed(2)}.`
+              : `Venta #${result.saleNumber} registrada. La factura aun no se encuentra autorizada.`,
           tone: "info",
         });
       }

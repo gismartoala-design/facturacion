@@ -1,5 +1,9 @@
 import { CashSessionStatus, type CashMovementType } from "@prisma/client";
 
+import {
+  postCashMovementEntryInTransaction,
+  postRefundEntryInTransaction,
+} from "@/core/accounting/accounting-entry.service";
 import { prisma } from "@/lib/prisma";
 import { createLogger } from "@/lib/logger";
 import type { SessionPayload } from "@/lib/auth";
@@ -60,7 +64,13 @@ export async function getSessionMovements(
   }
 
   const movements = await prisma.cashMovement.findMany({
-    where: { sessionId, businessId },
+    where: {
+      sessionId,
+      businessId,
+      type: {
+        not: "SALE_CASH_IN",
+      },
+    },
     orderBy: { createdAt: "asc" },
   });
 
@@ -102,15 +112,34 @@ export async function registerMovement(
     throw new Error("La sesion de caja ya fue cerrada");
   }
 
-  const movement = await prisma.cashMovement.create({
-    data: {
-      businessId,
-      sessionId,
-      type: input.type,
-      amount: input.amount,
-      description: input.description || null,
-      createdById: session.sub,
-    },
+  const movement = await prisma.$transaction(async (tx) => {
+    const created = await tx.cashMovement.create({
+      data: {
+        businessId,
+        sessionId,
+        type: input.type,
+        amount: input.amount,
+        description: input.description || null,
+        createdById: session.sub,
+      },
+    });
+
+    if (input.type === "REFUND_OUT") {
+      await postRefundEntryInTransaction(tx, {
+        businessId,
+        movementId: created.id,
+        amount: input.amount,
+      });
+    } else {
+      await postCashMovementEntryInTransaction(tx, {
+        businessId,
+        movementId: created.id,
+        type: input.type,
+        amount: input.amount,
+      });
+    }
+
+    return created;
   });
 
   logger.info("cash-movement:registered", {
@@ -122,28 +151,4 @@ export async function registerMovement(
   });
 
   return toSummary(movement);
-}
-
-/**
- * Llamado internamente desde checkout cuando el pago incluye efectivo.
- * El checkout no sabe nada de caja — esta función es el punto de integración.
- */
-export async function registerSaleCashIn(params: {
-  sessionId: string;
-  businessId: string;
-  saleId: string;
-  amount: number;
-  createdById: string;
-}): Promise<void> {
-  await prisma.cashMovement.create({
-    data: {
-      businessId: params.businessId,
-      sessionId: params.sessionId,
-      type: "SALE_CASH_IN",
-      amount: params.amount,
-      saleId: params.saleId,
-      description: null,
-      createdById: params.createdById,
-    },
-  });
 }

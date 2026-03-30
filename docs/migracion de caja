@@ -1,0 +1,85 @@
+**Reporte**
+
+La migración legacy de caja se compone de 2 capas:
+
+1. `PosCashSession`
+   Migra sesiones legacy al esquema nuevo de `CashSession`, enlaza ventas y crea `Collection`/`CollectionApplication` desde pagos históricos.
+
+2. `SALE_CASH_IN`
+   Migra movimientos legacy de cobro en caja al ledger nuevo de `Collection`.
+
+En tu base, la capa de `PosCashSession` ya quedó aplicada. Por eso hoy el comando devuelve `skipped_existing: 9`.
+
+**Orden correcto**
+1. Validar `PosCashSession`
+2. Aplicar `PosCashSession`
+3. Validar `SALE_CASH_IN`
+4. Aplicar `SALE_CASH_IN`
+5. Verificar remanente
+
+**Comandos**
+
+1. Auditoría de sesiones legacy:
+```bash
+npm run cash:backfill:legacy-sessions -- --dry-run
+```
+
+2. Auditoría incluyendo ventas heurísticas:
+```bash
+npm run cash:backfill:legacy-sessions -- --dry-run --include-heuristic
+```
+
+3. Migración real de `PosCashSession`:
+```bash
+npm run cash:backfill:legacy-sessions -- --include-heuristic --skip-accounting
+```
+
+4. Verificación posterior de `PosCashSession`:
+```bash
+npm run cash:backfill:legacy-sessions -- --dry-run --include-heuristic --skip-accounting
+```
+
+5. Auditoría de `SALE_CASH_IN`:
+```bash
+npm run cash:backfill:sale-cash-in -- --dry-run
+```
+
+6. Migración real de `SALE_CASH_IN`:
+```bash
+npm run cash:backfill:sale-cash-in
+```
+
+7. Verificación final de `SALE_CASH_IN`:
+```bash
+npm run cash:backfill:sale-cash-in -- --dry-run
+```
+
+**Cómo leer el resultado**
+
+Para `cash:backfill:legacy-sessions`:
+- `migrated > 0`: se migraron sesiones legacy
+- `skippedExisting > 0`: esas sesiones ya estaban migradas
+- `heuristicSalesAvailable > 0`: había ventas legacy sin `source=POS`, tomadas por heurística
+- si todo sale `skipped_existing`, esa capa ya está resuelta
+
+Para `cash:backfill:sale-cash-in`:
+- `ready_to_migrate`: todavía hay movimientos legacy pendientes
+- `migrated`: se creó `Collection` y `CollectionApplication`
+- `already_covered`: ese movimiento ya quedó cubierto por una `Collection`
+- si todo sale `already_covered`, esa capa ya está resuelta
+
+**Estado actual en tu base**
+- `PosCashSession`: ya migrado
+- `SALE_CASH_IN`: ya fue migrado operativamente y debe verse como cubierto en el `dry-run`
+- deuda restante: contabilidad histórica parcial de algunas `Collection` creadas desde `PosCashSession`, pero eso no bloquea operar caja
+
+**Secuencia recomendada hoy**
+Como ya corriste la parte de `PosCashSession`, ahora solo te conviene ejecutar:
+
+```bash
+npm run cash:backfill:sale-cash-in -- --dry-run
+```
+
+Si te devuelve solo `already_covered`, puedes considerar cerrada la migración legacy operativa de caja.
+
+Si quieres, te preparo también un mini checklist de “go live” para empezar a operar caja con tranquilidad.

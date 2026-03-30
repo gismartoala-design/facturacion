@@ -19,6 +19,7 @@ export type CreatedSaleContext = {
     status: SaleStatus;
   };
   customer: {
+    id: string;
     tipoIdentificacion: string;
     identificacion: string;
     razonSocial: string;
@@ -193,10 +194,12 @@ export async function createSaleInTransaction(
     const sale = await tx.sale.create({
       data: {
         customerId: customer.id,
+        cashSessionId: input.cashSessionId ?? null,
         subtotal,
         discountTotal,
         taxTotal,
         total,
+        source: input.source ?? undefined,
         createdById: input.createdById,
       },
     });
@@ -264,6 +267,7 @@ export async function createSaleInTransaction(
         status: sale.status,
       },
       customer: {
+        id: customer.id,
         tipoIdentificacion: customer.tipoIdentificacion,
         identificacion: customer.identificacion,
         razonSocial: customer.razonSocial,

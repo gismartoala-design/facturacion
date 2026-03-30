@@ -193,7 +193,7 @@ export const PAYMENT_METHODS: PaymentMethodOption[] = [
   { code: "16", label: "Tarjeta de debito" },
   { code: "19", label: "Tarjeta de credito" },
   { code: "20", label: "Otros con utilizacion del sistema financiero" },
-  { code: "15", label: "Compensacion de deudas" },
+  { code: "15", label: "Credito / saldo pendiente" },
 ];
 
 export const PRODUCT_TYPE_OPTIONS: Array<{
@@ -241,6 +241,8 @@ export type CheckoutForm = {
   email: string;
   telefono: string;
   formaPago: string;
+  paymentAmount: string;
+  paymentTermDays: string;
 };
 
 export type PaginationMeta = {

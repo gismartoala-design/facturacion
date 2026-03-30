@@ -147,6 +147,16 @@ export function SalesCheckoutSection({
   const hasCustomerSelected = Boolean(
     checkout.identificacion.trim() && checkout.razonSocial.trim(),
   );
+  const isCreditPayment = checkout.formaPago === "15";
+  const enteredPaymentAmount = Number.isFinite(Number(checkout.paymentAmount))
+    ? Number(checkout.paymentAmount)
+    : 0;
+  const effectiveCollectedAmount = isCreditPayment
+    ? 0
+    : checkout.paymentAmount.trim()
+      ? enteredPaymentAmount
+      : checkoutTotal;
+  const pendingBalance = Math.max(checkoutTotal - effectiveCollectedAmount, 0);
   const checkoutDiscount = linePreview.reduce((acc, line) => acc + line.descuento, 0);
   const isQuoteMode = mode === "quote";
   const primaryBusy = isQuoteMode ? savingQuote : saving;
@@ -543,7 +553,59 @@ export function SalesCheckoutSection({
                     ))}
                   </TextField>
                 </Grid>
+                {!isQuoteMode ? (
+                  <Grid size={{ xs: 12, md: 4 }}>
+                    <TextField
+                      fullWidth
+                      label={isCreditPayment ? "Saldo a credito" : "Abono inicial"}
+                      type="number"
+                      value={
+                        isCreditPayment
+                          ? checkoutTotal > 0
+                            ? checkoutTotal.toFixed(2)
+                            : ""
+                          : checkout.paymentAmount
+                      }
+                      onChange={(e) =>
+                        setCheckout((prev) => ({
+                          ...prev,
+                          paymentAmount: e.target.value,
+                        }))
+                      }
+                      disabled={isCreditPayment}
+                      inputProps={{ min: 0, step: 0.01 }}
+                      helperText={
+                        isCreditPayment
+                          ? "La venta quedara totalmente pendiente en cartera."
+                          : pendingBalance > 0
+                            ? `Saldo pendiente estimado: ${formatCurrency(pendingBalance)}`
+                            : "Si lo dejas vacio, se cobra el total."
+                      }
+                    />
+                  </Grid>
+                ) : null}
               </Grid>
+
+              {!isQuoteMode && (isCreditPayment || pendingBalance > 0) ? (
+                <Grid container spacing={2}>
+                  <Grid size={{ xs: 12, md: 4 }}>
+                    <TextField
+                      fullWidth
+                      label="Plazo en dias"
+                      type="number"
+                      value={checkout.paymentTermDays}
+                      onChange={(e) =>
+                        setCheckout((prev) => ({
+                          ...prev,
+                          paymentTermDays: e.target.value,
+                        }))
+                      }
+                      inputProps={{ min: 0, step: 1 }}
+                      helperText="Se usara para la cuenta por cobrar generada."
+                    />
+                  </Grid>
+                </Grid>
+              ) : null}
 
               <Autocomplete
                 options={customers}

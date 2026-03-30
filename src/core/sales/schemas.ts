@@ -17,11 +17,14 @@ const paymentSchema = z.object({
 });
 
 export const checkoutDocumentTypeSchema = z.enum(["NONE", "INVOICE"]);
+export const saleSourceSchema = z.enum(["POS", "DIRECT_SALE", "QUOTE"]);
 
 export const checkoutSchema = z.object({
   documentType: checkoutDocumentTypeSchema.default("INVOICE"),
   createdById: z.string().uuid().optional(),
   issuerId: z.string().uuid(),
+  cashSessionId: z.string().uuid().optional().nullable(),
+  source: saleSourceSchema.optional(),
   fechaEmision: z.string().regex(/^\d{2}\/\d{2}\/\d{4}$/),
   moneda: z.string().default("USD"),
   customer: z.object({
@@ -40,3 +43,4 @@ export const checkoutSchema = z.object({
 
 export type CheckoutInput = z.infer<typeof checkoutSchema>;
 export type CheckoutDocumentType = z.infer<typeof checkoutDocumentTypeSchema>;
+export type SaleSourceInput = z.infer<typeof saleSourceSchema>;
