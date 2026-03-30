@@ -80,17 +80,17 @@ const NAV_ITEMS: NavItem[] = [
     icon: Users,
     adminOnly: true,
   },
-  {
-    href: "#",
-    label: "Cuentas por Cobrar",
-    icon: Users,
-    adminOnly: true,
-    requiredFeature: "ACCOUNTS_RECEIVABLE",
-    children: [
-      { href: "/accounts-receivable", label: "Listado", icon: Users },
-      { href: "/accounts-receivable/create", label: "Crear", icon: Users },
-    ],
-  }
+  // {
+  //   href: "#",
+  //   label: "Cuentas por Cobrar",
+  //   icon: Users,
+  //   adminOnly: true,
+  //   requiredFeature: "ACCOUNTS_RECEIVABLE",
+  //   children: [
+  //     { href: "/accounts-receivable", label: "Listado", icon: Users },
+  //     { href: "/accounts-receivable/create", label: "Crear", icon: Users },
+  //   ],
+  // }
 ];
 
 type MvpDashboardNavProps = {

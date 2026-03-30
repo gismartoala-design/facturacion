@@ -70,40 +70,38 @@ export async function createSaleInTransaction(
 
   try {
     const customerStartedAt = startTimer();
-    const customer = await tx.customer.upsert({
-      where: {
-        tipoIdentificacion_identificacion: {
-          tipoIdentificacion: input.customer.tipoIdentificacion,
-          identificacion: input.customer.identificacion,
-        },
-      },
-      update: {
-        razonSocial: input.customer.razonSocial,
-        direccion: input.customer.direccion || null,
-        email: input.customer.email || null,
-        telefono: input.customer.telefono || null,
-      },
-      create: {
-        tipoIdentificacion: input.customer.tipoIdentificacion,
-        identificacion: input.customer.identificacion,
-        razonSocial: input.customer.razonSocial,
-        direccion: input.customer.direccion || null,
-        email: input.customer.email || null,
-        telefono: input.customer.telefono || null,
-      },
-    });
-
     const productIds = [...new Set(input.items.map((item) => item.productId))];
     const productsStartedAt = startTimer();
-    const products = await tx.product.findMany({
-      where: {
-        id: { in: productIds },
-        activo: true,
-      },
-      include: {
-        stockLevel: true,
-      },
-    });
+    const [customer, products] = await Promise.all([
+      tx.customer.upsert({
+        where: {
+          tipoIdentificacion_identificacion: {
+            tipoIdentificacion: input.customer.tipoIdentificacion,
+            identificacion: input.customer.identificacion,
+          },
+        },
+        update: {
+          razonSocial: input.customer.razonSocial,
+          direccion: input.customer.direccion || null,
+          email: input.customer.email || null,
+          telefono: input.customer.telefono || null,
+        },
+        create: {
+          tipoIdentificacion: input.customer.tipoIdentificacion,
+          identificacion: input.customer.identificacion,
+          razonSocial: input.customer.razonSocial,
+          direccion: input.customer.direccion || null,
+          email: input.customer.email || null,
+          telefono: input.customer.telefono || null,
+        },
+      }),
+      tx.product.findMany({
+        where: {
+          id: { in: productIds },
+          activo: true,
+        },
+      }),
+    ]);
 
     if (products.length !== productIds.length) {
       throw new Error("Uno o mas productos no existen o estan inactivos");

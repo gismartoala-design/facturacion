@@ -100,11 +100,21 @@ export async function createDocumentForSaleInTransaction(
     };
   }
 
-  const numbering = await reserveDocumentNumber(
-    tx,
-    context.documentInput.issuerId,
-    "INVOICE",
-  );
+  const [numbering, issuer] = await Promise.all([
+    reserveDocumentNumber(
+      tx,
+      context.documentInput.issuerId,
+      "INVOICE",
+    ),
+    tx.documentIssuer.findUnique({
+      where: { id: context.documentInput.issuerId },
+      select: {
+        ruc: true,
+        externalIssuerId: true,
+        environment: true,
+      },
+    }),
+  ]);
 
   const saleDocument = await tx.saleDocument.create({
     data: {
@@ -124,15 +134,6 @@ export async function createDocumentForSaleInTransaction(
         infoAdicional: context.documentInput.infoAdicional,
         documento: numbering,
       } as Prisma.InputJsonValue,
-    },
-  });
-
-  const issuer = await tx.documentIssuer.findUnique({
-    where: { id: context.documentInput.issuerId },
-    select: {
-      ruc: true,
-      externalIssuerId: true,
-      environment: true,
     },
   });
 
@@ -157,8 +158,6 @@ export async function createDocumentForSaleInTransaction(
       createRequestPayload: {} as Prisma.InputJsonValue,
     },
   });
-
-  logger
 
   await tx.saleDocument.update({
     where: { id: saleDocument.id },

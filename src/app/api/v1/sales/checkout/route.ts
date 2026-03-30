@@ -41,7 +41,7 @@ export async function POST(request: Request) {
         businessId: business.id,
         saleSource: "DIRECT_SALE",
         collectionRegisteredById: session.sub,
-        createImmediateCollections: true,
+        createImmediateCollections: false,
         createReceivableForPendingBalance: true,
       },
       {

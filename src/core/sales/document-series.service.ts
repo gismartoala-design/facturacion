@@ -1,4 +1,7 @@
+import { createLogger } from "@/lib/logger";
 import { Prisma } from "@prisma/client";
+
+const logger = createLogger("DocumentSeriesService");
 
 type ReserveDocumentNumberResult = {
   documentSeriesId: string;
@@ -24,72 +27,92 @@ export function buildDocumentFullNumber(
   )}`;
 }
 
+const MAX_RESERVATION_ATTEMPTS = 3;
+
 export async function reserveDocumentNumber(
   tx: Prisma.TransactionClient,
   issuerId: string,
   documentType: "INVOICE",
 ): Promise<ReserveDocumentNumberResult> {
-  // 1. Encontrar la serie documental activa
-  const documentSeries = await tx.documentSeries.findFirst({
-    where: {
+  for (let attempt = 1; attempt <= MAX_RESERVATION_ATTEMPTS; attempt += 1) {
+    const documentSeries = await tx.documentSeries.findFirst({
+      where: {
+        issuerId,
+        documentType,
+        active: true,
+      },
+      orderBy: [
+        { establishmentCode: "asc" },
+        { emissionPointCode: "asc" },
+      ],
+      select: {
+        id: true,
+        issuerId: true,
+        establishmentCode: true,
+        emissionPointCode: true,
+        nextSequence: true,
+      },
+    });
+
+    if (!documentSeries) {
+      throw new Error(
+        "No existe una serie documental activa para este emisor",
+      );
+    }
+
+    logger.info("Intentando reservar número de documento", {
+      attempt,
+      maxAttempts: MAX_RESERVATION_ATTEMPTS,
+      documentSeriesId: documentSeries.id,
       issuerId,
       documentType,
-      active: true,
-    },
-    orderBy: [
-      { establishmentCode: "asc" },
-      { emissionPointCode: "asc" },
-    ],
-    select: {
-      id: true,
-      issuerId: true,
-      establishmentCode: true,
-      emissionPointCode: true,
-      nextSequence: true,
-    },
-  });
+      currentNextSequence: documentSeries.nextSequence,
+    });
 
-  if (!documentSeries) {
-    throw new Error("No existe una serie documental activa para este emisor");
+    const sequenceNumber = documentSeries.nextSequence;
+
+    const updateResult = await tx.documentSeries.updateMany({
+      where: {
+        id: documentSeries.id,
+        nextSequence: sequenceNumber,
+      },
+      data: {
+        nextSequence: {
+          increment: 1,
+        },
+      },
+    });
+
+    if (updateResult.count === 0) {
+      logger.warn("Conflicto al reservar secuencia documental, reintentando", {
+        attempt,
+        maxAttempts: MAX_RESERVATION_ATTEMPTS,
+        documentSeriesId: documentSeries.id,
+        issuerId,
+        documentType,
+        expectedSequence: sequenceNumber,
+      });
+      continue;
+    }
+
+    const formattedSequence = formatDocumentSequence(sequenceNumber);
+
+    return {
+      documentSeriesId: documentSeries.id,
+      issuerId: documentSeries.issuerId,
+      establishmentCode: documentSeries.establishmentCode,
+      emissionPointCode: documentSeries.emissionPointCode,
+      sequenceNumber,
+      formattedSequence,
+      fullNumber: buildDocumentFullNumber(
+        documentSeries.establishmentCode,
+        documentSeries.emissionPointCode,
+        sequenceNumber,
+      ),
+    };
   }
 
-  // 2. Calcular el mínimo número disponible
-  const maxSequenceResult = await tx.saleDocument.aggregate({
-    where: {
-      documentSeriesId: documentSeries.id,
-    },
-    _max: {
-      sequenceNumber: true,
-    },
-  });
-
-  const minAvailableSequence = (maxSequenceResult._max.sequenceNumber ?? 0) + 1;
-
-  // 3. Determinar el número de secuencia a usar
-  const sequenceNumber = Math.max(documentSeries.nextSequence, minAvailableSequence);
-
-  // 4. Actualizar nextSequence para la próxima reserva
-  await tx.documentSeries.update({
-    where: { id: documentSeries.id },
-    data: {
-      nextSequence: sequenceNumber + 1,
-    },
-  });
-
-  // 5. Formatear y retornar
-  const formattedSequence = formatDocumentSequence(sequenceNumber);
-
-  return {
-    documentSeriesId: documentSeries.id,
-    issuerId: documentSeries.issuerId,
-    establishmentCode: documentSeries.establishmentCode,
-    emissionPointCode: documentSeries.emissionPointCode,
-    sequenceNumber,
-    formattedSequence,
-    fullNumber: buildDocumentFullNumber(
-      documentSeries.establishmentCode,
-      documentSeries.emissionPointCode,
-      sequenceNumber,
-    ),
-  };
+  throw new Error(
+    "No se pudo reservar una secuencia documental después de varios intentos. Intenta nuevamente.",
+  );
 }

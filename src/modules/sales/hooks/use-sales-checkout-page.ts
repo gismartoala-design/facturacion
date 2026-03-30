@@ -70,7 +70,11 @@ const WALK_IN_CUSTOMER = {
 };
 const CREDIT_PAYMENT_METHOD = "15";
 
-function buildInitialCheckoutForm(defaultIssuerId = ""): CheckoutForm {
+function buildInitialCheckoutForm(
+  defaultIssuerId = "",
+  options?: { isQuoteMode?: boolean },
+): CheckoutForm {
+  const isQuoteMode = options?.isQuoteMode ?? false;
   return {
     issuerId: defaultIssuerId,
     fechaEmision: format(new Date(), "dd/MM/yyyy"),
@@ -80,7 +84,7 @@ function buildInitialCheckoutForm(defaultIssuerId = ""): CheckoutForm {
     direccion: "",
     email: "",
     telefono: "",
-    formaPago: "01",
+    formaPago: isQuoteMode ? "01" : CREDIT_PAYMENT_METHOD,
     paymentAmount: "",
     paymentTermDays: "30",
   };
@@ -174,7 +178,9 @@ export function useSalesCheckoutPage() {
   const [barcodeQuery, setBarcodeQuery] = useState("");
   const [entryQuantity, setEntryQuantity] = useState("1");
   const [manualProduct, setManualProduct] = useState<Product | null>(null);
-  const [checkout, setCheckout] = useState<CheckoutForm>(() => buildInitialCheckoutForm());
+  const [checkout, setCheckout] = useState<CheckoutForm>(() =>
+    buildInitialCheckoutForm("", { isQuoteMode }),
+  );
 
   const linePreview = useMemo<LinePreviewItem[]>(() => {
     return lineItems
@@ -225,15 +231,14 @@ export function useSalesCheckoutPage() {
       Boolean(printableSaleId) ||
       Boolean(authorizedSriInvoiceId) ||
       checkout.tipoIdentificacion !== "04" ||
-      checkout.formaPago !== "01" ||
-      checkout.paymentAmount.trim() !== "" ||
+      checkout.formaPago !== (isQuoteMode ? "01" : CREDIT_PAYMENT_METHOD) ||
       checkout.paymentTermDays.trim() !== "30" ||
       checkout.identificacion.trim() !== "" ||
       checkout.razonSocial.trim() !== "" ||
       checkout.direccion.trim() !== "" ||
       checkout.email.trim() !== "" ||
       checkout.telefono.trim() !== "",
-    [authorizedSriInvoiceId, checkout, lineItems.length, printableSaleId],
+    [authorizedSriInvoiceId, checkout, isQuoteMode, lineItems.length, printableSaleId],
   );
 
   const filteredProducts = useMemo(() => {
@@ -275,6 +280,7 @@ export function useSalesCheckoutPage() {
       setCheckout((current) => ({
         ...current,
         issuerId: current.issuerId || issuerId,
+        formaPago: isQuoteMode ? current.formaPago : CREDIT_PAYMENT_METHOD,
       }));
     } catch (error) {
       setMessage({
@@ -298,7 +304,7 @@ export function useSalesCheckoutPage() {
       direccion: quote.customer.direccion ?? "",
       email: quote.customer.email ?? "",
       telefono: quote.customer.telefono ?? "",
-      formaPago: quote.formaPago,
+      formaPago: editing ? quote.formaPago : CREDIT_PAYMENT_METHOD,
       paymentAmount: "",
       paymentTermDays: "30",
     });
@@ -659,7 +665,7 @@ export function useSalesCheckoutPage() {
   }
 
   function onResetCheckout() {
-    setCheckout(buildInitialCheckoutForm(defaultIssuerId));
+    setCheckout(buildInitialCheckoutForm(defaultIssuerId, { isQuoteMode }));
     setLineItems([]);
     setSelectedProductIds([]);
     setCustomerSearch("");
@@ -682,55 +688,16 @@ export function useSalesCheckoutPage() {
 
   function buildDirectSalePayments() {
     const normalizedTotal = Number(checkoutTotal.toFixed(2));
-    const normalizedPaymentAmount = Math.max(
-      0,
-      Math.min(
-        Number(parseDecimalInput(checkout.paymentAmount, normalizedTotal).toFixed(2)),
-        normalizedTotal,
-      ),
-    );
     const paymentTermDays = Math.max(
       0,
       Math.round(parseDecimalInput(checkout.paymentTermDays, 30)),
     );
 
-    if (checkout.formaPago === CREDIT_PAYMENT_METHOD) {
-      return [
-        {
-          formaPago: CREDIT_PAYMENT_METHOD,
-          total: normalizedTotal,
-          plazo: paymentTermDays,
-          unidadTiempo: "DIAS",
-        },
-      ];
-    }
-
-    const pendingAmount = Number(
-      Math.max(normalizedTotal - normalizedPaymentAmount, 0).toFixed(2),
-    );
-
-    if (pendingAmount > 0) {
-      return [
-        {
-          formaPago: checkout.formaPago,
-          total: normalizedPaymentAmount,
-          plazo: 0,
-          unidadTiempo: "DIAS",
-        },
-        {
-          formaPago: CREDIT_PAYMENT_METHOD,
-          total: pendingAmount,
-          plazo: paymentTermDays,
-          unidadTiempo: "DIAS",
-        },
-      ];
-    }
-
     return [
       {
-        formaPago: checkout.formaPago,
+        formaPago: CREDIT_PAYMENT_METHOD,
         total: normalizedTotal,
-        plazo: 0,
+        plazo: paymentTermDays,
         unidadTiempo: "DIAS",
       },
     ];
@@ -781,17 +748,6 @@ export function useSalesCheckoutPage() {
     );
     if (identificationValidationError) {
       setMessage({ text: identificationValidationError, tone: "error" });
-      return;
-    }
-
-    if (
-      checkout.formaPago !== CREDIT_PAYMENT_METHOD &&
-      parseDecimalInput(checkout.paymentAmount, checkoutTotal) <= 0
-    ) {
-      setMessage({
-        text: "El abono inicial debe ser mayor a cero o selecciona credito completo.",
-        tone: "error",
-      });
       return;
     }
 
@@ -958,6 +914,18 @@ export function useSalesCheckoutPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (isQuoteMode) {
+      return;
+    }
+
+    setCheckout((current) =>
+      current.formaPago === CREDIT_PAYMENT_METHOD
+        ? current
+        : { ...current, formaPago: CREDIT_PAYMENT_METHOD, paymentAmount: "" },
+    );
+  }, [isQuoteMode]);
 
   useEffect(() => {
     if (!message) return;

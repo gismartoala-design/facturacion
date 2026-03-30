@@ -147,16 +147,6 @@ export function SalesCheckoutSection({
   const hasCustomerSelected = Boolean(
     checkout.identificacion.trim() && checkout.razonSocial.trim(),
   );
-  const isCreditPayment = checkout.formaPago === "15";
-  const enteredPaymentAmount = Number.isFinite(Number(checkout.paymentAmount))
-    ? Number(checkout.paymentAmount)
-    : 0;
-  const effectiveCollectedAmount = isCreditPayment
-    ? 0
-    : checkout.paymentAmount.trim()
-      ? enteredPaymentAmount
-      : checkoutTotal;
-  const pendingBalance = Math.max(checkoutTotal - effectiveCollectedAmount, 0);
   const checkoutDiscount = linePreview.reduce((acc, line) => acc + line.descuento, 0);
   const isQuoteMode = mode === "quote";
   const primaryBusy = isQuoteMode ? savingQuote : saving;
@@ -537,7 +527,7 @@ export function SalesCheckoutSection({
                     fullWidth
                     select
                     id="formaPago"
-                    label="Forma pago"
+                    label={isQuoteMode ? "Forma pago" : "Condicion de pago"}
                     value={checkout.formaPago}
                     onChange={(e) =>
                       setCheckout((prev) => ({
@@ -545,48 +535,26 @@ export function SalesCheckoutSection({
                         formaPago: e.target.value,
                       }))
                     }
+                    disabled={!isQuoteMode}
+                    helperText={
+                      isQuoteMode
+                        ? undefined
+                        : "La venta directa se registra a cartera; el cobro se gestionara despues."
+                    }
                   >
-                    {PAYMENT_METHODS.map((method) => (
+                    {(isQuoteMode
+                      ? PAYMENT_METHODS
+                      : PAYMENT_METHODS.filter((method) => method.code === "15")
+                    ).map((method) => (
                       <MenuItem key={method.code} value={method.code}>
                         {method.label} ({method.code})
                       </MenuItem>
                     ))}
                   </TextField>
                 </Grid>
-                {!isQuoteMode ? (
-                  <Grid size={{ xs: 12, md: 4 }}>
-                    <TextField
-                      fullWidth
-                      label={isCreditPayment ? "Saldo a credito" : "Abono inicial"}
-                      type="number"
-                      value={
-                        isCreditPayment
-                          ? checkoutTotal > 0
-                            ? checkoutTotal.toFixed(2)
-                            : ""
-                          : checkout.paymentAmount
-                      }
-                      onChange={(e) =>
-                        setCheckout((prev) => ({
-                          ...prev,
-                          paymentAmount: e.target.value,
-                        }))
-                      }
-                      disabled={isCreditPayment}
-                      inputProps={{ min: 0, step: 0.01 }}
-                      helperText={
-                        isCreditPayment
-                          ? "La venta quedara totalmente pendiente en cartera."
-                          : pendingBalance > 0
-                            ? `Saldo pendiente estimado: ${formatCurrency(pendingBalance)}`
-                            : "Si lo dejas vacio, se cobra el total."
-                      }
-                    />
-                  </Grid>
-                ) : null}
               </Grid>
 
-              {!isQuoteMode && (isCreditPayment || pendingBalance > 0) ? (
+              {!isQuoteMode ? (
                 <Grid container spacing={2}>
                   <Grid size={{ xs: 12, md: 4 }}>
                     <TextField
@@ -601,7 +569,7 @@ export function SalesCheckoutSection({
                         }))
                       }
                       inputProps={{ min: 0, step: 1 }}
-                      helperText="Se usara para la cuenta por cobrar generada."
+                      helperText="Se usara para la cuenta por cobrar generada en la venta directa."
                     />
                   </Grid>
                 </Grid>

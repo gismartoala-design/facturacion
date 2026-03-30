@@ -306,6 +306,11 @@ export async function checkout(rawInput: unknown, options?: CheckoutOptions) {
           documentResult,
         };
       },
+      {
+        maxWait: 5000,
+        timeout: 10000,
+        isolationLevel: "Serializable",
+      }
     );
 
     logger.info("checkout:completed", {
