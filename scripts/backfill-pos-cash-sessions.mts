@@ -308,29 +308,6 @@ async function migrateLegacySession(
     select: { id: true },
   });
 
-  if (existing) {
-    return {
-      status: "skipped_existing" as const,
-      sessionId: session.id,
-      salesLinked: 0,
-      confirmedSales: 0,
-      heuristicSalesAvailable: 0,
-      collectionsCreated: 0,
-      applicationsCreated: 0,
-      accountingCreated: 0,
-      cashCollectionsTotal: 0,
-      immediatePaymentsCount: 0,
-      creditPaymentsSkipped: 0,
-      excludedExistingSession: 0,
-      excludedExistingCollection: 0,
-      excludedBySource: 0,
-      excludedOther: 0,
-      heuristicSamples: [],
-      expectedClosing: null,
-      difference: null,
-    };
-  }
-
   const cutoffAt = session.closedAt ?? options.runAt;
   const rawSales = await getLegacySessionSales({
     session,
@@ -389,62 +366,99 @@ async function migrateLegacySession(
         : null;
 
   if (!options.dryRun) {
-    await prisma.$transaction(
-      async (tx) => {
-        await tx.cashSession.create({
+    await prisma.cashSession.upsert({
+      where: { id: session.id },
+      update: {
+        businessId: session.businessId,
+        openedById: session.openedById,
+        closedById: session.closedById,
+        status:
+          session.status === PosCashSessionStatus.CLOSED
+            ? CashSessionStatus.CLOSED
+            : CashSessionStatus.OPEN,
+        openingAmount: session.openingAmount,
+        declaredClosing:
+          session.status === PosCashSessionStatus.CLOSED
+            ? declaredClosing
+            : null,
+        expectedClosing:
+          session.status === PosCashSessionStatus.CLOSED
+            ? expectedClosing
+            : null,
+        difference:
+          session.status === PosCashSessionStatus.CLOSED
+            ? difference
+            : null,
+        notes: session.notes,
+        openedAt: session.openedAt,
+        closedAt: session.closedAt,
+        updatedAt: session.updatedAt,
+      },
+      create: {
+        id: session.id,
+        businessId: session.businessId,
+        openedById: session.openedById,
+        closedById: session.closedById,
+        status:
+          session.status === PosCashSessionStatus.CLOSED
+            ? CashSessionStatus.CLOSED
+            : CashSessionStatus.OPEN,
+        openingAmount: session.openingAmount,
+        declaredClosing:
+          session.status === PosCashSessionStatus.CLOSED
+            ? declaredClosing
+            : null,
+        expectedClosing:
+          session.status === PosCashSessionStatus.CLOSED
+            ? expectedClosing
+            : null,
+        difference:
+          session.status === PosCashSessionStatus.CLOSED
+            ? difference
+            : null,
+        notes: session.notes,
+        openedAt: session.openedAt,
+        closedAt: session.closedAt,
+        createdAt: session.createdAt,
+        updatedAt: session.updatedAt,
+      },
+    });
+
+    const openingMovement = await prisma.cashMovement.findFirst({
+      where: {
+        sessionId: session.id,
+        type: "OPENING_FLOAT",
+      },
+      select: { id: true },
+    });
+
+    if (!openingMovement) {
+      await prisma.cashMovement.create({
         data: {
-          id: session.id,
           businessId: session.businessId,
-          openedById: session.openedById,
-          closedById: session.closedById,
-          status:
-            session.status === PosCashSessionStatus.CLOSED
-              ? CashSessionStatus.CLOSED
-              : CashSessionStatus.OPEN,
-          openingAmount: session.openingAmount,
-          declaredClosing:
-            session.status === PosCashSessionStatus.CLOSED
-              ? declaredClosing
-              : null,
-          expectedClosing:
-            session.status === PosCashSessionStatus.CLOSED
-              ? expectedClosing
-              : null,
-          difference:
-            session.status === PosCashSessionStatus.CLOSED
-              ? difference
-              : null,
-          notes: session.notes,
-          openedAt: session.openedAt,
-          closedAt: session.closedAt,
-          createdAt: session.createdAt,
-          updatedAt: session.updatedAt,
+          sessionId: session.id,
+          type: "OPENING_FLOAT",
+          amount: session.openingAmount,
+          description: "Migrado desde PosCashSession",
+          createdById: session.openedById,
+          createdAt: session.openedAt,
         },
       });
+    }
 
-        await tx.cashMovement.create({
-          data: {
-            businessId: session.businessId,
-            sessionId: session.id,
-            type: "OPENING_FLOAT",
-            amount: session.openingAmount,
-            description: "Migrado desde PosCashSession",
-            createdById: session.openedById,
-            createdAt: session.openedAt,
-          },
-        });
+    for (const sale of sales) {
+      await prisma.sale.update({
+        where: { id: sale.id },
+        data: {
+          cashSessionId: sale.cashSessionId ?? session.id,
+          source: sale.source ?? SaleSource.POS,
+        },
+      });
+    }
 
-        for (const sale of sales) {
-          await tx.sale.update({
-            where: { id: sale.id },
-            data: {
-              cashSessionId: sale.cashSessionId ?? session.id,
-              source: sale.source ?? SaleSource.POS,
-            },
-          });
-        }
-
-        for (const entry of immediatePayments) {
+    for (const entry of immediatePayments) {
+      await prisma.$transaction(
+        async (tx) => {
           const externalReference = `legacy-pos-payment:${entry.payment.id}`;
           const existingCollection = await tx.collection.findFirst({
             where: {
@@ -509,32 +523,42 @@ async function migrateLegacySession(
               createdAt: entry.payment.createdAt,
             });
           }
-        }
+        },
+        {
+          maxWait: 10_000,
+          timeout: 30_000,
+        },
+      );
+    }
 
-        if (session.status === PosCashSessionStatus.CLOSED && difference) {
-          await tx.cashReconciliation.create({
-            data: {
-              sessionId: session.id,
-              expectedAmount: expectedClosing,
-              declaredAmount: declaredClosing ?? new Prisma.Decimal(0),
-              difference,
-              reason: "Migrado desde PosCashSession legacy",
-              approvedById: session.closedById,
-              approvedAt: session.closedAt,
-              createdAt: session.closedAt ?? session.updatedAt,
-            },
-          });
-        }
-      },
-      {
-        maxWait: 10_000,
-        timeout: 120_000,
-      },
-    );
+    if (session.status === PosCashSessionStatus.CLOSED && difference) {
+      await prisma.cashReconciliation.upsert({
+        where: { sessionId: session.id },
+        update: {
+          expectedAmount: expectedClosing,
+          declaredAmount: declaredClosing ?? new Prisma.Decimal(0),
+          difference,
+          reason: "Migrado desde PosCashSession legacy",
+          approvedById: session.closedById,
+          approvedAt: session.closedAt,
+          createdAt: session.closedAt ?? session.updatedAt,
+        },
+        create: {
+          sessionId: session.id,
+          expectedAmount: expectedClosing,
+          declaredAmount: declaredClosing ?? new Prisma.Decimal(0),
+          difference,
+          reason: "Migrado desde PosCashSession legacy",
+          approvedById: session.closedById,
+          approvedAt: session.closedAt,
+          createdAt: session.closedAt ?? session.updatedAt,
+        },
+      });
+    }
   }
 
   return {
-    status: "migrated" as const,
+    status: existing ? ("resumed_existing" as const) : ("migrated" as const),
     sessionId: session.id,
     salesLinked: sales.length,
     confirmedSales: confirmedSales.length,
@@ -601,7 +625,7 @@ async function main() {
 
     results.push(result);
 
-    if (result.status === "migrated") {
+    if (result.status === "migrated" || result.status === "resumed_existing") {
       migrated += 1;
       salesLinked += result.salesLinked;
       confirmedSales += result.confirmedSales;

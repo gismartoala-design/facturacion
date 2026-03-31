@@ -174,9 +174,9 @@ async function createReceivableForPendingBalanceInTransaction(
     );
   }
 
-  const pendingPayments = input.payments.filter((payment) =>
-    isCreditPaymentMethod(payment.formaPago),
-  );
+  const pendingPayments = options.createImmediateCollections
+    ? input.payments.filter((payment) => isCreditPaymentMethod(payment.formaPago))
+    : input.payments.filter((payment) => payment.total > 0);
   const pendingAmount = pendingPayments.reduce(
     (acc, payment) => acc + payment.total,
     0,
@@ -194,14 +194,18 @@ async function createReceivableForPendingBalanceInTransaction(
     documentId: null,
     currency: input.moneda,
     issuedAt: parseIssuedAt(input.fechaEmision),
-    dueAt: resolveDueDate(input.fechaEmision, pendingPayments),
+    dueAt: options.createImmediateCollections
+      ? resolveDueDate(input.fechaEmision, pendingPayments)
+      : null,
     originalAmount: pendingAmount,
     appliedAmount: 0,
     pendingAmount,
     notes:
-      pendingPayments.length > 1
-        ? "Saldo pendiente generado desde multiples lineas de credito"
-        : "Saldo pendiente generado desde checkout directo",
+      options.createImmediateCollections
+        ? pendingPayments.length > 1
+          ? "Saldo pendiente generado desde multiples lineas de credito"
+          : "Saldo pendiente generado desde checkout directo"
+        : "Saldo pendiente generado desde venta directa sin cobro inmediato",
   });
 
   return {

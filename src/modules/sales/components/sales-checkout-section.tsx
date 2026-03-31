@@ -527,7 +527,7 @@ export function SalesCheckoutSection({
                     fullWidth
                     select
                     id="formaPago"
-                    label={isQuoteMode ? "Forma pago" : "Condicion de pago"}
+                    label="Forma pago"
                     value={checkout.formaPago}
                     onChange={(e) =>
                       setCheckout((prev) => ({
@@ -535,17 +535,13 @@ export function SalesCheckoutSection({
                         formaPago: e.target.value,
                       }))
                     }
-                    disabled={!isQuoteMode}
                     helperText={
                       isQuoteMode
                         ? undefined
-                        : "La venta directa se registra a cartera; el cobro se gestionara despues."
+                        : "Dato informativo para la factura. El cobro se registrara despues."
                     }
                   >
-                    {(isQuoteMode
-                      ? PAYMENT_METHODS
-                      : PAYMENT_METHODS.filter((method) => method.code === "15")
-                    ).map((method) => (
+                    {PAYMENT_METHODS.map((method) => (
                       <MenuItem key={method.code} value={method.code}>
                         {method.label} ({method.code})
                       </MenuItem>
@@ -553,27 +549,6 @@ export function SalesCheckoutSection({
                   </TextField>
                 </Grid>
               </Grid>
-
-              {!isQuoteMode ? (
-                <Grid container spacing={2}>
-                  <Grid size={{ xs: 12, md: 4 }}>
-                    <TextField
-                      fullWidth
-                      label="Plazo en dias"
-                      type="number"
-                      value={checkout.paymentTermDays}
-                      onChange={(e) =>
-                        setCheckout((prev) => ({
-                          ...prev,
-                          paymentTermDays: e.target.value,
-                        }))
-                      }
-                      inputProps={{ min: 0, step: 1 }}
-                      helperText="Se usara para la cuenta por cobrar generada en la venta directa."
-                    />
-                  </Grid>
-                </Grid>
-              ) : null}
 
               <Autocomplete
                 options={customers}

@@ -68,13 +68,11 @@ const WALK_IN_CUSTOMER = {
   email: "",
   telefono: "",
 };
-const CREDIT_PAYMENT_METHOD = "15";
 
 function buildInitialCheckoutForm(
   defaultIssuerId = "",
   options?: { isQuoteMode?: boolean },
 ): CheckoutForm {
-  const isQuoteMode = options?.isQuoteMode ?? false;
   return {
     issuerId: defaultIssuerId,
     fechaEmision: format(new Date(), "dd/MM/yyyy"),
@@ -84,7 +82,7 @@ function buildInitialCheckoutForm(
     direccion: "",
     email: "",
     telefono: "",
-    formaPago: isQuoteMode ? "01" : CREDIT_PAYMENT_METHOD,
+    formaPago: "01",
     paymentAmount: "",
     paymentTermDays: "30",
   };
@@ -231,8 +229,7 @@ export function useSalesCheckoutPage() {
       Boolean(printableSaleId) ||
       Boolean(authorizedSriInvoiceId) ||
       checkout.tipoIdentificacion !== "04" ||
-      checkout.formaPago !== (isQuoteMode ? "01" : CREDIT_PAYMENT_METHOD) ||
-      checkout.paymentTermDays.trim() !== "30" ||
+      checkout.formaPago !== "01" ||
       checkout.identificacion.trim() !== "" ||
       checkout.razonSocial.trim() !== "" ||
       checkout.direccion.trim() !== "" ||
@@ -280,7 +277,6 @@ export function useSalesCheckoutPage() {
       setCheckout((current) => ({
         ...current,
         issuerId: current.issuerId || issuerId,
-        formaPago: isQuoteMode ? current.formaPago : CREDIT_PAYMENT_METHOD,
       }));
     } catch (error) {
       setMessage({
@@ -304,7 +300,7 @@ export function useSalesCheckoutPage() {
       direccion: quote.customer.direccion ?? "",
       email: quote.customer.email ?? "",
       telefono: quote.customer.telefono ?? "",
-      formaPago: editing ? quote.formaPago : CREDIT_PAYMENT_METHOD,
+      formaPago: quote.formaPago,
       paymentAmount: "",
       paymentTermDays: "30",
     });
@@ -688,16 +684,12 @@ export function useSalesCheckoutPage() {
 
   function buildDirectSalePayments() {
     const normalizedTotal = Number(checkoutTotal.toFixed(2));
-    const paymentTermDays = Math.max(
-      0,
-      Math.round(parseDecimalInput(checkout.paymentTermDays, 30)),
-    );
 
     return [
       {
-        formaPago: CREDIT_PAYMENT_METHOD,
+        formaPago: checkout.formaPago,
         total: normalizedTotal,
-        plazo: paymentTermDays,
+        plazo: 0,
         unidadTiempo: "DIAS",
       },
     ];
@@ -778,8 +770,8 @@ export function useSalesCheckoutPage() {
         setMessage({
           text: result.document.fullNumber
             ? result.receivable
-              ? `Venta #${result.saleNumber} registrada. Factura ${result.document.fullNumber} emitida localmente y saldo pendiente ${result.receivable.pendingAmount.toFixed(2)} generado en cartera.`
-              : `Venta #${result.saleNumber} registrada. Factura ${result.document.fullNumber} emitida localmente y pendiente de autorizacion.`
+              ? `Venta #${result.saleNumber} registrada. Factura ${result.document.fullNumber} y saldo pendiente ${result.receivable.pendingAmount.toFixed(2)} generado en cartera.`
+              : `Venta #${result.saleNumber} registrada. Factura ${result.document.fullNumber}.`
             : result.receivable
               ? `Venta #${result.saleNumber} registrada. La factura aun no se encuentra autorizada y se genero un saldo pendiente de ${result.receivable.pendingAmount.toFixed(2)}.`
               : `Venta #${result.saleNumber} registrada. La factura aun no se encuentra autorizada.`,
@@ -914,18 +906,6 @@ export function useSalesCheckoutPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  useEffect(() => {
-    if (isQuoteMode) {
-      return;
-    }
-
-    setCheckout((current) =>
-      current.formaPago === CREDIT_PAYMENT_METHOD
-        ? current
-        : { ...current, formaPago: CREDIT_PAYMENT_METHOD, paymentAmount: "" },
-    );
-  }, [isQuoteMode]);
 
   useEffect(() => {
     if (!message) return;
