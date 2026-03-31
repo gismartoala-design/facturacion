@@ -1,4 +1,4 @@
-import { CashSessionStatus, Prisma } from "@prisma/client";
+import { CashSessionStatus, CollectionStatus, Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { createLogger } from "@/lib/logger";
@@ -27,30 +27,50 @@ export type CashSessionSummary = {
   movementsTotal: number;
 };
 
-async function computeExpectedClosing(sessionId: string): Promise<Prisma.Decimal> {
-  const movements = await prisma.cashMovement.findMany({
-    where: { sessionId },
-    select: { type: true, amount: true },
-  });
+type CashSessionComputedTotals = {
+  salesCashTotal: Prisma.Decimal;
+  movementsTotal: Prisma.Decimal;
+  expectedClosing: Prisma.Decimal;
+};
 
-  return movements.reduce((acc, m) => {
-    const amount = m.amount;
-    if (
-      m.type === "OPENING_FLOAT" ||
-      m.type === "SALE_CASH_IN" ||
-      m.type === "MANUAL_IN"
-    ) {
-      return acc.add(amount);
+async function computeSessionTotals(params: {
+  sessionId: string;
+  openingAmount: Prisma.Decimal;
+}): Promise<CashSessionComputedTotals> {
+  const [collectionsAggregate, movements] = await Promise.all([
+    prisma.collection.aggregate({
+      where: {
+        cashSessionId: params.sessionId,
+        status: CollectionStatus.APPLIED,
+        affectsCashDrawer: true,
+      },
+      _sum: { amount: true },
+    }),
+    prisma.cashMovement.findMany({
+      where: {
+        sessionId: params.sessionId,
+        type: {
+          in: ["MANUAL_IN", "WITHDRAWAL", "REFUND_OUT", "CLOSING_ADJUSTMENT"],
+        },
+      },
+      select: { type: true, amount: true },
+    }),
+  ]);
+
+  const salesCashTotal = new Prisma.Decimal(collectionsAggregate._sum.amount ?? 0);
+  const movementsTotal = movements.reduce((acc, movement) => {
+    if (movement.type === "MANUAL_IN") {
+      return acc.add(movement.amount);
     }
-    if (
-      m.type === "WITHDRAWAL" ||
-      m.type === "REFUND_OUT" ||
-      m.type === "CLOSING_ADJUSTMENT"
-    ) {
-      return acc.sub(amount);
-    }
-    return acc;
+
+    return acc.sub(movement.amount);
   }, new Prisma.Decimal(0));
+
+  return {
+    salesCashTotal,
+    movementsTotal,
+    expectedClosing: params.openingAmount.add(salesCashTotal).add(movementsTotal),
+  };
 }
 
 async function toCashSessionSummary(raw: {
@@ -65,35 +85,28 @@ async function toCashSessionSummary(raw: {
   closedAt: Date | null;
   openedById: string;
 }): Promise<CashSessionSummary> {
-  const movements = await prisma.cashMovement.findMany({
-    where: { sessionId: raw.id },
-    select: { type: true, amount: true },
+  const totals = await computeSessionTotals({
+    sessionId: raw.id,
+    openingAmount: raw.openingAmount,
   });
-
-  const salesCashTotal = movements
-    .filter((m) => m.type === "SALE_CASH_IN")
-    .reduce((acc, m) => acc + Number(m.amount), 0);
-
-  const movementsTotal = movements
-    .filter((m) => m.type === "MANUAL_IN" || m.type === "WITHDRAWAL" || m.type === "REFUND_OUT")
-    .reduce((acc, m) => {
-      const sign = m.type === "WITHDRAWAL" || m.type === "REFUND_OUT" ? -1 : 1;
-      return acc + sign * Number(m.amount);
-    }, 0);
+  const expectedClosing = raw.expectedClosing ?? totals.expectedClosing;
+  const difference =
+    raw.difference ??
+    (raw.declaredClosing ? raw.declaredClosing.sub(expectedClosing) : null);
 
   return {
     id: raw.id,
     status: raw.status,
     openingAmount: Number(raw.openingAmount),
     declaredClosing: raw.declaredClosing ? Number(raw.declaredClosing) : null,
-    expectedClosing: raw.expectedClosing ? Number(raw.expectedClosing) : null,
-    difference: raw.difference ? Number(raw.difference) : null,
+    expectedClosing: Number(expectedClosing),
+    difference: difference ? Number(difference) : null,
     notes: raw.notes,
     openedAt: raw.openedAt,
     closedAt: raw.closedAt,
     openedById: raw.openedById,
-    salesCashTotal,
-    movementsTotal,
+    salesCashTotal: Number(totals.salesCashTotal),
+    movementsTotal: Number(totals.movementsTotal),
   };
 }
 
@@ -108,6 +121,26 @@ export async function getActiveCashSession(
 
   if (!session) return null;
   return toCashSessionSummary(session);
+}
+
+export async function listClosedCashSessionsByUser(
+  businessId: string,
+  userId: string,
+  take = 30,
+): Promise<CashSessionSummary[]> {
+  const sessions = await prisma.cashSession.findMany({
+    where: {
+      businessId,
+      openedById: userId,
+      status: CashSessionStatus.CLOSED,
+    },
+    orderBy: {
+      closedAt: "desc",
+    },
+    take,
+  });
+
+  return Promise.all(sessions.map((session) => toCashSessionSummary(session)));
 }
 
 export async function openCashSession(
@@ -176,7 +209,11 @@ export async function closeCashSession(
     throw new Error("La sesion ya fue cerrada");
   }
 
-  const expectedClosing = await computeExpectedClosing(existing.id);
+  const totals = await computeSessionTotals({
+    sessionId: existing.id,
+    openingAmount: existing.openingAmount,
+  });
+  const expectedClosing = totals.expectedClosing;
   const declaredDecimal = new Prisma.Decimal(input.declaredAmount);
   const difference = declaredDecimal.sub(expectedClosing);
 

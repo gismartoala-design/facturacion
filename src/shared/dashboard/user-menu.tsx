@@ -10,7 +10,7 @@ import Popover from "@mui/material/Popover";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { alpha, useTheme } from "@mui/material/styles";
-import { Building2, LogOut, Shield, User2, X } from "lucide-react";
+import { Building2, LogOut, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -45,7 +45,6 @@ export function DashboardUserMenu({
   const panelBg = alpha(theme.palette.background.paper, 0.92);
   const softPrimary = alpha(theme.palette.primary.light, 0.5);
   const softSecondary = alpha(theme.palette.secondary.light, 0.42);
-  const softPaper = alpha(theme.palette.primary.light, 0.32);
 
   async function handleLogout() {
     await fetch("/api/v1/auth/logout", { method: "POST" });
@@ -210,84 +209,6 @@ export function DashboardUserMenu({
               >
                 <X className="h-4 w-4" />
               </IconButton>
-            </Stack>
-
-            <Stack spacing={1.25}>
-              <Paper
-                elevation={0}
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 1,
-                  px: 1.5,
-                  py: 1.25,
-                  borderRadius: "18px",
-                  border: `1px solid ${softBorder}`,
-                  backgroundColor: softPaper,
-                }}
-              >
-                <User2
-                  className="h-4 w-4"
-                  style={{ color: theme.palette.primary.main }}
-                />
-                <Typography
-                  sx={{
-                    color: "text.primary",
-                    fontSize: 14,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {name}
-                </Typography>
-              </Paper>
-
-              <Paper
-                elevation={0}
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 1,
-                  px: 1.5,
-                  py: 1.25,
-                  borderRadius: "18px",
-                  border: `1px solid ${softBorder}`,
-                  backgroundColor: softPaper,
-                }}
-              >
-                <Shield
-                  className="h-4 w-4"
-                  style={{ color: theme.palette.primary.main }}
-                />
-                <Typography sx={{ color: "text.primary", fontSize: 14 }}>
-                  {roleLabel}
-                </Typography>
-              </Paper>
-
-              {businessName ? (
-                <Paper
-                  elevation={0}
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 1,
-                    px: 1.5,
-                    py: 1.25,
-                    borderRadius: "18px",
-                    border: `1px solid ${softBorder}`,
-                    backgroundColor: softPaper,
-                  }}
-                >
-                  <Building2
-                    className="h-4 w-4"
-                    style={{ color: theme.palette.primary.main }}
-                  />
-                  <Typography sx={{ color: "text.primary", fontSize: 14 }}>
-                    {businessName}
-                  </Typography>
-                </Paper>
-              ) : null}
             </Stack>
 
             <Divider sx={{ borderColor: softBorder }} />

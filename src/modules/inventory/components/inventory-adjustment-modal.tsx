@@ -1,5 +1,6 @@
 "use client";
 
+import Autocomplete from "@mui/material/Autocomplete";
 import MuiButton from "@mui/material/Button";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
@@ -11,6 +12,7 @@ import TextField from "@mui/material/TextField";
 import { Loader2, Save, X } from "lucide-react";
 import type { Dispatch, FormEvent, SetStateAction } from "react";
 
+import { matchesScaleBarcodePrefix } from "@/lib/utils";
 import type {
   Product,
   StockAdjustmentForm,
@@ -44,6 +46,9 @@ export function InventoryAdjustmentModal({
   onClose,
   onSubmit,
 }: InventoryAdjustmentModalProps) {
+  const selectedProduct =
+    products.find((product) => product.id === adjustment.productId) ?? null;
+
   return (
     <Dialog
       open={isOpen}
@@ -66,26 +71,50 @@ export function InventoryAdjustmentModal({
         </p>
         <form id="inventory-adjustment-form" onSubmit={onSubmit}>
           <Stack spacing={3}>
-            <TextField
-              select
-              id="inventory-adjustment-product"
-              label="Producto"
-              value={adjustment.productId}
-              onChange={(e) =>
+            <Autocomplete
+              options={products}
+              value={selectedProduct}
+              onChange={(_, value) =>
                 setAdjustment((prev) => ({
                   ...prev,
-                  productId: e.target.value,
+                  productId: value?.id ?? "",
                 }))
               }
-              required
-            >
-              <MenuItem value="">Selecciona producto</MenuItem>
-              {products.map((product) => (
-                <MenuItem key={product.id} value={product.id}>
-                  {product.codigo} - {product.nombre}
-                </MenuItem>
-              ))}
-            </TextField>
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+              filterOptions={(options, state) => {
+                const normalized = state.inputValue.trim().toLowerCase();
+                if (!normalized) {
+                  return options;
+                }
+
+                return options.filter(
+                  (option) =>
+                    option.codigo.toLowerCase().includes(normalized) ||
+                    (option.codigoBarras ?? "").toLowerCase().includes(normalized) ||
+                    matchesScaleBarcodePrefix(
+                      normalized,
+                      option.codigoBarras ?? option.codigo ?? option.sku,
+                    ) ||
+                    (option.sku ?? "").toLowerCase().includes(normalized) ||
+                    option.nombre.toLowerCase().includes(normalized),
+                );
+              }}
+              getOptionLabel={(option) =>
+                `${option.codigo}${
+                  option.codigoBarras ? ` · ${option.codigoBarras}` : ""
+                } · ${option.nombre}`
+              }
+              noOptionsText="No se encontraron productos"
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  id="inventory-adjustment-product"
+                  label="Producto"
+                  placeholder="Buscar por nombre, codigo o barra"
+                  required
+                />
+              )}
+            />
 
             <div className="grid gap-3 sm:grid-cols-2">
               <TextField

@@ -1,9 +1,16 @@
 import {
-  PosCashSessionStatus,
   Prisma,
+  SaleStatus,
 } from "@prisma/client";
 
 import { ensureDefaultBusiness, getBusinessContextById } from "@/core/business/business.service";
+import {
+  closeCashSession as closeCashSessionInCashMgmt,
+  getActiveCashSession,
+  listClosedCashSessionsByUser,
+  openCashSession as openCashSessionInCashMgmt,
+  type CashSessionSummary,
+} from "@/core/cash-management/cash-session.service";
 import { listProducts } from "@/core/inventory/inventory.service";
 import { hasModule } from "@/core/platform/guards";
 import type { SessionPayload } from "@/lib/auth";
@@ -12,7 +19,6 @@ import { prisma } from "@/lib/prisma";
 import { resolveBillingRuntime } from "@/modules/billing/policies/resolve-billing-runtime";
 import { resolvePosRuntime } from "@/modules/pos/policies/resolve-pos-runtime";
 import { resolveCashRuntime } from "@/modules/cash-management/policies/resolve-cash-runtime";
-import { getActiveCashSession } from "@/core/cash-management/cash-session.service";
 import { roundMoney } from "@/lib/utils";
 import {
   closeCashSessionSchema,
@@ -26,7 +32,7 @@ const logger = createLogger("POSService");
 
 type PosCashSessionSummary = {
   id: string;
-  status: PosCashSessionStatus;
+  status: "OPEN" | "CLOSED" | "PENDING_APPROVAL";
   openingAmount: number;
   closingAmount: number | null;
   notes: string | null;
@@ -34,6 +40,11 @@ type PosCashSessionSummary = {
   closedAt: Date | null;
   salesCount: number;
   salesTotal: number;
+  declaredClosing: number | null;
+  expectedClosing: number | null;
+  difference: number | null;
+  salesCashTotal: number;
+  movementsTotal: number;
 };
 
 function getDefaultDocumentType(electronicBillingEnabled: boolean) {
@@ -53,22 +64,10 @@ async function getPosBusinessContext(session: SessionPayload) {
   return business;
 }
 
-async function getCashSessionSummary(rawSession: {
-  id: string;
-  openedById: string;
-  status: PosCashSessionStatus;
-  openingAmount: Prisma.Decimal;
-  closingAmount: Prisma.Decimal | null;
-  notes: string | null;
-  openedAt: Date;
-  closedAt: Date | null;
-}) {
+async function getSessionSalesStats(sessionId: string) {
   const salesWhere: Prisma.SaleWhereInput = {
-    createdById: rawSession.openedById,
-    createdAt: {
-      gte: rawSession.openedAt,
-      ...(rawSession.closedAt ? { lte: rawSession.closedAt } : {}),
-    },
+    cashSessionId: sessionId,
+    status: SaleStatus.COMPLETED,
   };
   const [salesCount, salesAggregate] = await Promise.all([
     prisma.sale.count({ where: salesWhere }),
@@ -81,35 +80,40 @@ async function getCashSessionSummary(rawSession: {
   ]);
 
   return {
+    salesCount,
+    salesTotal: Number(salesAggregate._sum.total ?? 0),
+  };
+}
+
+async function toPosCashSessionSummary(rawSession: CashSessionSummary) {
+  const { salesCount, salesTotal } = await getSessionSalesStats(rawSession.id);
+
+  return {
     id: rawSession.id,
     status: rawSession.status,
-    openingAmount: Number(rawSession.openingAmount),
-    closingAmount: rawSession.closingAmount ? Number(rawSession.closingAmount) : null,
+    openingAmount: rawSession.openingAmount,
+    closingAmount: rawSession.declaredClosing,
     notes: rawSession.notes,
     openedAt: rawSession.openedAt,
     closedAt: rawSession.closedAt,
     salesCount,
-    salesTotal: Number(salesAggregate._sum.total ?? 0),
+    salesTotal,
+    declaredClosing: rawSession.declaredClosing,
+    expectedClosing: rawSession.expectedClosing,
+    difference: rawSession.difference,
+    salesCashTotal: rawSession.salesCashTotal,
+    movementsTotal: rawSession.movementsTotal,
   } satisfies PosCashSessionSummary;
 }
 
 async function getOpenCashSession(session: SessionPayload, businessId: string) {
-  const cashSession = await prisma.posCashSession.findFirst({
-    where: {
-      businessId,
-      openedById: session.sub,
-      status: PosCashSessionStatus.OPEN,
-    },
-    orderBy: {
-      openedAt: "desc",
-    },
-  });
+  const cashSession = await getActiveCashSession(businessId, session.sub);
 
   if (!cashSession) {
     return null;
   }
 
-  return getCashSessionSummary(cashSession);
+  return toPosCashSessionSummary(cashSession);
 }
 
 function toHeldSaleSummary(rawHeldSale: {
@@ -210,9 +214,7 @@ export async function getPosBootstrap(session: SessionPayload) {
       },
       take: 12,
     }),
-    cashRuntime.enabled
-      ? getActiveCashSession(business.id, session.sub)
-      : getOpenCashSession(session, business.id),
+    getOpenCashSession(session, business.id),
   ]);
 
   const data = {
@@ -266,69 +268,36 @@ export async function openCashSession(session: SessionPayload, rawInput: unknown
     throw new Error("Ya existe una caja abierta para este usuario");
   }
 
-  const cashSession = await prisma.posCashSession.create({
-    data: {
-      businessId: business.id,
-      openedById: session.sub,
-      openingAmount: input.openingAmount,
-      notes: input.notes || null,
-    },
+  const cashSession = await openCashSessionInCashMgmt(session, business.id, {
+    openingAmount: input.openingAmount,
+    notes: input.notes || "",
   });
 
-  return getCashSessionSummary(cashSession);
+  return toPosCashSessionSummary(cashSession);
 }
 
 export async function closeCashSession(session: SessionPayload, rawInput: unknown) {
   const business = await getPosBusinessContext(session);
   const input = closeCashSessionSchema.parse(rawInput);
-
-  const existing = await prisma.posCashSession.findFirst({
-    where: {
-      businessId: business.id,
-      openedById: session.sub,
-      status: PosCashSessionStatus.OPEN,
-    },
-    orderBy: {
-      openedAt: "desc",
-    },
-  });
+  const existing = await getActiveCashSession(business.id, session.sub);
 
   if (!existing) {
     throw new Error("No existe una caja abierta para cerrar");
   }
 
-  const updated = await prisma.posCashSession.update({
-    where: {
-      id: existing.id,
-    },
-    data: {
-      status: PosCashSessionStatus.CLOSED,
-      closingAmount: input.closingAmount,
-      closedAt: new Date(),
-      closedById: session.sub,
-      notes: input.notes || existing.notes,
-    },
+  const updated = await closeCashSessionInCashMgmt(session, business.id, {
+    sessionId: existing.id,
+    declaredAmount: input.closingAmount,
+    notes: input.notes || existing.notes || "",
   });
 
-  return getCashSessionSummary(updated);
+  return toPosCashSessionSummary(updated);
 }
 
 export async function listClosedCashSessions(session: SessionPayload) {
   const business = await getPosBusinessContext(session);
-
-  const sessions = await prisma.posCashSession.findMany({
-    where: {
-      businessId: business.id,
-      openedById: session.sub,
-      status: PosCashSessionStatus.CLOSED,
-    },
-    orderBy: {
-      closedAt: "desc",
-    },
-    take: 30,
-  });
-
-  return Promise.all(sessions.map((cashSession) => getCashSessionSummary(cashSession)));
+  const sessions = await listClosedCashSessionsByUser(business.id, session.sub, 30);
+  return Promise.all(sessions.map((cashSession) => toPosCashSessionSummary(cashSession)));
 }
 
 export async function listHeldSales(session: SessionPayload) {

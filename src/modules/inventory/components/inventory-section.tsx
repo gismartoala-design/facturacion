@@ -1,13 +1,15 @@
 import Box from "@mui/material/Box";
 import MuiButton from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
+import Grid from "@mui/material/Grid";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
-import { ArrowLeftRight } from "lucide-react";
-import { useMemo } from "react";
+import { ArrowLeftRight, Search } from "lucide-react";
+import { useMemo, useState } from "react";
 
+import { Input } from "@/components/ui/input";
 import type { StockItem } from "@/shared/dashboard/types";
 
 type InventorySectionProps = {
@@ -19,7 +21,20 @@ export function InventorySection({
   stock,
   onOpenStockModal,
 }: InventorySectionProps) {
-  const lowStockCount = stock.filter((row) => row.lowStock).length;
+  const [search, setSearch] = useState("");
+  const filteredStock = useMemo(() => {
+    const normalized = search.trim().toLowerCase();
+    if (!normalized) {
+      return stock;
+    }
+
+    return stock.filter(
+      (row) =>
+        row.codigo.toLowerCase().includes(normalized) ||
+        row.productName.toLowerCase().includes(normalized),
+    );
+  }, [search, stock]);
+
   const columns = useMemo<GridColDef<StockItem>[]>(
     () => [
       {
@@ -93,98 +108,122 @@ export function InventorySection({
   );
 
   return (
-    <Stack spacing={3}>
-      <Box sx={{ px: { xs: 1, sm: 2 }, pt: { xs: 1, sm: 2 } }}>
-        <Stack spacing={0.75}>
-          <Typography
-            variant="h5"
-            sx={{ color: "#4a3c58", fontWeight: 700, lineHeight: 1.15 }}
-          >
-            Inventario
-          </Typography>
-          <Typography
-            sx={{
-              maxWidth: 720,
-              color: "rgba(74, 60, 88, 0.68)",
-              fontSize: 14,
-            }}
-          >
-            Entradas, salidas y ajustes manuales con trazabilidad en tiempo
-            real.
-          </Typography>
-        </Stack>
-      </Box>
-
-      <Paper sx={{ borderRadius: "28px", px: { xs: 2, sm: 3 }, py: { xs: 2, sm: 3 } }}>
-        <Stack spacing={2.5}>
-          <Stack
-            direction={{ xs: "column", sm: "row" }}
-            spacing={2}
-            alignItems={{ xs: "flex-start", sm: "center" }}
-            justifyContent="space-between"
-          >
-            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-              <Chip
-                label={`${stock.length} registros`}
-                size="small"
-                sx={{
-                  borderRadius: "999px",
-                  fontWeight: 600,
-                  color: "#4a3c58",
-                  backgroundColor: "rgba(255,255,255,0.88)",
-                  border: "1px solid rgba(232, 213, 229, 0.78)",
-                }}
-              />
-              <Chip
-                label={`${lowStockCount} con stock bajo`}
-                size="small"
-                sx={{
-                  borderRadius: "999px",
-                  fontWeight: 700,
-                  color: "#b45309",
-                  backgroundColor: "rgba(255, 247, 237, 0.92)",
-                  border: "1px solid rgba(252, 211, 77, 0.85)",
-                }}
-              />
-            </Stack>
-
-            <MuiButton
-              type="button"
-              variant="contained"
-              onClick={onOpenStockModal}
-              startIcon={<ArrowLeftRight className="h-4 w-4" />}
+    <Grid container spacing={3}>
+      <Grid size={12}>
+        <Box sx={{ px: { xs: 1, sm: 2 }, pt: { xs: 1, sm: 2 } }}>
+          <Stack spacing={0.75}>
+            <Typography
+              variant="h5"
+              sx={{ color: "#4a3c58", fontWeight: 700, lineHeight: 1.15 }}
             >
-              Ajustar stock
-            </MuiButton>
-          </Stack>
-
-          <Box
-            sx={{
-              overflow: "hidden",
-              borderRadius: "24px",
-              border: "1px solid rgba(232, 213, 229, 0.7)",
-              backgroundColor: "#fff",
-            }}
-          >
-            <DataGrid
-              rows={stock}
-              columns={columns}
-              getRowId={(row) => row.productId}
-              disableRowSelectionOnClick
-              disableColumnMenu
-              pageSizeOptions={[9, 25, 50]}
-              initialState={{
-                pagination: {
-                  paginationModel: { page: 0, pageSize: 9 },
-                },
-                sorting: {
-                  sortModel: [{ field: "lowStock", sort: "desc" }],
-                },
+              Inventario
+            </Typography>
+            <Typography
+              sx={{
+                maxWidth: 720,
+                color: "rgba(74, 60, 88, 0.68)",
+                fontSize: 14,
               }}
-            />
-          </Box>
-        </Stack>
-      </Paper>
-    </Stack>
+            >
+              Entradas, salidas y ajustes manuales con trazabilidad en tiempo
+              real.
+            </Typography>
+          </Stack>
+        </Box>
+      </Grid>
+
+      <Grid size={12}>
+        <Paper
+          sx={{
+            borderRadius: "28px",
+            px: { xs: 2, sm: 3 },
+            py: { xs: 2, sm: 3 },
+          }}
+        >
+          <Grid container spacing={2.5}>
+            <Grid size={12}>
+              <Grid
+                container
+                spacing={2}
+                alignItems={{ xs: "stretch", sm: "center" }}
+                justifyContent="space-between"
+              >
+                <Grid size={{ xs: 12, md: "grow" }}>
+                  <Grid
+                    container
+                    spacing={2}
+                    alignItems={{ xs: "stretch", sm: "center" }}
+                  >
+                    <Grid size={{ xs: 12, sm: "grow" }}>
+                      <Box sx={{ position: "relative", width: "100%", maxWidth: 360 }}>
+                        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#b1a1c6]" />
+                        <Input
+                          placeholder="Buscar por codigo o producto..."
+                          value={search}
+                          onChange={(e) => setSearch(e.target.value)}
+                          className="border-[#e8d5e5]/70 bg-[#fdfcf5]/75 pl-9"
+                        />
+                      </Box>
+                    </Grid>
+
+                    {search ? (
+                      <Grid size={{ xs: 12, sm: "auto" }}>
+                        <MuiButton
+                          type="button"
+                          variant="outlined"
+                          onClick={() => setSearch("")}
+                        >
+                          Limpiar
+                        </MuiButton>
+                      </Grid>
+                    ) : null}
+                  </Grid>
+                </Grid>
+
+                <Grid size={{ xs: 12, md: "auto" }}>
+                  <MuiButton
+                    type="button"
+                    variant="contained"
+                    onClick={onOpenStockModal}
+                    startIcon={<ArrowLeftRight className="h-4 w-4" />}
+                  >
+                    Ajustar stock
+                  </MuiButton>
+                </Grid>
+              </Grid>
+            </Grid>
+
+            <Grid size={12}>
+              <Box>
+                <DataGrid
+                  rows={filteredStock}
+                  columns={columns}
+                  getRowId={(row) => row.productId}
+                  disableRowSelectionOnClick
+                  disableColumnMenu
+                  pageSizeOptions={[10, 25, 50]}
+                  initialState={{
+                    pagination: {
+                      paginationModel: { page: 0, pageSize: 10 },
+                    },
+                    sorting: {
+                      sortModel: [{ field: "lowStock", sort: "desc" }],
+                    },
+                  }}
+                  localeText={{
+                    noRowsLabel: search
+                      ? `Sin resultados para "${search}".`
+                      : "Sin registros de inventario aun.",
+                  }}
+                  sx={{
+                    height: 580,
+                  }}
+                />
+              </Box>
+            </Grid>
+          </Grid>
+        </Paper>
+      </Grid>
+    </Grid>
   );
 }

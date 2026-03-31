@@ -34,7 +34,6 @@ import { fetchJson } from "@/shared/dashboard/api";
 
 type CashMovementType =
   | "OPENING_FLOAT"
-  | "SALE_CASH_IN"
   | "MANUAL_IN"
   | "WITHDRAWAL"
   | "REFUND_OUT"
@@ -61,9 +60,11 @@ type CashSessionInfo = {
   salesCount?: number;
   salesTotal?: number;
   // New
+  declaredClosing?: number | null;
   salesCashTotal?: number;
   movementsTotal?: number;
   expectedClosing?: number | null;
+  difference?: number | null;
 };
 
 type PosCashSessionDialogProps = {
@@ -112,7 +113,6 @@ function formatDateYmd(value: string) {
 
 const MOVEMENT_LABELS: Record<CashMovementType, string> = {
   OPENING_FLOAT: "Fondo inicial",
-  SALE_CASH_IN: "Venta efectivo",
   MANUAL_IN: "Aporte",
   WITHDRAWAL: "Retiro",
   REFUND_OUT: "Devolucion",
@@ -121,7 +121,6 @@ const MOVEMENT_LABELS: Record<CashMovementType, string> = {
 
 const MOVEMENT_SIGN: Record<CashMovementType, 1 | -1> = {
   OPENING_FLOAT: 1,
-  SALE_CASH_IN: 1,
   MANUAL_IN: 1,
   WITHDRAWAL: -1,
   REFUND_OUT: -1,
@@ -134,10 +133,7 @@ function SessionSummary({ cashSession, cashRuntime }: {
   cashSession: CashSessionInfo;
   cashRuntime?: CashRuntime;
 }) {
-  const usesNewService = cashRuntime?.enabled;
-  const salesDisplay = usesNewService
-    ? cashSession.salesCashTotal
-    : cashSession.salesTotal;
+  const salesDisplay = cashSession.salesCashTotal ?? cashSession.salesTotal;
 
   return (
     <Paper
@@ -170,16 +166,16 @@ function SessionSummary({ cashSession, cashRuntime }: {
           </Typography>
         </Stack>
         {salesDisplay !== undefined && (
-          <Stack direction="row" justifyContent="space-between">
-            <Typography variant="body2" color="text.secondary">
-              {usesNewService ? "Ventas en efectivo" : "Total vendido"}
+        <Stack direction="row" justifyContent="space-between">
+          <Typography variant="body2" color="text.secondary">
+              Ventas en efectivo
             </Typography>
             <Typography variant="body2" fontWeight={600} color="success.main">
               {formatCurrency(salesDisplay)}
             </Typography>
           </Stack>
         )}
-        {!usesNewService && cashSession.salesCount !== undefined && (
+        {cashSession.salesCount !== undefined && (
           <Stack direction="row" justifyContent="space-between">
             <Typography variant="body2" color="text.secondary">Ventas registradas</Typography>
             <Typography variant="body2" fontWeight={600}>
@@ -187,7 +183,7 @@ function SessionSummary({ cashSession, cashRuntime }: {
             </Typography>
           </Stack>
         )}
-        {usesNewService && cashSession.movementsTotal !== undefined && cashSession.movementsTotal !== 0 && (
+        {cashSession.movementsTotal !== undefined && cashSession.movementsTotal !== 0 && (
           <Stack direction="row" justifyContent="space-between">
             <Typography variant="body2" color="text.secondary">Movimientos netos</Typography>
             <Typography
@@ -200,7 +196,7 @@ function SessionSummary({ cashSession, cashRuntime }: {
             </Typography>
           </Stack>
         )}
-        {usesNewService && cashSession.expectedClosing != null && (
+        {cashSession.expectedClosing != null && (
           <>
             <Divider sx={{ borderColor: "rgba(205, 191, 173, 0.5)" }} />
             <Stack direction="row" justifyContent="space-between">
@@ -545,19 +541,21 @@ function HistoryTab({
       valueFormatter: (value?: number) => formatCurrency(value ?? 0),
     },
     {
-      field: "salesTotal",
-      headerName: "Ventas $",
+      field: "salesCashTotal",
+      headerName: "Efec. $",
       width: 110,
       align: "right",
       headerAlign: "right",
+      valueGetter: (_, row) => row.salesCashTotal ?? row.salesTotal ?? 0,
       valueFormatter: (value?: number) => formatCurrency(value ?? 0),
     },
     {
-      field: "closingAmount",
+      field: "declaredClosing",
       headerName: "Cierre $",
       width: 110,
       align: "right",
       headerAlign: "right",
+      valueGetter: (_, row) => row.declaredClosing ?? row.closingAmount ?? 0,
       valueFormatter: (value?: number | null) => formatCurrency(value ?? 0),
     },
     {
@@ -612,7 +610,7 @@ function HistoryTab({
           pageSizeOptions={[8, 15]}
           sx={{
             border: 0,
-            minHeight: 360,
+            height: 360,
             "& .MuiDataGrid-columnHeaders": {
               backgroundColor: alpha("#6e5642", 0.08),
             },

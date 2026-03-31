@@ -3,7 +3,6 @@ import { z } from "zod";
 
 import { ensureDefaultBusiness, getBusinessContextById } from "@/core/business/business.service";
 import { getActiveCashSession } from "@/core/cash-management/cash-session.service";
-import { registerSaleCashIn } from "@/core/cash-management/cash-movement.service";
 import { getSession } from "@/lib/auth";
 import { fail, ok } from "@/lib/http";
 import { resolveBillingRuntime } from "@/modules/billing/policies/resolve-billing-runtime";
@@ -44,10 +43,19 @@ export async function POST(request: Request) {
       ? await getActiveCashSession(business.id, session.sub)
       : null;
 
+    if (cashRuntime.enabled && cashRuntime.capabilities.sessionRequired && !activeCashSession) {
+      return fail("Debes abrir una caja antes de registrar cobros en el POS", 400);
+    }
+
     const result = await runPosCheckout(
       normalizedPayload,
       {
         inventoryTrackingEnabled: posRuntime.operationalRules.trackInventoryOnSale,
+        businessId: business.id,
+        cashSessionId: activeCashSession?.id ?? null,
+        saleSource: "POS",
+        collectionRegisteredById: session.sub,
+        createImmediateCollections: true,
       },
       {
         scheduleDocumentAuthorization(task) {
@@ -57,27 +65,6 @@ export async function POST(request: Request) {
         },
       },
     );
-
-    // Registrar movimiento de efectivo en caja si aplica
-    if (activeCashSession) {
-      const payments: Array<{ formaPago: string; total: number }> =
-        Array.isArray(normalizedPayload?.payments) ? normalizedPayload.payments : [];
-      const cashPaymentTotal = payments
-        .filter((p) => p.formaPago === "01" && p.total > 0)
-        .reduce((acc, payment) => acc + payment.total, 0);
-
-      if (cashPaymentTotal > 0) {
-        after(async () => {
-          await registerSaleCashIn({
-            sessionId: activeCashSession.id,
-            businessId: business.id,
-            saleId: result.saleId,
-            amount: cashPaymentTotal,
-            createdById: session.sub,
-          });
-        });
-      }
-    }
 
     return ok(
       {

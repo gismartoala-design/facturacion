@@ -13,6 +13,7 @@
     "db:reset:operational": "node --experimental-strip-types --experimental-specifier-resolution=node ./scripts/reset-operational-data.mts",
     "pos:migrate:blueprints": "node --experimental-strip-types --experimental-specifier-resolution=node ./scripts/migrate-pos-blueprints.mts",
     "cash:backfill:legacy-sessions": "node --experimental-strip-types --experimental-specifier-resolution=node ./scripts/backfill-pos-cash-sessions.mts",
+    "cash:backfill:sale-cash-in": "node --experimental-strip-types --experimental-specifier-resolution=node ./scripts/backfill-sale-cash-in-to-collections.mts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "db:push": "prisma db push"

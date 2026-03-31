@@ -38,6 +38,11 @@ export async function POST(request: Request) {
       normalizedPayload,
       {
         inventoryTrackingEnabled: posRuntime.operationalRules.trackInventoryOnSale,
+        businessId: business.id,
+        saleSource: "DIRECT_SALE",
+        collectionRegisteredById: session.sub,
+        createImmediateCollections: false,
+        createReceivableForPendingBalance: true,
       },
       {
         scheduleDocumentAuthorization(task) {

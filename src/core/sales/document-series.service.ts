@@ -1,4 +1,7 @@
+import { createLogger } from "@/lib/logger";
 import { Prisma } from "@prisma/client";
+
+const logger = createLogger("DocumentSeriesService");
 
 type ReserveDocumentNumberResult = {
   documentSeriesId: string;
@@ -24,81 +27,92 @@ export function buildDocumentFullNumber(
   )}`;
 }
 
+const MAX_RESERVATION_ATTEMPTS = 3;
+
 export async function reserveDocumentNumber(
   tx: Prisma.TransactionClient,
   issuerId: string,
   documentType: "INVOICE",
 ): Promise<ReserveDocumentNumberResult> {
-  const reservedSeriesRows = await tx.$queryRaw<
-    Array<{
-      id: string;
-      issuer_id: string;
-      establishment_code: string;
-      emission_point_code: string;
-      sequence_number: number;
-    }>
-  >`
-    WITH selected_series AS (
-      SELECT id
-      FROM "DocumentSeries"
-      WHERE "issuerId" = ${issuerId}::uuid
-        AND "documentType" = ${documentType}::"DocumentSeriesType"
-        AND active = true
-      ORDER BY "establishmentCode" ASC, "emissionPointCode" ASC
-      LIMIT 1
-      FOR UPDATE
-    ),
-    series_state AS (
-      SELECT
-        ds.id,
-        ds."issuerId",
-        ds."establishmentCode",
-        ds."emissionPointCode",
-        ds."nextSequence",
-        COALESCE(MAX(sd."sequenceNumber"), 0) + 1 AS min_available_sequence
-      FROM "DocumentSeries" ds
-      JOIN selected_series ss ON ss.id = ds.id
-      LEFT JOIN "SaleDocument" sd ON sd."documentSeriesId" = ds.id
-      GROUP BY
-        ds.id,
-        ds."issuerId",
-        ds."establishmentCode",
-        ds."emissionPointCode",
-        ds."nextSequence"
-    )
-    UPDATE "DocumentSeries" ds
-    SET "nextSequence" =
-      GREATEST(series_state."nextSequence", series_state.min_available_sequence) + 2
-    FROM series_state
-    WHERE ds.id = series_state.id
-    RETURNING
-      ds.id,
-      ds."issuerId" AS issuer_id,
-      ds."establishmentCode" AS establishment_code,
-      ds."emissionPointCode" AS emission_point_code,
-      GREATEST(series_state."nextSequence", series_state.min_available_sequence) AS sequence_number
-  `;
+  for (let attempt = 1; attempt <= MAX_RESERVATION_ATTEMPTS; attempt += 1) {
+    const documentSeries = await tx.documentSeries.findFirst({
+      where: {
+        issuerId,
+        documentType,
+        active: true,
+      },
+      orderBy: [
+        { establishmentCode: "asc" },
+        { emissionPointCode: "asc" },
+      ],
+      select: {
+        id: true,
+        issuerId: true,
+        establishmentCode: true,
+        emissionPointCode: true,
+        nextSequence: true,
+      },
+    });
 
-  const reservedSeries = reservedSeriesRows[0];
+    if (!documentSeries) {
+      throw new Error(
+        "No existe una serie documental activa para este emisor",
+      );
+    }
 
-  if (!reservedSeries) {
-    throw new Error("No existe una serie documental activa para este emisor");
+    logger.info("Intentando reservar número de documento", {
+      attempt,
+      maxAttempts: MAX_RESERVATION_ATTEMPTS,
+      documentSeriesId: documentSeries.id,
+      issuerId,
+      documentType,
+      currentNextSequence: documentSeries.nextSequence,
+    });
+
+    const sequenceNumber = documentSeries.nextSequence;
+
+    const updateResult = await tx.documentSeries.updateMany({
+      where: {
+        id: documentSeries.id,
+        nextSequence: sequenceNumber,
+      },
+      data: {
+        nextSequence: {
+          increment: 1,
+        },
+      },
+    });
+
+    if (updateResult.count === 0) {
+      logger.warn("Conflicto al reservar secuencia documental, reintentando", {
+        attempt,
+        maxAttempts: MAX_RESERVATION_ATTEMPTS,
+        documentSeriesId: documentSeries.id,
+        issuerId,
+        documentType,
+        expectedSequence: sequenceNumber,
+      });
+      continue;
+    }
+
+    const formattedSequence = formatDocumentSequence(sequenceNumber);
+
+    return {
+      documentSeriesId: documentSeries.id,
+      issuerId: documentSeries.issuerId,
+      establishmentCode: documentSeries.establishmentCode,
+      emissionPointCode: documentSeries.emissionPointCode,
+      sequenceNumber,
+      formattedSequence,
+      fullNumber: buildDocumentFullNumber(
+        documentSeries.establishmentCode,
+        documentSeries.emissionPointCode,
+        sequenceNumber,
+      ),
+    };
   }
 
-  const sequenceNumber = reservedSeries.sequence_number;
-  const formattedSequence = formatDocumentSequence(sequenceNumber);
-
-  return {
-    documentSeriesId: reservedSeries.id,
-    issuerId: reservedSeries.issuer_id,
-    establishmentCode: reservedSeries.establishment_code,
-    emissionPointCode: reservedSeries.emission_point_code,
-    sequenceNumber,
-    formattedSequence,
-    fullNumber: buildDocumentFullNumber(
-      reservedSeries.establishment_code,
-      reservedSeries.emission_point_code,
-      sequenceNumber,
-    ),
-  };
+  throw new Error(
+    "No se pudo reservar una secuencia documental después de varios intentos. Intenta nuevamente.",
+  );
 }

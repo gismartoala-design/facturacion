@@ -52,7 +52,7 @@ function documentStatusLabel(
 function paymentMethodLabel(code: string) {
   const labels: Record<string, string> = {
     "01": "Sin utilizacion del sistema financiero",
-    "15": "Compensacion de deudas",
+    "15": "Credito / saldo pendiente",
     "16": "Tarjeta de debito",
     "19": "Tarjeta de credito",
     "20": "Otros con utilizacion del sistema financiero",
