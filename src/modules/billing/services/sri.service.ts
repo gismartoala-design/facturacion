@@ -11,6 +11,7 @@ import {
   createInvoice,
   SriHttpError,
 } from "@/modules/billing/services/sri.client";
+import { sendAuthorizedInvoiceEmailIfApplicable } from "@/modules/billing/services/authorized-invoice-email.service";
 import { preparePendingSaleDocumentAuthorizationBySriInvoiceId } from "@/modules/billing/services/sale-document-preparation.service";
 
 const logger = createLogger("SRIService");
@@ -190,6 +191,8 @@ export async function pushAndAuthorizeInvoice(sriInvoiceId: string, payload: unk
       authorizedAt: authorizedAt?.toISOString() ?? null,
       durationMs: timerDurationMs(startedAt),
     });
+
+    await sendAuthorizedInvoiceEmailIfApplicable(sriInvoiceId);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Error desconocido en servicio SRI";
     const httpStatus = error instanceof SriHttpError ? error.statusCode ?? undefined : undefined;
@@ -361,6 +364,8 @@ export async function retrySriInvoiceAuthorization(sriInvoiceId: string) {
       retryCount: updatedInvoice.retryCount,
       durationMs: timerDurationMs(startedAt),
     });
+
+    await sendAuthorizedInvoiceEmailIfApplicable(sriInvoiceId);
 
     return updatedInvoice;
   } catch (error) {
