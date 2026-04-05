@@ -16,6 +16,8 @@ const http = axios.create({
 });
 
 export type SriInvoiceArtifacts = {
+  xml?: string | null;
+  xmlType?: string | null;
   signedXmlUrl?: string | null;
   authorizedXmlUrl?: string | null;
   responseReceptionUrl?: string | null;
