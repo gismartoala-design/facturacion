@@ -53,9 +53,9 @@ function buildAuthorizedInvoiceEmailHtml(data: SaleInvoicePrintData) {
     .map(
       (item) => `
         <tr>
-          <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb;">${escapeHtml(item.productName)}</td>
-          <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; text-align: center;">${item.cantidad.toFixed(3)}</td>
-          <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; text-align: right;">$${money(item.total)}</td>
+          <td style="padding: 14px 16px; border-bottom: 1px solid #e2e8f0; color: #1e293b; font-size: 14px; font-weight: 600;">${escapeHtml(item.productName)}</td>
+          <td style="padding: 14px 16px; border-bottom: 1px solid #e2e8f0; text-align: center; color: #64748b; font-size: 13px;">${item.cantidad.toFixed(3)}</td>
+          <td style="padding: 14px 16px; border-bottom: 1px solid #e2e8f0; text-align: right; color: #1e293b; font-size: 14px; font-weight: 700;">$${money(item.total)}</td>
         </tr>
       `,
     )
@@ -68,64 +68,108 @@ function buildAuthorizedInvoiceEmailHtml(data: SaleInvoicePrintData) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Factura autorizada</title>
 </head>
-<body style="margin: 0; padding: 24px; background: #f4f1ea; color: #1f2937; font-family: Arial, sans-serif;">
-  <div style="max-width: 720px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 18px; overflow: hidden;">
-    <div style="padding: 28px 28px 22px; background: linear-gradient(135deg, #1f2937 0%, #374151 100%); color: #ffffff;">
-      <p style="margin: 0 0 10px; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.82;">Factura autorizada</p>
-      <h1 style="margin: 0; font-size: 28px; line-height: 1.15;">${escapeHtml(documentIdentifier(data))}</h1>
-      <p style="margin: 12px 0 0; font-size: 15px; line-height: 1.55;">Hola ${escapeHtml(data.customerName)}, tu factura ya fue autorizada correctamente.</p>
-    </div>
-
-    <div style="padding: 24px 28px;">
-      <table style="width: 100%; border-collapse: collapse; margin-bottom: 22px;">
+<body style="margin: 0; padding: 32px 18px; background: #f8fafc; background-image: radial-gradient(circle at top, rgba(139, 92, 246, 0.12), transparent 30%), linear-gradient(180deg, #f5f3ff 0%, #f8fafc 26%, #f8fafc 100%); color: #1e293b; font-family: Outfit, 'Avenir Next', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;">
+  <div style="max-width: 720px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 24px; overflow: hidden; box-shadow: 0 18px 44px rgba(15, 23, 42, 0.08);">
+    <div style="padding: 30px 30px 26px; background: linear-gradient(180deg, #f5f3ff 0%, #ffffff 100%); border-bottom: 1px solid #e2e8f0;">
+      <table style="width: 100%; border-collapse: collapse;">
         <tbody>
           <tr>
-            <td style="padding: 8px 0; width: 50%;"><strong>Empresa:</strong><br>${escapeHtml(data.companyLegalName || data.companyName)}</td>
-            <td style="padding: 8px 0; width: 50%;"><strong>Cliente:</strong><br>${escapeHtml(data.customerName)}</td>
+            <td style="vertical-align: top;">
+              <span style="display: inline-block; padding: 7px 12px; border-radius: 999px; background: #ede9fe; color: #6d28d9; font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;">Factura autorizada</span>
+              <h1 style="margin: 16px 0 8px; font-size: 31px; line-height: 1.08; color: #1e293b;">${escapeHtml(documentIdentifier(data))}</h1>
+              <p style="margin: 0; color: #64748b; font-size: 15px; line-height: 1.7;">Hola ${escapeHtml(data.customerName)}, adjuntamos tu comprobante electronico autorizado.</p>
+            </td>
+            <td style="width: 148px; vertical-align: top; text-align: right;">
+              <div style="display: inline-block; min-width: 120px; padding: 14px 16px; border-radius: 18px; background: #8b5cf6; color: #ffffff; text-align: left; box-shadow: 0 14px 32px rgba(139, 92, 246, 0.28);">
+                <div style="font-size: 11px; line-height: 1.2; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.76;">Total</div>
+                <div style="margin-top: 8px; font-size: 26px; line-height: 1; font-weight: 800;">$${money(data.total)}</div>
+              </div>
+            </td>
           </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div style="padding: 28px 30px 30px;">
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 18px;">
+        <tbody>
           <tr>
-            <td style="padding: 8px 0;"><strong>Fecha emision:</strong><br>${escapeHtml(data.fechaEmision)}</td>
-            <td style="padding: 8px 0;"><strong>Fecha autorizacion:</strong><br>${escapeHtml(data.fechaAutorizacion || "No disponible")}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px 0;"><strong>Identificacion:</strong><br>${escapeHtml(data.customerIdentification)}</td>
-            <td style="padding: 8px 0;"><strong>Total:</strong><br>$${money(data.total)}</td>
+            <td style="width: 50%; padding: 0 10px 10px 0; vertical-align: top;">
+              <div style="font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #8b5cf6; margin-bottom: 8px;">Empresa</div>
+              <div style="font-size: 17px; font-weight: 700; color: #1e293b; line-height: 1.35;">${escapeHtml(data.companyLegalName || data.companyName)}</div>
+              <div style="margin-top: 8px; font-size: 13px; line-height: 1.7; color: #64748b;">${escapeHtml(data.companyEmail || "Sin correo registrado")}</div>
+            </td>
+            <td style="width: 50%; padding: 0 0 10px 10px; vertical-align: top;">
+              <div style="font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #8b5cf6; margin-bottom: 8px;">Cliente</div>
+              <div style="font-size: 17px; font-weight: 700; color: #1e293b; line-height: 1.35;">${escapeHtml(data.customerName)}</div>
+              <div style="margin-top: 8px; font-size: 13px; line-height: 1.7; color: #64748b;">${escapeHtml(data.customerIdentification)}</div>
+            </td>
           </tr>
         </tbody>
       </table>
 
-      <div style="margin-bottom: 22px; padding: 16px 18px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 14px;">
-        <p style="margin: 0 0 8px;"><strong>Numero de autorizacion:</strong></p>
-        <p style="margin: 0 0 14px; word-break: break-all;">${escapeHtml(data.numeroAutorizacion || "No disponible")}</p>
-        <p style="margin: 0 0 8px;"><strong>Clave de acceso:</strong></p>
-        <p style="margin: 0; word-break: break-all;">${escapeHtml(data.claveAcceso || "No disponible")}</p>
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+        <tbody>
+          <tr>
+            <td style="width: 33.33%; padding: 0 12px 0 0; vertical-align: top;">
+              <div style="font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #64748b; margin-bottom: 8px;">Fecha emision</div>
+              <div style="font-size: 15px; font-weight: 700; color: #1e293b;">${escapeHtml(data.fechaEmision)}</div>
+            </td>
+            <td style="width: 33.33%; padding: 0 12px; vertical-align: top;">
+              <div style="font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #64748b; margin-bottom: 8px;">Fecha autorizacion</div>
+              <div style="font-size: 15px; font-weight: 700; color: #1e293b;">${escapeHtml(data.fechaAutorizacion || "No disponible")}</div>
+            </td>
+            <td style="width: 33.33%; padding: 0 0 0 12px; vertical-align: top;">
+              <div style="font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #64748b; margin-bottom: 8px;">Estado</div>
+              <div><span style="display: inline-block; padding: 8px 12px; border-radius: 999px; background: #ecfdf5; color: #059669; font-size: 12px; font-weight: 800;">Autorizada</span></div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div style="margin-bottom: 22px; padding: 16px 0 18px; border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0;">
+        <div style="margin: 0 0 10px; font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #8b5cf6;">N. autorizacion / clave de acceso</div>
+        <div style="word-break: break-all; font-size: 14px; line-height: 1.8; color: #1e293b;">${escapeHtml(data.numeroAutorizacion || data.claveAcceso || "No disponible")}</div>
       </div>
 
-      <table style="width: 100%; border-collapse: collapse; border: 1px solid #e5e7eb; border-radius: 14px; overflow: hidden;">
+      <div style="margin-bottom: 22px; overflow: hidden; border: 1px solid #e2e8f0; border-radius: 20px; background: #ffffff;">
+        <div style="padding: 16px 18px; background: #f5f3ff; border-bottom: 1px solid #e2e8f0;">
+          <div style="font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #6d28d9;">Detalle de la venta</div>
+        </div>
+        <table style="width: 100%; border-collapse: collapse;">
         <thead>
-          <tr style="background: #f9fafb;">
-            <th style="padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb;">Descripcion</th>
-            <th style="padding: 12px; text-align: center; border-bottom: 1px solid #e5e7eb;">Cant.</th>
-            <th style="padding: 12px; text-align: right; border-bottom: 1px solid #e5e7eb;">Total</th>
+          <tr style="background: #ffffff;">
+            <th style="padding: 14px 16px; text-align: left; border-bottom: 1px solid #e2e8f0; color: #64748b; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;">Descripcion</th>
+            <th style="padding: 14px 16px; text-align: center; border-bottom: 1px solid #e2e8f0; color: #64748b; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;">Cant.</th>
+            <th style="padding: 14px 16px; text-align: right; border-bottom: 1px solid #e2e8f0; color: #64748b; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;">Total</th>
           </tr>
         </thead>
         <tbody>
-          ${rows || `<tr><td colspan="3" style="padding: 16px 12px; text-align: center;">Sin detalle</td></tr>`}
+          ${rows || `<tr><td colspan="3" style="padding: 18px 16px; text-align: center; color: #64748b; font-size: 14px;">Sin detalle</td></tr>`}
         </tbody>
       </table>
-
-      <div style="margin-top: 22px; padding: 16px 18px; background: #fcfaf5; border: 1px solid #efe7d6; border-radius: 14px;">
-        <p style="margin: 0 0 10px;"><strong>Resumen</strong></p>
-        <p style="margin: 0 0 6px;">Subtotal: $${money(data.subtotal)}</p>
-        <p style="margin: 0 0 6px;">Descuento: $${money(data.discountTotal)}</p>
-        <p style="margin: 0 0 6px;">IVA: $${money(data.taxTotal)}</p>
-        <p style="margin: 0; font-size: 18px;"><strong>Total final: $${money(data.total)}</strong></p>
       </div>
 
-      <p style="margin: 22px 0 0; font-size: 14px; line-height: 1.6; color: #4b5563;">
+      <div style="padding: 18px 20px; border-radius: 20px; background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%); border: 1px solid #e2e8f0;">
+        <div style="margin: 0 0 14px; font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #8b5cf6;">Resumen</div>
+        <table style="width: 100%; border-collapse: collapse;">
+          <tbody>
+            <tr><td style="padding: 0 0 10px; color: #64748b; font-size: 14px;">Subtotal</td><td style="padding: 0 0 10px; text-align: right; color: #1e293b; font-size: 14px; font-weight: 700;">$${money(data.subtotal)}</td></tr>
+            <tr><td style="padding: 0 0 10px; color: #64748b; font-size: 14px;">Descuento</td><td style="padding: 0 0 10px; text-align: right; color: #1e293b; font-size: 14px; font-weight: 700;">$${money(data.discountTotal)}</td></tr>
+            <tr><td style="padding: 0 0 12px; color: #64748b; font-size: 14px;">IVA</td><td style="padding: 0 0 12px; text-align: right; color: #1e293b; font-size: 14px; font-weight: 700;">$${money(data.taxTotal)}</td></tr>
+            <tr><td colspan="2" style="padding: 0 0 12px;"><div style="height: 1px; background: #e2e8f0;"></div></td></tr>
+            <tr><td style="padding: 0; color: #1e293b; font-size: 16px; font-weight: 800;">Total final</td><td style="padding: 0; text-align: right; color: #8b5cf6; font-size: 21px; font-weight: 800;">$${money(data.total)}</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p style="margin: 22px 0 0; font-size: 14px; line-height: 1.75; color: #64748b;">
         Si necesitas ayuda con tu comprobante, puedes comunicarte con
-        ${escapeHtml(data.companyName)}${data.companyEmail ? ` en ${escapeHtml(data.companyEmail)}` : ""}.
-      </p>
+        <span style="color: #1e293b; font-weight: 700;">${escapeHtml(data.companyName)}</span>${data.companyEmail ? ` en <span style="color: #8b5cf6; font-weight: 700;">${escapeHtml(data.companyEmail)}</span>` : ""}.
+      </div>
+    </div>
+    <div style="padding: 16px 30px 22px; border-top: 1px solid #e2e8f0; background: #ffffff;">
+      <p style="margin: 0; color: #94a3b8; font-size: 12px; line-height: 1.6;">ARG MVP · Facturacion electronica · Este mensaje fue generado automaticamente para el flujo de ventas.</p>
     </div>
   </div>
 </body>
