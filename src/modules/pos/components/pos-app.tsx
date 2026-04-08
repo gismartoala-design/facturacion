@@ -104,6 +104,11 @@ type PosAppProps = {
 
 type PosDocumentType = "NONE" | "INVOICE";
 
+type PosSessionPaymentSummary = {
+  paymentMethod: string;
+  total: number;
+};
+
 type PosCashSession = {
   id: string;
   status: "OPEN" | "CLOSED" | "PENDING_APPROVAL";
@@ -121,6 +126,7 @@ type PosCashSession = {
   difference?: number | null;
   salesCashTotal?: number;
   movementsTotal?: number;
+  paymentBreakdown?: PosSessionPaymentSummary[];
 };
 
 type PosHeldSalePayload = {
@@ -261,6 +267,49 @@ function formatDateTime(value: string | Date) {
 
 function buildDefaultCustomer() {
   return { ...WALK_IN_CUSTOMER };
+}
+
+function isWalkInIdentification(identification: string) {
+  return identification.trim() === WALK_IN_CUSTOMER.identificacion;
+}
+
+function paymentMethodLabel(code: string) {
+  return PAYMENT_METHODS.find((method) => method.code === code)?.label ?? code;
+}
+
+function mergePaymentBreakdown(
+  current: PosSessionPaymentSummary[],
+  payments: Array<{ formaPago: string; total: number }>,
+) {
+  const totals = new Map(
+    current.map((payment) => [payment.paymentMethod, payment.total]),
+  );
+
+  for (const payment of payments) {
+    totals.set(
+      payment.formaPago,
+      roundMoney((totals.get(payment.formaPago) ?? 0) + payment.total),
+    );
+  }
+
+  const order = new Map(PAYMENT_METHODS.map((method, index) => [method.code, index]));
+
+  return [...totals.entries()]
+    .filter(([, total]) => total > 0)
+    .sort(([left], [right]) => {
+      const leftIndex = order.get(left) ?? Number.MAX_SAFE_INTEGER;
+      const rightIndex = order.get(right) ?? Number.MAX_SAFE_INTEGER;
+
+      if (leftIndex !== rightIndex) {
+        return leftIndex - rightIndex;
+      }
+
+      return left.localeCompare(right);
+    })
+    .map(([paymentMethod, total]) => ({
+      paymentMethod,
+      total,
+    }));
 }
 
 function createPaymentLine(
@@ -844,6 +893,7 @@ export function PosApp({
     nextCustomer: typeof customer,
     soldLines: LinePreviewRow[],
     saleTotal: number,
+    salePayments: Array<{ formaPago: string; total: number }>,
     heldSaleIdToRemove: string | null,
   ) {
     const purchasedAt = new Date().toISOString();
@@ -896,6 +946,36 @@ export function PosApp({
               },
               ...current.customers,
             ].slice(0, 40);
+      const nextCashSession = current.cashSession
+        ? (() => {
+            const cashCollected = roundMoney(
+              salePayments.reduce(
+                (acc, payment) =>
+                  payment.formaPago === "01" ? acc + payment.total : acc,
+                0,
+              ),
+            );
+            const nextSalesCashTotal = roundMoney(
+              (current.cashSession.salesCashTotal ?? 0) + cashCollected,
+            );
+
+            return {
+              ...current.cashSession,
+              salesCount: (current.cashSession.salesCount ?? 0) + 1,
+              salesTotal: roundMoney((current.cashSession.salesTotal ?? 0) + saleTotal),
+              salesCashTotal: nextSalesCashTotal,
+              paymentBreakdown: mergePaymentBreakdown(
+                current.cashSession.paymentBreakdown ?? [],
+                salePayments,
+              ),
+              expectedClosing: roundMoney(
+                current.cashSession.openingAmount +
+                  nextSalesCashTotal +
+                  (current.cashSession.movementsTotal ?? 0),
+              ),
+            };
+          })()
+        : current.cashSession;
 
       return {
         ...current,
@@ -917,15 +997,7 @@ export function PosApp({
                 };
               }),
         customers: nextCustomers,
-        cashSession: current.cashSession
-          ? {
-              ...current.cashSession,
-              salesCount: (current.cashSession.salesCount ?? 0) + 1,
-              salesTotal: Number(
-                ((current.cashSession.salesTotal ?? 0) + saleTotal).toFixed(2),
-              ),
-            }
-          : current.cashSession,
+        cashSession: nextCashSession,
         heldSales: heldSaleIdToRemove
           ? current.heldSales.filter((item) => item.id !== heldSaleIdToRemove)
           : current.heldSales,
@@ -1549,7 +1621,16 @@ export function PosApp({
           openedAt: formatDateTime(closedSession.openedAt),
           closedAt: formatDateTime(closedSession.closedAt ?? new Date()),
           openingAmount: closedSession.openingAmount,
+          salesTotal: closedSession.salesTotal ?? 0,
           salesCashTotal: closedSession.salesCashTotal ?? 0,
+          salesLabel:
+            (closedSession.paymentBreakdown?.length ?? 0) > 0
+              ? "Efectivo en caja"
+              : undefined,
+          paymentBreakdown: (closedSession.paymentBreakdown ?? []).map((payment) => ({
+            label: paymentMethodLabel(payment.paymentMethod),
+            total: payment.total,
+          })),
           movementsTotal: closedSession.movementsTotal ?? 0,
           expectedClosing:
             closedSession.expectedClosing ??
@@ -1704,11 +1785,21 @@ export function PosApp({
   }
 
   function validateCustomer() {
-    if (documentType === "NONE") {
-      return null;
+    const identification = customer.identificacion.trim();
+    const isWalkInCustomer =
+      customer.tipoIdentificacion === WALK_IN_CUSTOMER.tipoIdentificacion &&
+      isWalkInIdentification(identification);
+
+    if (
+      customer.tipoIdentificacion === WALK_IN_CUSTOMER.tipoIdentificacion &&
+      !isWalkInIdentification(identification)
+    ) {
+      return "Selecciona el tipo de identificacion antes de procesar la venta";
     }
 
-    const identification = customer.identificacion.trim();
+    if (documentType === "NONE" && isWalkInCustomer) {
+      return null;
+    }
 
     if (
       customer.tipoIdentificacion === "05" &&
@@ -1725,7 +1816,9 @@ export function PosApp({
     }
 
     if (!customer.razonSocial.trim()) {
-      return "La razon social es obligatoria para factura";
+      return documentType === "INVOICE"
+        ? "La razon social es obligatoria para factura"
+        : "La razon social es obligatoria para registrar el cliente";
     }
 
     return null;
@@ -1794,13 +1887,19 @@ export function PosApp({
     try {
       const heldSaleIdToRemove = activeHeldSaleId;
       const effectiveCustomer =
-        documentType === "NONE"
+        documentType === "NONE" &&
+        customer.tipoIdentificacion === WALK_IN_CUSTOMER.tipoIdentificacion &&
+        isWalkInIdentification(customer.identificacion)
           ? {
               ...WALK_IN_CUSTOMER,
               razonSocial:
                 customer.razonSocial.trim() || WALK_IN_CUSTOMER.razonSocial,
             }
-          : customer;
+          : {
+              ...customer,
+              identificacion: customer.identificacion.trim(),
+              razonSocial: customer.razonSocial.trim(),
+            };
 
       const result = await fetchJson<CheckoutResponse>(
         "/api/v1/pos/checkout",
@@ -1890,6 +1989,7 @@ export function PosApp({
         effectiveCustomer,
         linePreview,
         result.totals.total,
+        checkoutPayments,
         heldSaleIdToRemove,
       );
 
@@ -2071,6 +2171,11 @@ export function PosApp({
     notes?: string | null;
     salesCount?: number;
     salesTotal?: number;
+    salesCashTotal?: number;
+    movementsTotal?: number | null;
+    expectedClosing?: number | null;
+    difference?: number | null;
+    paymentBreakdown?: PosSessionPaymentSummary[];
   }): CashCloseTicketData | null {
     if (!bootstrap) return null;
 
@@ -2086,9 +2191,20 @@ export function PosApp({
       openedAt: formatDateTime(session.openedAt),
       closedAt: formatDateTime(session.closedAt ?? new Date()),
       openingAmount: session.openingAmount,
-      salesCashTotal: session.salesTotal ?? 0,
-      salesLabel: "Total vendido",
+      salesTotal: session.salesTotal ?? 0,
+      salesCashTotal: session.salesCashTotal ?? session.salesTotal ?? 0,
+      salesLabel:
+        (session.paymentBreakdown?.length ?? 0) > 0
+          ? "Efectivo en caja"
+          : undefined,
       salesCount: session.salesCount ?? 0,
+      paymentBreakdown: (session.paymentBreakdown ?? []).map((payment) => ({
+        label: paymentMethodLabel(payment.paymentMethod),
+        total: payment.total,
+      })),
+      movementsTotal: session.movementsTotal,
+      expectedClosing: session.expectedClosing,
+      difference: session.difference,
       declaredClosing: session.closingAmount ?? 0,
       declaredClosingLabel: "Cierre registrado",
       notes: session.notes,

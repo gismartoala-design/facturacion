@@ -422,7 +422,9 @@ export function useSalesCheckoutPage() {
   }
 
   function addProduct(product: Product, quantity = 1) {
+
     if (
+      !isQuoteMode &&
       inventoryTrackingEnabled &&
       product.tipoProducto === "BIEN" &&
       product.stock <= 0

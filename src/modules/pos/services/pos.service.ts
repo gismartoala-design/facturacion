@@ -9,6 +9,7 @@ import {
   getActiveCashSession,
   listClosedCashSessionsByUser,
   openCashSession as openCashSessionInCashMgmt,
+  type CashSessionPaymentSummary,
   type CashSessionSummary,
 } from "@/core/cash-management/cash-session.service";
 import { listProducts } from "@/core/inventory/inventory.service";
@@ -45,6 +46,7 @@ type PosCashSessionSummary = {
   difference: number | null;
   salesCashTotal: number;
   movementsTotal: number;
+  paymentBreakdown: CashSessionPaymentSummary[];
 };
 
 function getDefaultDocumentType(electronicBillingEnabled: boolean) {
@@ -103,6 +105,7 @@ async function toPosCashSessionSummary(rawSession: CashSessionSummary) {
     difference: rawSession.difference,
     salesCashTotal: rawSession.salesCashTotal,
     movementsTotal: rawSession.movementsTotal,
+    paymentBreakdown: rawSession.paymentBreakdown,
   } satisfies PosCashSessionSummary;
 }
 

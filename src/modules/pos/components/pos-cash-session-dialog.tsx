@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import type { CashRuntime } from "@/modules/cash-management/policies/cash-runtime";
 import { fetchJson } from "@/shared/dashboard/api";
+import { PAYMENT_METHODS } from "@/shared/dashboard/types";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -65,6 +66,10 @@ type CashSessionInfo = {
   movementsTotal?: number;
   expectedClosing?: number | null;
   difference?: number | null;
+  paymentBreakdown?: Array<{
+    paymentMethod: string;
+    total: number;
+  }>;
 };
 
 type PosCashSessionDialogProps = {
@@ -111,6 +116,10 @@ function formatDateYmd(value: string) {
   }).format(new Date(value));
 }
 
+function paymentMethodLabel(code: string) {
+  return PAYMENT_METHODS.find((method) => method.code === code)?.label ?? code;
+}
+
 const MOVEMENT_LABELS: Record<CashMovementType, string> = {
   OPENING_FLOAT: "Fondo inicial",
   MANUAL_IN: "Aporte",
@@ -134,6 +143,11 @@ function SessionSummary({ cashSession, cashRuntime }: {
   cashRuntime?: CashRuntime;
 }) {
   const salesDisplay = cashSession.salesCashTotal ?? cashSession.salesTotal;
+  const paymentBreakdown = (cashSession.paymentBreakdown ?? []).filter(
+    (payment) => payment.total > 0,
+  );
+  const cashSalesLabel =
+    paymentBreakdown.length > 0 ? "Efectivo en caja" : "Ventas en efectivo";
 
   return (
     <Paper
@@ -166,12 +180,20 @@ function SessionSummary({ cashSession, cashRuntime }: {
           </Typography>
         </Stack>
         {salesDisplay !== undefined && (
-        <Stack direction="row" justifyContent="space-between">
-          <Typography variant="body2" color="text.secondary">
-              Ventas en efectivo
+          <Stack direction="row" justifyContent="space-between">
+            <Typography variant="body2" color="text.secondary">
+              {cashSalesLabel}
             </Typography>
             <Typography variant="body2" fontWeight={600} color="success.main">
               {formatCurrency(salesDisplay)}
+            </Typography>
+          </Stack>
+        )}
+        {cashSession.salesTotal !== undefined && paymentBreakdown.length > 0 && (
+          <Stack direction="row" justifyContent="space-between">
+            <Typography variant="body2" color="text.secondary">Total vendido</Typography>
+            <Typography variant="body2" fontWeight={600}>
+              {formatCurrency(cashSession.salesTotal)}
             </Typography>
           </Stack>
         )}
@@ -182,6 +204,28 @@ function SessionSummary({ cashSession, cashRuntime }: {
               {cashSession.salesCount}
             </Typography>
           </Stack>
+        )}
+        {paymentBreakdown.length > 0 && (
+          <>
+            <Divider sx={{ borderColor: "rgba(205, 191, 173, 0.5)" }} />
+            <Typography variant="body2" color="text.secondary">
+              Cobros por medio
+            </Typography>
+            {paymentBreakdown.map((payment) => (
+              <Stack
+                key={payment.paymentMethod}
+                direction="row"
+                justifyContent="space-between"
+              >
+                <Typography variant="body2" color="text.secondary">
+                  {paymentMethodLabel(payment.paymentMethod)}
+                </Typography>
+                <Typography variant="body2" fontWeight={600}>
+                  {formatCurrency(payment.total)}
+                </Typography>
+              </Stack>
+            ))}
+          </>
         )}
         {cashSession.movementsTotal !== undefined && cashSession.movementsTotal !== 0 && (
           <Stack direction="row" justifyContent="space-between">

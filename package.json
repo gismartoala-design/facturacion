@@ -16,7 +16,8 @@
     "cash:backfill:sale-cash-in": "node --experimental-strip-types --experimental-specifier-resolution=node ./scripts/backfill-sale-cash-in-to-collections.mts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "db:push": "prisma db push"
+    "db:push": "prisma db push",
+    "resend:authorized-invoices": "node --experimental-strip-types --experimental-specifier-resolution=node ./scripts/resend-authorized-invoices-emails.mts"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
