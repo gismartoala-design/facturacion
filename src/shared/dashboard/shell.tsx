@@ -2,9 +2,11 @@
 
 import type { SessionFeatureKey } from "@/lib/auth";
 import Box from "@mui/material/Box";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { DashboardUserMenu } from "./user-menu";
 import { MvpDashboardNav } from "./nav";
+
+const STORAGE_KEY = "dashboard-nav-collapsed";
 
 type DashboardShellProps = {
   children: React.ReactNode;
@@ -26,14 +28,21 @@ export function DashboardShell({
   canManageCompany = false,
 }: DashboardShellProps) {
   const [collapsed, setCollapsed] = useState(false);
-  const [hovered, setHovered] = useState(false);
 
-  // Sidebar se expande temporalmente al hacer hover cuando está colapsado
-  const isCollapsed = collapsed && !hovered;
+  useEffect(() => {
+    const storedValue = window.localStorage.getItem(STORAGE_KEY);
+
+    if (storedValue !== null) {
+      setCollapsed(storedValue === "true");
+    }
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem(STORAGE_KEY, String(collapsed));
+  }, [collapsed]);
 
   return (
     <Box sx={{ position: "relative", mx: "auto", maxWidth: "2000px" }}>
-      {/* Mobile nav */}
       <Box sx={{ display: { xs: "block", lg: "none" } }}>
         <MvpDashboardNav
           userRole={userRole}
@@ -42,10 +51,7 @@ export function DashboardShell({
         />
       </Box>
 
-      {/* Desktop nav (fixed, collapsible) */}
       <Box
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
         sx={{
           display: { xs: "none", lg: "block" },
           position: "fixed",
@@ -53,7 +59,7 @@ export function DashboardShell({
           left: { lg: 16, xl: 24 },
           top: { lg: 16, xl: 24 },
           bottom: { lg: 16, xl: 24 },
-          width: isCollapsed ? 76 : { lg: 280, xl: 296 },
+          width: collapsed ? { lg: 188, xl: 200 } : { lg: 280, xl: 296 },
           transition: "width 320ms cubic-bezier(0.2, 0, 0, 1)",
         }}
       >
@@ -61,12 +67,11 @@ export function DashboardShell({
           userRole={userRole}
           businessName={businessName}
           enabledFeatures={enabledFeatures}
-          collapsed={isCollapsed}
+          collapsed={collapsed}
           onToggle={() => setCollapsed((prev) => !prev)}
         />
       </Box>
 
-      {/* User menu */}
       {userName && roleLabel && (
         <Box
           sx={{
@@ -88,13 +93,12 @@ export function DashboardShell({
         </Box>
       )}
 
-      {/* Main content — margin adjusts with sidebar */}
       <Box
         sx={{
           minWidth: 0,
           ml: {
-            lg: isCollapsed ? "100px" : "304px",
-            xl: isCollapsed ? "100px" : "328px",
+            lg: collapsed ? "212px" : "304px",
+            xl: collapsed ? "228px" : "328px",
           },
           transition: "margin-left 320ms cubic-bezier(0.2, 0, 0, 1)",
         }}

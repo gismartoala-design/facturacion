@@ -2,95 +2,153 @@
 
 import type { SessionFeatureKey } from "@/lib/auth";
 import Box from "@mui/material/Box";
+import Collapse from "@mui/material/Collapse";
 import IconButton from "@mui/material/IconButton";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { alpha, useTheme } from "@mui/material/styles";
 import {
-  BarChart3,
   Boxes,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
-  ClipboardList,
   FileText,
+  FolderTree,
+  HandCoins,
   Monitor,
   PackageSearch,
   ShoppingCart,
-  Users,
-  WalletCards,
+  type LucideIcon,
 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import type { Dispatch, SetStateAction } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type NavItem = {
-  href: string;
+  id: string;
   label: string;
   icon: LucideIcon;
+  href?: string;
   adminOnly?: boolean;
   requiredFeature?: SessionFeatureKey;
   children?: NavItem[];
 };
 
-const NAV_ITEMS: NavItem[] = [
-  { href: "/overview", label: "Resumen", icon: Boxes },
+type NavSection = {
+  id: string;
+  label: string;
+  items: NavItem[];
+};
+
+const CORE_NAV_ITEMS: NavItem[] = [
+  { id: "overview", href: "/overview", label: "Resumen", icon: Boxes },
   {
+    id: "pos",
     href: "/pos",
     label: "POS",
     icon: Monitor,
     requiredFeature: "POS",
   },
+];
+
+const BUSINESS_NAV_ITEMS: NavItem[] = [
   {
-    href: "/products",
-    label: "Productos",
-    icon: ClipboardList,
+    id: "accounting",
+    label: "Contabilidad",
+    icon: HandCoins,
+    adminOnly: true,
+    children: [
+      {
+        id: "accounting-account-plan",
+        href: "/accounting/account-plan",
+        label: "Plan de Cuentas",
+        icon: FolderTree,
+      },
+      {
+        id: "accounting-entries",
+        href: "/accounting/asientos",
+        label: "Asientos Contables",
+        icon: HandCoins,
+      },
+      {
+        id: "accounting-journals",
+        href: "/accounting/diarios",
+        label: "Libro Diario",
+        icon: HandCoins,
+      },
+      {
+        id: "libro-mayor",
+        href: "/accounting/libro-mayor",
+        label: "Libro Mayor",
+        icon: HandCoins,
+      },
+      {
+        id: "balance-general",
+        href: "/accounting/balance-general",
+        label: "Balance General",
+        icon: HandCoins,
+      },
+      {
+        id: "estado-resultados",
+        href: "/accounting/estado-resultados",
+        label: "Estado de Resultados",
+        icon: HandCoins,
+      }
+    ],
   },
   {
-    href: "/inventory",
+    id: "inventory",
     label: "Inventario",
     icon: PackageSearch,
+    children: [
+      {
+        id: "inventory-products",
+        href: "/products",
+        label: "Productos",
+        icon: PackageSearch,
+      },
+      {
+        id: "inventory-stock-taking",
+        href: "/inventory/stock-taking",
+        label: "Toma de Inventario",
+        icon: PackageSearch,
+      },
+      {
+        id: "inventory-adjustments",
+        href: "/inventory",
+        label: "Ajustes de Inventario",
+        icon: PackageSearch,
+      },
+    ],
   },
   {
-    href: "/sales",
-    label: "Facturar Venta",
+    id: "sales",
+    label: "Ventas",
     icon: ShoppingCart,
+    children: [
+      {
+        id: "sales-billing",
+        href: "/sales",
+        label: "Facturar",
+        icon: ShoppingCart,
+      },
+      {
+        id: "sales-quotes",
+        href: "/quotes",
+        label: "Cotizaciones",
+        icon: FileText,
+        requiredFeature: "QUOTES",
+      },
+    ],
   },
-  {
-    href: "/reports",
-    label: "Reportes",
-    icon: BarChart3,
-  },
-  {
-    href: "/quotes",
-    label: "Cotizaciones",
-    icon: FileText,
-    requiredFeature: "QUOTES",
-  },
-  {
-    href: "/sri",
-    label: "Facturacion",
-    icon: WalletCards,
-    requiredFeature: "BILLING",
-  },
-  {
-    href: "/users",
-    label: "Usuarios",
-    icon: Users,
-    adminOnly: true,
-  },
-  // {
-  //   href: "#",
-  //   label: "Cuentas por Cobrar",
-  //   icon: Users,
-  //   adminOnly: true,
-  //   requiredFeature: "ACCOUNTS_RECEIVABLE",
-  //   children: [
-  //     { href: "/accounts-receivable", label: "Listado", icon: Users },
-  //     { href: "/accounts-receivable/create", label: "Crear", icon: Users },
-  //   ],
-  // }
+];
+
+const NAV_SECTIONS: NavSection[] = [
+  { id: "core", label: "Accesos principales", items: CORE_NAV_ITEMS },
+  { id: "business", label: "Procesos del negocio", items: BUSINESS_NAV_ITEMS },
 ];
 
 type MvpDashboardNavProps = {
@@ -110,127 +168,620 @@ type NavLinkCardProps = {
 
 const TRANSITION = "320ms cubic-bezier(0.2, 0, 0, 1)";
 
-function NavLinkCard({ item, active, compact = false, iconOnly = false }: NavLinkCardProps) {
-  const theme = useTheme();
-  const Icon = item.icon;
-  const activeBg = `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.16)}, ${alpha(theme.palette.secondary.main, 0.12)})`;
-  const hoverBg = alpha(theme.palette.background.paper, 0.84);
-
-  // Mobile compact layout — unchanged
-  if (compact) {
-    return (
-      <Box
-        component={Link}
-        href={item.href}
-        sx={{
-          display: "block",
-          minWidth: 0,
-          textDecoration: "none",
-          borderRadius: "14px",
-          border: "1px solid",
-          borderColor: active ? alpha(theme.palette.primary.main, 0.24) : "transparent",
-          background: active ? activeBg : "transparent",
-          color: active ? "text.primary" : "text.secondary",
-          boxShadow: active ? `0 10px 24px ${alpha(theme.palette.primary.main, 0.14)}` : "none",
-          transform: active ? "translateX(4px)" : "none",
-          transition: "transform 180ms ease, border-color 180ms ease, background 180ms ease, color 180ms ease, box-shadow 180ms ease",
-          "&:hover": {
-            background: active ? activeBg : hoverBg,
-            color: "text.primary",
-            borderColor: active ? alpha(theme.palette.primary.main, 0.24) : alpha(theme.palette.divider, 0.72),
-          },
-        }}
-      >
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ px: 1.5, py: 1.15, minWidth: 0 }}>
-          <Box
-            sx={{
-              width: 34, height: 34, borderRadius: "12px",
-              display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-              color: active ? "primary.main" : "text.secondary",
-              backgroundColor: active ? alpha(theme.palette.primary.light, 0.8) : alpha(theme.palette.background.paper, 0.76),
-              border: "1px solid",
-              borderColor: active ? alpha(theme.palette.primary.main, 0.18) : alpha(theme.palette.divider, 0.65),
-            }}
-          >
-            <Icon className="h-4 w-4" />
-          </Box>
-          <Box sx={{ minWidth: 0 }}>
-            <Typography sx={{ fontSize: 13, fontWeight: 700, lineHeight: 1.2, color: "inherit" }}>
-              {item.label}
-            </Typography>
-          </Box>
-        </Stack>
-      </Box>
-    );
+function isPathActive(pathname: string, href?: string) {
+  if (!href) {
+    return false;
   }
 
-  // Desktop layout — texto se desvanece con CSS, sin render condicional
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function isItemAllowed(
+  item: NavItem,
+  userRole?: MvpDashboardNavProps["userRole"],
+  enabledFeatures?: SessionFeatureKey[],
+) {
+  const roleAllowed = !item.adminOnly || userRole === "ADMIN";
+  const featureAllowed =
+    !item.requiredFeature || enabledFeatures?.includes(item.requiredFeature);
+
+  return roleAllowed && featureAllowed;
+}
+
+function getVisibleNavItems(
+  items: NavItem[],
+  userRole?: MvpDashboardNavProps["userRole"],
+  enabledFeatures?: SessionFeatureKey[],
+): NavItem[] {
+  return items.reduce<NavItem[]>((acc, item) => {
+    if (!isItemAllowed(item, userRole, enabledFeatures)) {
+      return acc;
+    }
+
+    if (!item.children?.length) {
+      return item.href ? [...acc, item] : acc;
+    }
+
+    const visibleChildren = getVisibleNavItems(
+      item.children,
+      userRole,
+      enabledFeatures,
+    );
+
+    if (!visibleChildren.length && !item.href) {
+      return acc;
+    }
+
+    return [...acc, { ...item, children: visibleChildren }];
+  }, []);
+}
+
+function getVisibleNavSections(
+  sections: NavSection[],
+  userRole?: MvpDashboardNavProps["userRole"],
+  enabledFeatures?: SessionFeatureKey[],
+) {
+  return sections.reduce<NavSection[]>((acc, section) => {
+    const items = getVisibleNavItems(section.items, userRole, enabledFeatures);
+
+    return items.length ? [...acc, { ...section, items }] : acc;
+  }, []);
+}
+
+function NavLinkCard({
+  item,
+  active,
+  compact = false,
+  iconOnly = false,
+}: NavLinkCardProps) {
+  const theme = useTheme();
+  const Icon = item.icon;
+  const activeBg = `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.18)}, ${alpha(theme.palette.primary.main, 0.09)})`;
+  const hoverBg = alpha(theme.palette.background.paper, 0.72);
+  const focusRing = `0 0 0 1px ${alpha(theme.palette.primary.main, 0.34)}, 0 0 0 4px ${alpha(theme.palette.primary.main, 0.16)}`;
+
   return (
     <Box
       component={Link}
-      href={item.href}
+      href={item.href ?? "#"}
+      aria-current={active ? "page" : undefined}
       sx={{
-        display: "flex",
+        display: "block",
+        minWidth: 0,
+        position: "relative",
         textDecoration: "none",
-        borderRadius: "18px",
+        borderRadius: "16px",
         border: "1px solid",
-        borderColor: active ? alpha(theme.palette.primary.main, 0.24) : "transparent",
-        background: active ? activeBg : "transparent",
+        borderColor: active
+          ? alpha(theme.palette.primary.main, 0.24)
+          : alpha(theme.palette.divider, 0.68),
+        background: active
+          ? activeBg
+          : alpha(theme.palette.background.paper, 0.52),
         color: active ? "text.primary" : "text.secondary",
-        boxShadow: active ? `0 10px 24px ${alpha(theme.palette.primary.main, 0.14)}` : "none",
-        transform: active && !iconOnly ? "translateX(4px)" : "none",
-        alignItems: "center",
-        justifyContent: iconOnly ? "center" : "flex-start",
-        px: iconOnly ? 0 : 2,
-        py: 1.5,
-        gap: iconOnly ? 0 : "10px",
-        overflow: "hidden",
-        transition: [
-          `transform 180ms ease`,
-          `border-color 180ms ease`,
-          `background 180ms ease`,
-          `color 180ms ease`,
-          `box-shadow 180ms ease`,
-          `padding ${TRANSITION}`,
-          `gap ${TRANSITION}`,
-          `justify-content ${TRANSITION}`,
-        ].join(", "),
+        boxShadow: active
+          ? `0 10px 24px ${alpha(theme.palette.primary.main, 0.12)}`
+          : "none",
+        transition:
+          "border-color 180ms ease, background 180ms ease, color 180ms ease, box-shadow 180ms ease",
+        // "&::before": {
+        //   content: '""',
+        //   position: "absolute",
+        //   top: 10,
+        //   bottom: 10,
+        //   left: 8,
+        //   width: 3,
+        //   borderRadius: 999,
+        //   backgroundColor: active ? theme.palette.primary.main : "transparent",
+        //   transition: "background-color 180ms ease",
+        // },
         "&:hover": {
           background: active ? activeBg : hoverBg,
           color: "text.primary",
-          borderColor: active ? alpha(theme.palette.primary.main, 0.24) : alpha(theme.palette.divider, 0.72),
+          borderColor: active
+            ? alpha(theme.palette.primary.main, 0.24)
+            : alpha(theme.palette.divider, 0.72),
+        },
+        "&:focus-visible": {
+          outline: "none",
+          boxShadow: focusRing,
+        },
+      }}
+    >
+      <Stack
+        direction="row"
+        spacing={1}
+        alignItems="center"
+        sx={{ px: 1.75, py: 1.15, minWidth: 0 }}
+      >
+        <Box
+          sx={{
+            width: 34,
+            height: 34,
+            borderRadius: "12px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+            color: active ? "primary.main" : "text.secondary",
+            backgroundColor: active
+              ? alpha(theme.palette.primary.light, 0.94)
+              : alpha(theme.palette.background.paper, 0.76),
+            border: "1px solid",
+            borderColor: active
+              ? alpha(theme.palette.primary.main, 0.18)
+              : alpha(theme.palette.divider, 0.65),
+          }}
+        >
+          <Icon className="h-4 w-4" />
+        </Box>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography
+            sx={{
+              fontSize: 13,
+              fontWeight: 700,
+              lineHeight: 1.2,
+              color: "inherit",
+            }}
+          >
+            {item.label}
+          </Typography>
+        </Box>
+      </Stack>
+    </Box>
+  );
+
+  // Desktop layout
+  // return (
+  //   <Box
+  //     component={Link}
+  //     href={item.href ?? "#"}
+  //     aria-current={active ? "page" : undefined}
+  //     aria-label={iconOnly ? item.label : undefined}
+  //     sx={{
+  //       display: "flex",
+  //       textDecoration: "none",
+  //       position: "relative",
+  //       borderRadius: "20px",
+  //       border: "1px solid",
+  //       borderColor: active
+  //         ? alpha(theme.palette.primary.main, 0.24)
+  //         : alpha(theme.palette.divider, 0.62),
+  //       background: active
+  //         ? activeBg
+  //         : alpha(theme.palette.background.paper, 0.34),
+  //       color: active ? "text.primary" : "text.secondary",
+  //       boxShadow: active
+  //         ? `0 12px 30px ${alpha(theme.palette.primary.main, 0.12)}`
+  //         : "none",
+  //       alignItems: "center",
+  //       justifyContent: iconOnly ? "center" : "flex-start",
+  //       px: iconOnly ? 0 : 2,
+  //       py: 1.5,
+  //       gap: iconOnly ? 0 : "10px",
+  //       overflow: "hidden",
+  //       transition: [
+  //         `border-color 180ms ease`,
+  //         `background 180ms ease`,
+  //         `color 180ms ease`,
+  //         `box-shadow 180ms ease`,
+  //         `padding ${TRANSITION}`,
+  //         `gap ${TRANSITION}`,
+  //         `justify-content ${TRANSITION}`,
+  //       ].join(", "),
+  //       "&::before": {
+  //         content: '""',
+  //         position: "absolute",
+  //         top: 11,
+  //         bottom: 11,
+  //         left: iconOnly ? "50%" : 8,
+  //         transform: iconOnly ? "translateX(-50%)" : "none",
+  //         width: 3,
+  //         borderRadius: 999,
+  //         backgroundColor: active ? theme.palette.primary.main : "transparent",
+  //         transition: "background-color 180ms ease",
+  //       },
+  //       "&:hover": {
+  //         background: active ? activeBg : hoverBg,
+  //         color: "text.primary",
+  //         borderColor: active
+  //           ? alpha(theme.palette.primary.main, 0.24)
+  //           : alpha(theme.palette.divider, 0.72),
+  //       },
+  //       "&:focus-visible": {
+  //         outline: "none",
+  //         boxShadow: focusRing,
+  //       },
+  //     }}
+  //   >
+  //     <Box
+  //       sx={{
+  //         width: 38,
+  //         height: 38,
+  //         borderRadius: "14px",
+  //         display: "flex",
+  //         alignItems: "center",
+  //         justifyContent: "center",
+  //         flexShrink: 0,
+  //         color: active ? "primary.main" : "text.secondary",
+  //         backgroundColor: active
+  //           ? alpha(theme.palette.primary.light, 0.8)
+  //           : alpha(theme.palette.background.paper, 0.76),
+  //         border: "1px solid",
+  //         borderColor: active
+  //           ? alpha(theme.palette.primary.main, 0.18)
+  //           : alpha(theme.palette.divider, 0.65),
+  //       }}
+  //     >
+  //       <Icon className="h-4.5 w-4.5" />
+  //     </Box>
+
+  //     <Box
+  //       sx={{
+  //         minWidth: 0,
+  //         overflow: "hidden",
+  //         maxWidth: iconOnly ? 0 : 300,
+  //         opacity: iconOnly ? 0 : 1,
+  //         whiteSpace: "nowrap",
+  //         transition: `max-width ${TRANSITION}, opacity 180ms ease`,
+  //       }}
+  //     >
+  //       <Typography
+  //         sx={{
+  //           fontSize: 14,
+  //           fontWeight: 700,
+  //           lineHeight: 1.2,
+  //           color: "inherit",
+  //         }}
+  //       >
+  //         {item.label}
+  //       </Typography>
+  //     </Box>
+  //   </Box>
+  // );
+}
+
+type NavModuleCardProps = {
+  item: NavItem;
+  children: NavItem[];
+  iconOnly?: boolean;
+  compact?: boolean;
+  open: boolean;
+  onToggle: () => void;
+  idPrefix?: string;
+};
+
+function NavSubItem({ item, active }: { item: NavItem; active: boolean }) {
+  const theme = useTheme();
+  const hoverBg = alpha(theme.palette.background.paper, 0.84);
+  const activeBg = alpha(theme.palette.primary.main, 0.1);
+  const focusRing = `0 0 0 1px ${alpha(theme.palette.primary.main, 0.28)}, 0 0 0 4px ${alpha(theme.palette.primary.main, 0.12)}`;
+
+  return (
+    <Box
+      component={Link}
+      href={item.href ?? "#"}
+      aria-current={active ? "page" : undefined}
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        gap: "10px",
+        textDecoration: "none",
+        borderRadius: "14px",
+        px: 1.5,
+        py: 1,
+        ml: 0.75,
+        border: "1px solid",
+        borderColor: active
+          ? alpha(theme.palette.primary.main, 0.18)
+          : "transparent",
+        backgroundColor: active ? activeBg : "transparent",
+        color: active ? theme.palette.primary.main : "text.secondary",
+        transition:
+          "background 180ms ease, color 180ms ease, border-color 180ms ease",
+        "&:hover": {
+          background: active ? activeBg : hoverBg,
+          color: active ? theme.palette.primary.main : "text.primary",
+        },
+        "&:focus-visible": {
+          outline: "none",
+          boxShadow: focusRing,
         },
       }}
     >
       <Box
         sx={{
-          width: 38, height: 38, borderRadius: "14px",
-          display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-          color: active ? "primary.main" : "text.secondary",
-          backgroundColor: active ? alpha(theme.palette.primary.light, 0.8) : alpha(theme.palette.background.paper, 0.76),
-          border: "1px solid",
-          borderColor: active ? alpha(theme.palette.primary.main, 0.18) : alpha(theme.palette.divider, 0.65),
+          width: active ? 8 : 5,
+          height: active ? 8 : 5,
+          borderRadius: "50%",
+          flexShrink: 0,
+          backgroundColor: active
+            ? theme.palette.primary.main
+            : alpha(theme.palette.text.secondary, 0.4),
+          boxShadow: active
+            ? `0 0 6px ${alpha(theme.palette.primary.main, 0.55)}`
+            : "none",
+          transition:
+            "width 180ms ease, height 180ms ease, background-color 180ms ease, box-shadow 180ms ease",
         }}
-      >
-        <Icon className="h-4.5 w-4.5" />
-      </Box>
-
-      <Box
+      />
+      <Typography
         sx={{
-          minWidth: 0,
-          overflow: "hidden",
-          maxWidth: iconOnly ? 0 : 300,
-          opacity: iconOnly ? 0 : 1,
-          whiteSpace: "nowrap",
-          transition: `max-width ${TRANSITION}, opacity 180ms ease`,
+          fontSize: 13,
+          fontWeight: active ? 700 : 500,
+          lineHeight: 1.2,
+          color: "inherit",
         }}
       >
-        <Typography sx={{ fontSize: 14, fontWeight: 700, lineHeight: 1.2, color: "inherit" }}>
-          {item.label}
-        </Typography>
-      </Box>
+        {item.label}
+      </Typography>
     </Box>
   );
+}
+
+function NavModuleCard({
+  item,
+  children,
+  iconOnly = false,
+  compact = false,
+  open,
+  onToggle,
+  idPrefix = "nav",
+}: NavModuleCardProps) {
+  const theme = useTheme();
+  const pathname = usePathname();
+  const Icon = item.icon;
+
+  const anyChildActive = children.some((child) =>
+    isPathActive(pathname, child.href),
+  );
+  const collapseId = `${idPrefix}-${item.id}-children`;
+
+  const headerHighlighted = open || anyChildActive;
+  const activeBg = `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.16)}, ${alpha(theme.palette.primary.main, 0.08)})`;
+  const hoverBg = alpha(theme.palette.background.paper, 0.72);
+  const focusRing = `0 0 0 1px ${alpha(theme.palette.primary.main, 0.34)}, 0 0 0 4px ${alpha(theme.palette.primary.main, 0.16)}`;
+
+  return (
+    <Box
+      sx={{
+        borderRadius: "18px",
+        border: "1px solid",
+        borderColor: headerHighlighted
+          ? alpha(theme.palette.primary.main, 0.24)
+          : alpha(theme.palette.divider, 0.68),
+        background: headerHighlighted
+          ? activeBg
+          : alpha(theme.palette.background.paper, 0.52),
+        overflow: "hidden",
+        transition:
+          "border-color 180ms ease, background 180ms ease, box-shadow 180ms ease",
+        boxShadow: headerHighlighted
+          ? `0 10px 24px ${alpha(theme.palette.primary.main, 0.14)}`
+          : "none",
+      }}
+    >
+      <Box
+        component="button"
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        aria-controls={collapseId}
+        sx={{
+          width: "100%",
+          display: "flex",
+          alignItems: "center",
+          gap: 1,
+          px: 1.5,
+          py: 1.15,
+          border: 0,
+          background: "transparent",
+          color: headerHighlighted ? "text.primary" : "text.secondary",
+          cursor: "pointer",
+          textAlign: "left",
+          "&:focus-visible": {
+            outline: "none",
+            boxShadow: `inset ${focusRing}`,
+          },
+        }}
+      >
+        <Box
+          sx={{
+            width: 34,
+            height: 34,
+            borderRadius: "12px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+            color: anyChildActive ? "primary.main" : "text.secondary",
+            backgroundColor: anyChildActive
+              ? alpha(theme.palette.primary.light, 0.8)
+              : alpha(theme.palette.background.paper, 0.76),
+            border: "1px solid",
+            borderColor: anyChildActive
+              ? alpha(theme.palette.primary.main, 0.18)
+              : alpha(theme.palette.divider, 0.65),
+          }}
+        >
+          <Icon className="h-4 w-4" />
+        </Box>
+        <Box sx={{ minWidth: 0, flex: 1 }}>
+          <Typography
+            sx={{
+              fontSize: 13,
+              fontWeight: 700,
+              lineHeight: 1.2,
+              color: "inherit",
+            }}
+          >
+            {item.label}
+          </Typography>
+        </Box>
+        <ChevronDown
+          className="h-4 w-4"
+          style={{
+            flexShrink: 0,
+            transition: "transform 220ms ease",
+            transform: open ? "rotate(180deg)" : "rotate(0deg)",
+          }}
+        />
+      </Box>
+
+      <Collapse in={open} timeout={220}>
+        <Stack
+          id={collapseId}
+          spacing={0.5}
+          sx={{
+            mx: 1,
+            mb: 1,
+            px: 0.5,
+            pb: 0.5,
+            borderLeft: `1px solid ${alpha(theme.palette.divider, 0.72)}`,
+          }}
+        >
+          {children.map((subItem) => (
+            <NavSubItem
+              key={subItem.id}
+              item={subItem}
+              active={isPathActive(pathname, subItem.href)}
+            />
+          ))}
+        </Stack>
+      </Collapse>
+    </Box>
+  );
+
+  // return (
+  //   <Box>
+  //     <Box
+  //       component="button"
+  //       type="button"
+  //       onClick={() => !iconOnly && onToggle()}
+  //       aria-label={iconOnly ? item.label : undefined}
+  //       aria-expanded={!iconOnly ? open : undefined}
+  //       aria-controls={!iconOnly ? collapseId : undefined}
+  //       sx={{
+  //         display: "flex",
+  //         width: "100%",
+  //         cursor: iconOnly ? "default" : "pointer",
+  //         position: "relative",
+  //         borderRadius: "20px",
+  //         border: "1px solid",
+  //         borderColor: headerHighlighted ? alpha(theme.palette.primary.main, 0.24) : alpha(theme.palette.divider, 0.62),
+  //         background: headerHighlighted ? activeBg : alpha(theme.palette.background.paper, 0.34),
+  //         color: headerHighlighted ? "text.primary" : "text.secondary",
+  //         boxShadow: headerHighlighted ? `0 12px 30px ${alpha(theme.palette.primary.main, 0.12)}` : "none",
+  //         alignItems: "center",
+  //         justifyContent: iconOnly ? "center" : "flex-start",
+  //         px: iconOnly ? 0 : 2,
+  //         py: 1.5,
+  //         gap: iconOnly ? 0 : "10px",
+  //         overflow: "hidden",
+  //         outline: "none",
+  //         transition: [
+  //           `border-color 180ms ease`,
+  //           `background 180ms ease`,
+  //           `color 180ms ease`,
+  //           `box-shadow 180ms ease`,
+  //           `padding ${TRANSITION}`,
+  //           `gap ${TRANSITION}`,
+  //         ].join(", "),
+  //         "&::before": {
+  //           content: '""',
+  //           position: "absolute",
+  //           top: 11,
+  //           bottom: 11,
+  //           left: iconOnly ? "50%" : 8,
+  //           transform: iconOnly ? "translateX(-50%)" : "none",
+  //           width: 3,
+  //           borderRadius: 999,
+  //           backgroundColor: headerHighlighted ? theme.palette.primary.main : "transparent",
+  //           transition: "background-color 180ms ease",
+  //         },
+  //         "&:hover": {
+  //           background: headerHighlighted ? activeBg : hoverBg,
+  //           color: "text.primary",
+  //           borderColor: headerHighlighted
+  //             ? alpha(theme.palette.primary.main, 0.24)
+  //             : alpha(theme.palette.divider, 0.72),
+  //         },
+  //         "&:focus-visible": {
+  //           outline: "none",
+  //           boxShadow: focusRing,
+  //         },
+  //       }}
+  //     >
+  //       <Box
+  //         sx={{
+  //           width: 38, height: 38, borderRadius: "14px",
+  //           display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+  //           color: anyChildActive ? "primary.main" : "text.secondary",
+  //           backgroundColor: anyChildActive
+  //             ? alpha(theme.palette.primary.light, 0.8)
+  //             : alpha(theme.palette.background.paper, 0.76),
+  //           border: "1px solid",
+  //           borderColor: anyChildActive
+  //             ? alpha(theme.palette.primary.main, 0.18)
+  //             : alpha(theme.palette.divider, 0.65),
+  //         }}
+  //       >
+  //         <Icon className="h-4.5 w-4.5" />
+  //       </Box>
+
+  //       <Box
+  //         sx={{
+  //           minWidth: 0,
+  //           overflow: "hidden",
+  //           maxWidth: iconOnly ? 0 : 300,
+  //           opacity: iconOnly ? 0 : 1,
+  //           display: "flex",
+  //           alignItems: "center",
+  //           justifyContent: "space-between",
+  //           flex: 1,
+  //           whiteSpace: "nowrap",
+  //           transition: `max-width ${TRANSITION}, opacity 180ms ease`,
+  //         }}
+  //       >
+  //         <Typography sx={{ fontSize: 14, fontWeight: 700, lineHeight: 1.2, color: "inherit" }}>
+  //           {item.label}
+  //         </Typography>
+  //         <Stack direction="row" spacing={1} alignItems="center">
+  //           <ChevronDown
+  //             className="h-4 w-4"
+  //             style={{
+  //               flexShrink: 0,
+  //               transition: "transform 220ms ease",
+  //               transform: open ? "rotate(180deg)" : "rotate(0deg)",
+  //             }}
+  //           />
+  //         </Stack>
+  //       </Box>
+  //     </Box>
+
+  //     {!iconOnly && (
+  //       <Collapse in={open} timeout={220} id={collapseId}>
+  //         <Stack
+  //           spacing={0.5}
+  //           sx={{
+  //             mt: 0.75,
+  //             ml: 2.75,
+  //             pl: 1.25,
+  //             borderLeft: `1px solid ${alpha(theme.palette.divider, 0.72)}`,
+  //           }}
+  //         >
+  //           {children.map((subItem) => (
+  //             <NavSubItem
+  //               key={subItem.id}
+  //               item={subItem}
+  //               active={isPathActive(pathname, subItem.href)}
+  //             />
+  //           ))}
+  //         </Stack>
+  //       </Collapse>
+  //     )}
+  //   </Box>
+  // );
 }
 
 export function MvpDashboardNav({
@@ -242,18 +793,17 @@ export function MvpDashboardNav({
 }: MvpDashboardNavProps) {
   const theme = useTheme();
   const pathname = usePathname();
-  const visibleItems = NAV_ITEMS.filter((item) => {
-    const roleAllowed = !item.adminOnly || userRole === "ADMIN";
-    const featureAllowed =
-      !item.requiredFeature || enabledFeatures?.includes(item.requiredFeature);
-    return roleAllowed && featureAllowed;
-  });
+  const visibleSections = useMemo(
+    () => getVisibleNavSections(NAV_SECTIONS, userRole, enabledFeatures),
+    [enabledFeatures, userRole],
+  );
 
   const shellBorder = alpha(theme.palette.divider, 0.72);
   const surfaceBorder = alpha(theme.palette.divider, 0.88);
   const panelBg = alpha(theme.palette.background.paper, 0.88);
   const surfaceBg = alpha(theme.palette.background.paper, 0.96);
   const mobileCardBg = alpha(theme.palette.background.paper, 0.86);
+  const sectionLabelColor = alpha(theme.palette.text.secondary, 0.84);
   const scrollbarThumb = alpha(theme.palette.primary.main, 0.28);
   const scrollbarThumbHover = alpha(theme.palette.primary.main, 0.42);
   const scrollbarTrack = alpha(theme.palette.background.default, 0.78);
@@ -296,13 +846,50 @@ export function MvpDashboardNav({
       background: `linear-gradient(90deg, ${scrollbarThumbHover}, ${alpha(theme.palette.secondary.main, 0.48)})`,
     },
   } as const;
+  const firstActiveModuleId = useMemo(() => {
+    for (const section of visibleSections) {
+      const activeModule = section.items.find(
+        (item) =>
+          item.children?.length &&
+          item.children.some((child) => isPathActive(pathname, child.href)),
+      );
+
+      if (activeModule) {
+        return activeModule.id;
+      }
+    }
+
+    return null;
+  }, [pathname, visibleSections]);
+  const [desktopOpenModuleId, setDesktopOpenModuleId] = useState<string | null>(
+    firstActiveModuleId,
+  );
+  const [mobileOpenModuleId, setMobileOpenModuleId] = useState<string | null>(
+    firstActiveModuleId,
+  );
+
+  useEffect(() => {
+    if (firstActiveModuleId) {
+      setDesktopOpenModuleId(firstActiveModuleId);
+      setMobileOpenModuleId(firstActiveModuleId);
+    }
+  }, [firstActiveModuleId]);
+
+  function toggleModule(
+    moduleId: string,
+    currentOpenId: string | null,
+    setOpenId: Dispatch<SetStateAction<string | null>>,
+  ) {
+    setOpenId(currentOpenId === moduleId ? null : moduleId);
+  }
+  const desktopCompact = collapsed;
 
   return (
     <>
-      {/* ── Desktop sidebar ── */}
       <Paper
         elevation={0}
         component="aside"
+        aria-label="Navegacion principal"
         sx={{
           display: { xs: "none", lg: "flex" },
           height: "100%",
@@ -314,23 +901,22 @@ export function MvpDashboardNav({
           backgroundColor: panelBg,
           backdropFilter: "blur(18px)",
           boxShadow: "0 18px 50px rgba(15,23,42,0.08)",
-          p: collapsed ? 1 : 2,
+          p: collapsed ? 1.25 : 2,
           transition: `padding ${TRANSITION}`,
         }}
       >
-        {/* Logo / business section — animado */}
         <Box
           sx={{
             display: "flex",
             alignItems: "center",
-            justifyContent: collapsed ? "center" : "flex-start",
-            gap: collapsed ? 0 : "12px",
+            justifyContent: "flex-start",
+            gap: "12px",
             borderRadius: "24px",
             border: `1px solid`,
-            borderColor: collapsed ? "transparent" : surfaceBorder,
-            backgroundColor: collapsed ? "transparent" : surfaceBg,
-            boxShadow: collapsed ? "none" : "0 10px 26px rgba(15,23,42,0.05)",
-            p: collapsed ? 0.5 : 1.5,
+            borderColor: surfaceBorder,
+            backgroundColor: surfaceBg,
+            boxShadow: "0 10px 26px rgba(15,23,42,0.05)",
+            p: collapsed ? 1.1 : 1.5,
             overflow: "hidden",
             transition: [
               `gap ${TRANSITION}`,
@@ -341,14 +927,13 @@ export function MvpDashboardNav({
             ].join(", "),
           }}
         >
-          {/* Logo */}
           <Box
             sx={{
-              width: collapsed ? 44 : 56,
-              height: collapsed ? 44 : 56,
+              width: collapsed ? 46 : 56,
+              height: collapsed ? 46 : 56,
               flexShrink: 0,
               overflow: "hidden",
-              borderRadius: collapsed ? "14px" : "18px",
+              borderRadius: collapsed ? "16px" : "18px",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -370,32 +955,69 @@ export function MvpDashboardNav({
             />
           </Box>
 
-          {/* Texto del negocio — se desvanece al colapsar */}
           <Box
             sx={{
               minWidth: 0,
               overflow: "hidden",
-              maxWidth: collapsed ? 0 : 300,
-              opacity: collapsed ? 0 : 1,
+              maxWidth: collapsed ? 124 : 300,
+              opacity: 1,
               whiteSpace: "nowrap",
               transition: `max-width ${TRANSITION}, opacity 200ms ease`,
             }}
           >
             <Typography
-              sx={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.22em", textTransform: "uppercase", color: "text.secondary" }}
+              sx={{
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                fontSize: collapsed ? 10 : 11,
+                fontWeight: 800,
+                letterSpacing: collapsed ? "0.16em" : "0.22em",
+                textTransform: "uppercase",
+                color: "text.secondary",
+              }}
             >
               {businessName ?? "Negocio Principal"}
             </Typography>
-            <Typography sx={{ mt: 0.25, fontSize: 15, fontWeight: 700, color: "text.primary" }}>
+            <Typography
+              sx={{
+                mt: 0.25,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                fontSize: collapsed ? 13 : 15,
+                fontWeight: 700,
+                color: "text.primary",
+              }}
+            >
               Panel operativo
             </Typography>
-            <Typography sx={{ mt: 0.2, fontSize: 12, color: "text.secondary" }}>
-              Gestion central del negocio
-            </Typography>
+            <Stack
+              direction="row"
+              spacing={0.8}
+              alignItems="center"
+              sx={{
+                mt: 0.55,
+                maxHeight: collapsed ? 0 : 24,
+                opacity: collapsed ? 0 : 1,
+                overflow: "hidden",
+                transition: `max-height ${TRANSITION}, opacity 180ms ease`,
+              }}
+            >
+              {/* <Box
+                sx={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: "50%",
+                  backgroundColor: theme.palette.success.main,
+                  boxShadow: `0 0 0 4px ${alpha(theme.palette.success.main, 0.14)}`,
+                }}
+              />
+              <Typography sx={{ fontSize: 12, color: "text.secondary" }}>
+                Modulos operativos habilitados
+              </Typography> */}
+            </Stack>
           </Box>
         </Box>
 
-        {/* Nav items */}
         <Box
           sx={{
             mt: collapsed ? 1 : 3,
@@ -406,37 +1028,61 @@ export function MvpDashboardNav({
             ...desktopScrollbarSx,
           }}
         >
-          <Typography
-            sx={{
-              px: 1,
-              fontSize: 11,
-              fontWeight: 800,
-              letterSpacing: "0.22em",
-              textTransform: "uppercase",
-              color: "text.secondary",
-              maxHeight: collapsed ? 0 : 24,
-              opacity: collapsed ? 0 : 1,
-              overflow: "hidden",
-              whiteSpace: "nowrap",
-              transition: `max-height ${TRANSITION}, opacity 180ms ease`,
-            }}
-          >
-            Navegacion
-          </Typography>
+          <Stack spacing={collapsed ? 1.1 : 2.2}>
+            {visibleSections.map((section) => (
+              <Box key={section.id}>
+                <Typography
+                  sx={{
+                    px: 1,
+                    mb: 0.9,
+                    fontSize: collapsed ? 9 : 10,
+                    fontWeight: 800,
+                    letterSpacing: collapsed ? "0.14em" : "0.18em",
+                    textTransform: "uppercase",
+                    color: sectionLabelColor,
+                    whiteSpace: "nowrap",
+                    transition: `max-height ${TRANSITION}, opacity 180ms ease, margin-bottom 180ms ease`,
+                  }}
+                >
+                  {section.label}
+                </Typography>
 
-          <Stack spacing={1.1} sx={{ mt: collapsed ? 0 : 1.5, transition: `margin-top ${TRANSITION}` }}>
-            {visibleItems.map((item) => (
-              <NavLinkCard
-                key={item.href}
-                item={item}
-                active={pathname === item.href}
-                iconOnly={collapsed}
-              />
+                <Stack spacing={1.1}>
+                  {section.items.map((item) => {
+                    const content =
+                      item.children && item.children.length > 0 ? (
+                        <NavModuleCard
+                          key={item.id}
+                          item={item}
+                          children={item.children}
+                          compact={desktopCompact}
+                          open={desktopOpenModuleId === item.id}
+                          onToggle={() =>
+                            toggleModule(
+                              item.id,
+                              desktopOpenModuleId,
+                              setDesktopOpenModuleId,
+                            )
+                          }
+                          idPrefix="desktop"
+                        />
+                      ) : (
+                        <NavLinkCard
+                          key={item.id}
+                          item={item}
+                          active={isPathActive(pathname, item.href)}
+                          compact={desktopCompact}
+                        />
+                      );
+
+                    return <Box key={item.id}>{content}</Box>;
+                  })}
+                </Stack>
+              </Box>
             ))}
           </Stack>
         </Box>
 
-        {/* Toggle button */}
         <Box
           sx={{
             mt: 1.5,
@@ -453,7 +1099,8 @@ export function MvpDashboardNav({
               border: `1px solid ${shellBorder}`,
               backgroundColor: alpha(theme.palette.background.paper, 0.8),
               color: "text.secondary",
-              transition: "background-color 200ms ease, color 200ms ease, border-color 200ms ease",
+              transition:
+                "background-color 200ms ease, color 200ms ease, border-color 200ms ease",
               "&:hover": {
                 backgroundColor: alpha(theme.palette.background.paper, 0.95),
                 borderColor: alpha(theme.palette.primary.main, 0.3),
@@ -470,7 +1117,6 @@ export function MvpDashboardNav({
         </Box>
       </Paper>
 
-      {/* ── Mobile nav (horizontal scroll, unchanged) ── */}
       <Stack spacing={1.5} sx={{ display: { xs: "flex", lg: "none" } }}>
         <Paper
           elevation={0}
@@ -537,31 +1183,73 @@ export function MvpDashboardNav({
           </Stack>
         </Paper>
 
-        <Box
+        <Paper
+          elevation={0}
           sx={{
-            display: "flex",
-            gap: 1,
-            overflowX: "auto",
-            pb: 0.5,
-            pr: 0.25,
-            scrollBehavior: "smooth",
-            scrollSnapType: "x proximity",
-            ...mobileScrollbarSx,
+            borderRadius: "22px",
+            border: `1px solid ${shellBorder}`,
+            backgroundColor: mobileCardBg,
+            backdropFilter: "blur(18px)",
+            boxShadow: "0 8px 30px rgba(15,23,42,0.05)",
+            p: 1,
           }}
         >
-          {visibleItems.map((item) => (
-            <Box
-              key={`mobile-${item.href}`}
-              sx={{ minWidth: 180, flexShrink: 0, scrollSnapAlign: "start" }}
-            >
-              <NavLinkCard
-                item={item}
-                active={pathname === item.href}
-                compact
-              />
-            </Box>
-          ))}
-        </Box>
+          <Stack
+            spacing={2}
+            sx={{
+              maxHeight: "min(60vh, 520px)",
+              overflowY: "auto",
+              pr: 0.25,
+              ...mobileScrollbarSx,
+            }}
+          >
+            {visibleSections.map((section) => (
+              <Box key={`mobile-${section.id}`}>
+                <Typography
+                  sx={{
+                    px: 0.5,
+                    mb: 0.9,
+                    fontSize: 10,
+                    fontWeight: 800,
+                    letterSpacing: "0.16em",
+                    textTransform: "uppercase",
+                    color: sectionLabelColor,
+                  }}
+                >
+                  {section.label}
+                </Typography>
+                <Stack spacing={1}>
+                  {section.items.map((item) =>
+                    item.children && item.children.length > 0 ? (
+                      <NavModuleCard
+                        key={`mobile-${item.id}`}
+                        item={item}
+                        children={item.children}
+                        compact
+                        open={mobileOpenModuleId === item.id}
+                        onToggle={() =>
+                          toggleModule(
+                            item.id,
+                            mobileOpenModuleId,
+                            setMobileOpenModuleId,
+                          )
+                        }
+                        idPrefix="mobile"
+                      />
+                    ) : (
+                      <NavLinkCard
+                        key={`mobile-${item.id}`}
+                        item={item}
+                        active={isPathActive(pathname, item.href)}
+                        compact
+                      />
+                    ),
+                  )}
+                </Stack>
+              </Box>
+            ))}
+          </Stack>
+        </Paper>
       </Stack>
     </>
   );
