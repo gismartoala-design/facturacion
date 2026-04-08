@@ -10,8 +10,13 @@ export type CashCloseTicketData = {
   openedAt: string;
   closedAt: string;
   openingAmount: number;
+  salesTotal?: number | null;
   salesCashTotal: number;
   salesLabel?: string;
+  paymentBreakdown?: Array<{
+    label: string;
+    total: number;
+  }>;
   salesCount?: number | null;
   movementsTotal?: number | null;
   expectedClosing?: number | null;
@@ -173,7 +178,22 @@ export function buildCashCloseTicketHtml(
         <table>
           <tbody>
             <tr><td>Fondo inicial</td><td class="right">$${formatMoney(data.openingAmount)}</td></tr>
+            ${
+              data.salesTotal != null
+                ? `<tr><td>Total vendido</td><td class="right">$${formatMoney(data.salesTotal)}</td></tr>`
+                : ""
+            }
             <tr><td>${escapeHtml(data.salesLabel?.trim() || "Ventas efectivo")}</td><td class="right">$${formatMoney(data.salesCashTotal)}</td></tr>
+            ${
+              data.paymentBreakdown && data.paymentBreakdown.length > 0
+                ? `<tr><td>Cobros por medio</td><td class="right"></td></tr>${data.paymentBreakdown
+                    .map(
+                      (payment) =>
+                        `<tr><td>${escapeHtml(payment.label)}</td><td class="right">$${formatMoney(payment.total)}</td></tr>`,
+                    )
+                    .join("")}`
+                : ""
+            }
             ${
               data.salesCount != null
                 ? `<tr><td>Ventas registradas</td><td class="right">${escapeHtml(String(data.salesCount))}</td></tr>`

@@ -248,9 +248,18 @@ export function buildCashCloseTicketEscPos(
 
   esc.line(divider());
   esc.line(amountLine("Fondo inicial", formatMoney(data.openingAmount)));
+  if (data.salesTotal != null) {
+    esc.line(amountLine("Total vendido", formatMoney(data.salesTotal)));
+  }
   esc.line(
     amountLine(data.salesLabel?.trim() || "Ventas efectivo", formatMoney(data.salesCashTotal)),
   );
+  if (data.paymentBreakdown && data.paymentBreakdown.length > 0) {
+    esc.line("Cobros por medio");
+    for (const payment of data.paymentBreakdown) {
+      esc.line(amountLine(payment.label, formatMoney(payment.total)));
+    }
+  }
   if (data.salesCount != null) {
     esc.line(amountLine("Ventas registradas", String(data.salesCount)));
   }

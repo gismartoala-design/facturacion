@@ -1,4 +1,9 @@
-import { CashSessionStatus, CollectionStatus, Prisma } from "@prisma/client";
+import {
+  CashSessionStatus,
+  CollectionStatus,
+  Prisma,
+  SaleStatus,
+} from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { createLogger } from "@/lib/logger";
@@ -11,6 +16,11 @@ import {
 } from "./schemas";
 
 const logger = createLogger("CashSessionService");
+
+export type CashSessionPaymentSummary = {
+  paymentMethod: string;
+  total: number;
+};
 
 export type CashSessionSummary = {
   id: string;
@@ -25,19 +35,39 @@ export type CashSessionSummary = {
   openedById: string;
   salesCashTotal: number;
   movementsTotal: number;
+  paymentBreakdown: CashSessionPaymentSummary[];
 };
 
 type CashSessionComputedTotals = {
   salesCashTotal: Prisma.Decimal;
   movementsTotal: Prisma.Decimal;
   expectedClosing: Prisma.Decimal;
+  paymentBreakdown: Array<{
+    paymentMethod: string;
+    total: Prisma.Decimal;
+  }>;
 };
+
+const PAYMENT_METHOD_SORT_ORDER = ["01", "16", "19", "20", "15"];
+
+function comparePaymentMethods(left: string, right: string) {
+  const leftIndex = PAYMENT_METHOD_SORT_ORDER.indexOf(left);
+  const rightIndex = PAYMENT_METHOD_SORT_ORDER.indexOf(right);
+  const normalizedLeft = leftIndex === -1 ? Number.MAX_SAFE_INTEGER : leftIndex;
+  const normalizedRight = rightIndex === -1 ? Number.MAX_SAFE_INTEGER : rightIndex;
+
+  if (normalizedLeft !== normalizedRight) {
+    return normalizedLeft - normalizedRight;
+  }
+
+  return left.localeCompare(right);
+}
 
 async function computeSessionTotals(params: {
   sessionId: string;
   openingAmount: Prisma.Decimal;
 }): Promise<CashSessionComputedTotals> {
-  const [collectionsAggregate, movements] = await Promise.all([
+  const [collectionsAggregate, movements, salePayments] = await Promise.all([
     prisma.collection.aggregate({
       where: {
         cashSessionId: params.sessionId,
@@ -55,6 +85,18 @@ async function computeSessionTotals(params: {
       },
       select: { type: true, amount: true },
     }),
+    prisma.salePayment.findMany({
+      where: {
+        sale: {
+          cashSessionId: params.sessionId,
+          status: SaleStatus.COMPLETED,
+        },
+      },
+      select: {
+        formaPago: true,
+        amount: true,
+      },
+    }),
   ]);
 
   const salesCashTotal = new Prisma.Decimal(collectionsAggregate._sum.amount ?? 0);
@@ -65,11 +107,29 @@ async function computeSessionTotals(params: {
 
     return acc.sub(movement.amount);
   }, new Prisma.Decimal(0));
+  const paymentBreakdownMap = new Map<string, Prisma.Decimal>();
+
+  for (const payment of salePayments) {
+    paymentBreakdownMap.set(
+      payment.formaPago,
+      (paymentBreakdownMap.get(payment.formaPago) ?? new Prisma.Decimal(0)).add(
+        payment.amount,
+      ),
+    );
+  }
+
+  const paymentBreakdown = [...paymentBreakdownMap.entries()]
+    .sort(([left], [right]) => comparePaymentMethods(left, right))
+    .map(([paymentMethod, total]) => ({
+      paymentMethod,
+      total,
+    }));
 
   return {
     salesCashTotal,
     movementsTotal,
     expectedClosing: params.openingAmount.add(salesCashTotal).add(movementsTotal),
+    paymentBreakdown,
   };
 }
 
@@ -92,21 +152,28 @@ async function toCashSessionSummary(raw: {
   const expectedClosing = raw.expectedClosing ?? totals.expectedClosing;
   const difference =
     raw.difference ??
-    (raw.declaredClosing ? raw.declaredClosing.sub(expectedClosing) : null);
+    (raw.declaredClosing !== null
+      ? raw.declaredClosing.sub(expectedClosing)
+      : null);
 
   return {
     id: raw.id,
     status: raw.status,
     openingAmount: Number(raw.openingAmount),
-    declaredClosing: raw.declaredClosing ? Number(raw.declaredClosing) : null,
+    declaredClosing:
+      raw.declaredClosing !== null ? Number(raw.declaredClosing) : null,
     expectedClosing: Number(expectedClosing),
-    difference: difference ? Number(difference) : null,
+    difference: difference !== null ? Number(difference) : null,
     notes: raw.notes,
     openedAt: raw.openedAt,
     closedAt: raw.closedAt,
     openedById: raw.openedById,
     salesCashTotal: Number(totals.salesCashTotal),
     movementsTotal: Number(totals.movementsTotal),
+    paymentBreakdown: totals.paymentBreakdown.map((payment) => ({
+      paymentMethod: payment.paymentMethod,
+      total: Number(payment.total),
+    })),
   };
 }
 
