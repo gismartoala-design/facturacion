@@ -1,14 +1,16 @@
 "use client";
 
+import Autocomplete from "@mui/material/Autocomplete";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import Checkbox from "@mui/material/Checkbox";
 import Chip from "@mui/material/Chip";
-import CircularProgress from "@mui/material/CircularProgress";
-import Divider from "@mui/material/Divider";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogTitle from "@mui/material/DialogTitle";
 import FormControl from "@mui/material/FormControl";
-import FormControlLabel from "@mui/material/FormControlLabel";
+import Grid from "@mui/material/Grid";
 import IconButton from "@mui/material/IconButton";
 import InputAdornment from "@mui/material/InputAdornment";
 import InputLabel from "@mui/material/InputLabel";
@@ -16,84 +18,36 @@ import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Select from "@mui/material/Select";
 import Stack from "@mui/material/Stack";
-import Table from "@mui/material/Table";
-import TableBody from "@mui/material/TableBody";
-import TableCell from "@mui/material/TableCell";
-import TableContainer from "@mui/material/TableContainer";
-import TableHead from "@mui/material/TableHead";
-import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import {
-  BadgeCheck,
+  CalendarRange,
+  CheckCircle,
   FilePlus2,
-  FileSearch,
-  FileText,
-  FolderOpen,
+  PencilLine,
   PlusCircle,
-  RefreshCcw,
+  ReceiptText,
   Save,
   Search,
   Trash2,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useRef, useState, type RefObject } from "react";
 
-import {
-  ACCOUNTING_STATUS_LABELS,
-  ACCOUNTING_STATUS_TONES,
-  formatCurrency,
-  formatDateTime,
-} from "@/modules/accounting/lib/format";
+import { formatCurrency } from "@/modules/accounting/lib/format";
+import type { EntryAccountOption } from "@/modules/accounting/lib/accounting-entries-view-model";
 import { fetchJson } from "@/shared/dashboard/api";
 
-type AccountPlanResponse = {
-  accounts: Array<{
-    code: string;
-    name: string;
-    groupKey: string;
-    groupLabel: string;
-    parentCode: string | null;
-    level: number;
-    acceptsPostings: boolean;
-    defaultNature: "DEBIT" | "CREDIT";
-    description: string;
-    system: boolean;
-  }>;
+type AccountingEntriesPageProps = {
+  initialAccounts: EntryAccountOption[];
+  initialError?: string | null;
 };
 
-type AdjustmentEntriesResponse = {
-  rows: Array<{
-    id: string;
-    status: string;
-    createdAt: string;
-    postedAt: string | null;
-    debitTotal: number;
-    creditTotal: number;
-    balanceDifference: number;
-    source: {
-      title: string;
-      subtitle: string | null;
-    };
-    lines: Array<{
-      id: string;
-      accountCode: string;
-      accountName: string | null;
-      debit: number;
-      credit: number;
-      memo: string | null;
-    }>;
-  }>;
-};
-
-type VoucherHeader = {
+type EntryHeader = {
   date: string;
   voucherType: string;
-  gloss: string;
   reference: string;
-  openingVoucher: boolean;
-  recurrent: boolean;
-  costCenterCode: string;
-  costCenterName: string;
+  gloss: string;
 };
 
 type DraftLine = {
@@ -103,31 +57,39 @@ type DraftLine = {
   detail: string;
 };
 
-type VoucherLine = DraftLine & {
+type EntryLine = DraftLine & {
   localId: string;
 };
 
+type DraftLineFormProps = {
+  accounts: EntryAccountOption[];
+  line: DraftLine;
+  selectedAccount: EntryAccountOption | null;
+  accountCodeInputRef?: RefObject<HTMLInputElement | null>;
+  debitInputRef?: RefObject<HTMLInputElement | null>;
+  error: string | null;
+  onChange: <K extends keyof DraftLine>(field: K, value: DraftLine[K]) => void;
+  onSearchByCode: () => void;
+  onAccountSelected: (account: EntryAccountOption | null) => void;
+};
+
 const VOUCHER_TYPES = [
-  "COMPROBANTE DE EGRESO",
-  "COMPROBANTE DE INGRESO",
-  "DIARIO GENERAL",
-  "AJUSTE CONTABLE",
-];
+  { value: "AJUSTE", label: "Ajuste manual" },
+  { value: "DIARIO", label: "Diario general" },
+  { value: "INGRESO", label: "Ingreso manual" },
+  { value: "EGRESO", label: "Egreso manual" },
+] as const;
 
 function todayInputValue() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function createInitialHeader(): VoucherHeader {
+function createInitialHeader(): EntryHeader {
   return {
     date: todayInputValue(),
-    voucherType: "COMPROBANTE DE EGRESO",
-    gloss: "",
+    voucherType: "AJUSTE",
     reference: "",
-    openingVoucher: false,
-    recurrent: false,
-    costCenterCode: "",
-    costCenterName: "",
+    gloss: "",
   };
 }
 
@@ -140,83 +102,157 @@ function createInitialDraftLine(): DraftLine {
   };
 }
 
-function actionButtonSx(primary = false) {
-  return {
-    borderRadius: "999px",
-    fontWeight: 700,
-    px: 1.75,
-    py: 0.8,
-    color: primary ? "#fff" : "#c62839",
-    backgroundColor: primary ? "#d32f45" : "transparent",
-    borderColor: "rgba(211, 47, 69, 0.18)",
-    "&:hover": {
-      borderColor: "#d32f45",
-      backgroundColor: primary ? "#bc1f36" : "rgba(211, 47, 69, 0.06)",
-    },
-  };
-}
-
-function SummaryCard({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: string;
-  tone: "blue" | "red";
-}) {
+function DraftLineForm({
+  accounts,
+  line,
+  selectedAccount,
+  accountCodeInputRef,
+  debitInputRef,
+  error,
+  onChange,
+  onSearchByCode,
+  onAccountSelected,
+}: DraftLineFormProps) {
   return (
-    <Paper
-      elevation={0}
-      sx={{
-        borderRadius: "22px",
-        border: "1px solid rgba(226, 232, 240, 0.95)",
-        overflow: "hidden",
-        backgroundColor: "#fff",
-      }}
-    >
-      <Box
-        sx={{
-          px: 2,
-          py: 1.1,
-          backgroundColor: tone === "blue" ? "#1e88ff" : "#ff4d4f",
-          color: "#fff",
-          fontWeight: 700,
-        }}
-      >
-        {label}
-      </Box>
-      <Stack
-        alignItems="center"
-        justifyContent="center"
-        spacing={0.8}
-        sx={{ minHeight: 120, px: 2, py: 2.2 }}
-      >
-        <Typography sx={{ fontSize: 17, fontWeight: 700, color: "#0f172a" }}>
-          {value}
-        </Typography>
-      </Stack>
-    </Paper>
+    <Stack spacing={1.5}>
+      <Grid container spacing={1.5}>
+        <Grid size={{ xs: 12, lg: 3 }}>
+          <TextField
+            label="Codigo de cuenta"
+            placeholder="Buscar por codigo"
+            inputRef={accountCodeInputRef}
+            value={line.accountCode}
+            error={Boolean(error)}
+            onChange={(event) => onChange("accountCode", event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                onSearchByCode();
+              }
+            }}
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton size="small" edge="end" onClick={onSearchByCode}>
+                    <Search size={16} color="#64748b" />
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
+          />
+        </Grid>
+
+        <Grid size={{ xs: 12, lg: 5 }}>
+          <Autocomplete
+            options={accounts}
+            value={selectedAccount}
+            onChange={(_, value) => onAccountSelected(value)}
+            filterOptions={(options, state) => {
+              const normalized = state.inputValue.trim().toLowerCase();
+              if (!normalized) {
+                return options;
+              }
+
+              return options.filter(
+                (option) =>
+                  option.name.toLowerCase().includes(normalized) ||
+                  option.code.toLowerCase().includes(normalized) ||
+                  option.groupLabel.toLowerCase().includes(normalized),
+              );
+            }}
+            sx={{
+              "& .MuiInputBase-root": {
+                minHeight: 40,
+                alignItems: "center",
+              },
+            }}
+            getOptionLabel={(option) => option.name}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Nombre de cuenta"
+                placeholder="Buscar por nombre o codigo"
+                InputProps={{
+                  ...params.InputProps,
+                  startAdornment: (
+                    <>
+                      <InputAdornment position="start">
+                        <Search size={16} color="#64748b" />
+                      </InputAdornment>
+                      {params.InputProps.startAdornment}
+                    </>
+                  ),
+                }}
+              />
+            )}
+            renderOption={(props, option) => {
+              const { key, ...optionProps } = props;
+
+              return (
+                <Box component="li" key={key} {...optionProps}>
+                  <Stack spacing={0.15} sx={{ width: "100%" }}>
+                    <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                      {option.name}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                      {option.code} · {option.groupLabel} · Naturaleza{" "}
+                      {option.defaultNature === "DEBIT" ? "debito" : "credito"}
+                    </Typography>
+                  </Stack>
+                </Box>
+              );
+            }}
+          />
+        </Grid>
+
+        <Grid size={{ xs: 12, sm: 6, lg: 2 }}>
+          <TextField
+            label="Debito"
+            type="number"
+            inputRef={debitInputRef}
+            value={line.debit}
+            onChange={(event) => onChange("debit", event.target.value)}
+          />
+        </Grid>
+
+        <Grid size={{ xs: 12, sm: 6, lg: 2 }}>
+          <TextField
+            label="Credito"
+            type="number"
+            value={line.credit}
+            onChange={(event) => onChange("credit", event.target.value)}
+          />
+        </Grid>
+      </Grid>
+
+      <TextField
+        label="Detalle"
+        placeholder="Detalle de la linea"
+        value={line.detail}
+        onChange={(event) => onChange("detail", event.target.value)}
+      />
+    </Stack>
   );
 }
 
-export function AccountingEntriesPage() {
-  const [accounts, setAccounts] = useState<AccountPlanResponse["accounts"]>([]);
-  const [recentEntries, setRecentEntries] = useState<AdjustmentEntriesResponse["rows"]>(
-    [],
-  );
-  const [loading, setLoading] = useState(true);
+export function AccountingEntriesPage({
+  initialAccounts,
+  initialError = null,
+}: AccountingEntriesPageProps) {
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialError);
   const [message, setMessage] = useState<string | null>(null);
-  const [showRecentEntries, setShowRecentEntries] = useState(false);
-  const [header, setHeader] = useState<VoucherHeader>(createInitialHeader());
+  const [header, setHeader] = useState<EntryHeader>(createInitialHeader());
   const [draftLine, setDraftLine] = useState<DraftLine>(createInitialDraftLine());
-  const [voucherLines, setVoucherLines] = useState<VoucherLine[]>([]);
+  const [editingLineId, setEditingLineId] = useState<string | null>(null);
+  const [editingLine, setEditingLine] = useState<DraftLine>(createInitialDraftLine());
+  const [entryLines, setEntryLines] = useState<EntryLine[]>([]);
+  const accountCodeInputRef = useRef<HTMLInputElement | null>(null);
+  const debitInputRef = useRef<HTMLInputElement | null>(null);
 
   const postingAccounts = useMemo(
-    () => accounts.filter((account) => account.acceptsPostings),
-    [accounts],
+    () => initialAccounts.filter((account) => account.acceptsPostings),
+    [initialAccounts],
   );
 
   const selectedAccount = useMemo(
@@ -225,71 +261,221 @@ export function AccountingEntriesPage() {
     [draftLine.accountCode, postingAccounts],
   );
 
+  const selectedEditingAccount = useMemo(
+    () =>
+      postingAccounts.find((account) => account.code === editingLine.accountCode) ?? null,
+    [editingLine.accountCode, postingAccounts],
+  );
+
   const totals = useMemo(() => {
-    const debit = voucherLines.reduce(
-      (acc, line) => acc + Number(line.debit || 0),
-      0,
-    );
-    const credit = voucherLines.reduce(
-      (acc, line) => acc + Number(line.credit || 0),
-      0,
-    );
+    const debit = entryLines.reduce((acc, line) => acc + Number(line.debit || 0), 0);
+    const credit = entryLines.reduce((acc, line) => acc + Number(line.credit || 0), 0);
 
     return {
-      lineCount: voucherLines.length,
+      lineCount: entryLines.length,
       debit,
       credit,
       difference: debit - credit,
     };
-  }, [voucherLines]);
+  }, [entryLines]);
 
-  async function loadPageData() {
-    setLoading(true);
-    setError(null);
+  const lineRows = useMemo(
+    () =>
+      entryLines.map((line, index) => {
+        const account =
+          postingAccounts.find((item) => item.code === line.accountCode) ?? null;
 
-    try {
-      const [plan, entries] = await Promise.all([
-        fetchJson<AccountPlanResponse>("/api/v1/accounting/account-plan"),
-        fetchJson<AdjustmentEntriesResponse>(
-          "/api/v1/accounting/entries?sourceType=ADJUSTMENT&limit=12",
-        ),
-      ]);
+        return {
+          id: line.localId,
+          lineNumber: index + 1,
+          accountCode: line.accountCode,
+          accountName: account?.name ?? "Cuenta no encontrada",
+          debit: Number(line.debit || 0),
+          credit: Number(line.credit || 0),
+          detail: line.detail || header.gloss || "Sin detalle",
+        };
+      }),
+    [entryLines, header.gloss, postingAccounts],
+  );
 
-      setAccounts(plan.accounts);
-      setRecentEntries(entries.rows);
-    } catch (loadError) {
-      setError(
-        loadError instanceof Error
-          ? loadError.message
-          : "No se pudo cargar el modulo de asientos contables",
-      );
-    } finally {
-      setLoading(false);
-    }
+  const lineColumns: GridColDef<(typeof lineRows)[number]>[] = [
+    {
+      field: "lineNumber",
+      headerName: "Linea",
+      width: 90,
+    },
+    {
+      field: "accountCode",
+      headerName: "Cuenta",
+      width: 130,
+      renderCell: (params) => (
+        <Typography sx={{ fontWeight: 700, color: "#0f172a", fontSize: 13 }}>
+          {params.row.accountCode}
+        </Typography>
+      ),
+    },
+    {
+      field: "accountName",
+      headerName: "Nombre",
+      flex: 1,
+      minWidth: 220,
+    },
+    {
+      field: "debit",
+      headerName: "Debito",
+      width: 140,
+      align: "right",
+      headerAlign: "right",
+      valueFormatter: (value: number) => formatCurrency(value),
+    },
+    {
+      field: "credit",
+      headerName: "Credito",
+      width: 140,
+      align: "right",
+      headerAlign: "right",
+      valueFormatter: (value: number) => formatCurrency(value),
+    },
+    {
+      field: "detail",
+      headerName: "Detalle",
+      flex: 1.1,
+      minWidth: 220,
+    },
+    {
+      field: "edit",
+      headerName: "Editar",
+      sortable: false,
+      filterable: false,
+      disableColumnMenu: true,
+      width: 80,
+      align: "center",
+      headerAlign: "center",
+      renderCell: (params) => (
+        <IconButton size="small" onClick={() => openEditLineDialog(params.row.id)}>
+          <PencilLine size={16} />
+        </IconButton>
+      ),
+    },
+    {
+      field: "actions",
+      headerName: "Accion",
+      sortable: false,
+      filterable: false,
+      disableColumnMenu: true,
+      width: 100,
+      align: "center",
+      headerAlign: "center",
+      renderCell: (params) => (
+        <IconButton size="small" onClick={() => removeLine(params.row.id)}>
+          <Trash2 size={16} />
+        </IconButton>
+      ),
+    },
+  ];
+
+  function focusDebitInput() {
+    requestAnimationFrame(() => {
+      debitInputRef.current?.focus();
+      debitInputRef.current?.select();
+    });
   }
 
-  useEffect(() => {
-    void loadPageData();
-  }, []);
+  function focusAccountCodeInput() {
+    requestAnimationFrame(() => {
+      accountCodeInputRef.current?.focus();
+      accountCodeInputRef.current?.select();
+    });
+  }
 
-  function resetVoucherForm(clearFeedback = true) {
+  function handleDraftLineChange<K extends keyof DraftLine>(
+    field: K,
+    value: DraftLine[K],
+  ) {
+    setDraftLine((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  }
+
+  function handleEditingLineChange<K extends keyof DraftLine>(
+    field: K,
+    value: DraftLine[K],
+  ) {
+    setEditingLine((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  }
+
+  function resetForm(clearFeedback = true) {
     setHeader(createInitialHeader());
     setDraftLine(createInitialDraftLine());
-    setVoucherLines([]);
+    setEntryLines([]);
+
     if (clearFeedback) {
+      setError(initialError);
       setMessage(null);
-      setError(null);
     }
   }
 
-  function buildLineMemo(lineDetail: string) {
-    const parts = [
+  function buildLineMemo(detail: string) {
+    const fragments = [
       header.gloss.trim(),
-      lineDetail.trim(),
+      detail.trim(),
       header.reference.trim() ? `Ref: ${header.reference.trim()}` : "",
     ].filter(Boolean);
 
-    return parts.length > 0 ? parts.join(" · ") : null;
+    return fragments.length > 0 ? fragments.join(" · ") : null;
+  }
+
+  function searchAccountByCode() {
+    const query = draftLine.accountCode.trim().toLowerCase();
+
+    if (!query) {
+      setError("Ingresa un codigo de cuenta para buscar");
+      return;
+    }
+
+    const account =
+      postingAccounts.find((item) => item.code.toLowerCase() === query) ??
+      postingAccounts.find((item) => item.code.toLowerCase().includes(query));
+
+    if (!account) {
+      setError("No se encontro una cuenta contable con ese codigo");
+      return;
+    }
+
+    setDraftLine((current) => ({
+      ...current,
+      accountCode: account.code,
+    }));
+    setError(null);
+    focusDebitInput();
+  }
+
+  function searchEditingAccountByCode() {
+    const query = editingLine.accountCode.trim().toLowerCase();
+
+    if (!query) {
+      setError("Ingresa un codigo de cuenta para buscar");
+      return;
+    }
+
+    const account =
+      postingAccounts.find((item) => item.code.toLowerCase() === query) ??
+      postingAccounts.find((item) => item.code.toLowerCase().includes(query));
+
+    if (!account) {
+      setError("No se encontro una cuenta contable con ese codigo");
+      return;
+    }
+
+    setEditingLine((current) => ({
+      ...current,
+      accountCode: account.code,
+    }));
+    setError(null);
   }
 
   function addDraftLine() {
@@ -306,7 +492,7 @@ export function AccountingEntriesPage() {
       return;
     }
 
-    setVoucherLines((current) => [
+    setEntryLines((current) => [
       ...current,
       {
         localId: crypto.randomUUID(),
@@ -315,13 +501,78 @@ export function AccountingEntriesPage() {
     ]);
     setDraftLine(createInitialDraftLine());
     setError(null);
+    focusAccountCodeInput();
   }
 
-  function removeVoucherLine(localId: string) {
-    setVoucherLines((current) => current.filter((line) => line.localId !== localId));
+  function openEditLineDialog(localId: string) {
+    const line = entryLines.find((item) => item.localId === localId);
+
+    if (!line) {
+      return;
+    }
+
+    setEditingLineId(localId);
+    setEditingLine({
+      accountCode: line.accountCode,
+      debit: line.debit,
+      credit: line.credit,
+      detail: line.detail,
+    });
+    setError(null);
   }
 
-  async function persistEntry(autoPost: boolean) {
+  function closeEditLineDialog() {
+    setEditingLineId(null);
+    setEditingLine(createInitialDraftLine());
+  }
+
+  function saveEditedLine() {
+    if (!editingLineId) {
+      return;
+    }
+
+    const debit = Number(editingLine.debit || 0);
+    const credit = Number(editingLine.credit || 0);
+
+    if (!editingLine.accountCode) {
+      setError("Selecciona una cuenta contable para guardar la linea");
+      return;
+    }
+
+    if ((debit <= 0 && credit <= 0) || (debit > 0 && credit > 0)) {
+      setError("Cada linea debe tener solo debito o solo credito");
+      return;
+    }
+
+    setEntryLines((current) =>
+      current.map((line) =>
+        line.localId === editingLineId
+          ? {
+              ...line,
+              ...editingLine,
+            }
+          : line,
+      ),
+    );
+    setError(null);
+    closeEditLineDialog();
+  }
+
+  function removeLine(localId: string) {
+    setEntryLines((current) => current.filter((line) => line.localId !== localId));
+  }
+
+  async function submitEntry(mode: "POSTED" | "DRAFT") {
+    if (!header.gloss.trim()) {
+      setError("La glosa es obligatoria para registrar el asiento");
+      return;
+    }
+
+    if (entryLines.length < 2) {
+      setError("Agrega al menos dos lineas para registrar el asiento");
+      return;
+    }
+
     setSaving(true);
     setError(null);
     setMessage(null);
@@ -330,8 +581,8 @@ export function AccountingEntriesPage() {
       await fetchJson("/api/v1/accounting/entries", {
         method: "POST",
         body: JSON.stringify({
-          autoPost,
-          lines: voucherLines.map((line) => ({
+          autoPost: mode === "POSTED",
+          lines: entryLines.map((line) => ({
             accountCode: line.accountCode,
             debit: Number(line.debit || 0),
             credit: Number(line.credit || 0),
@@ -341,12 +592,11 @@ export function AccountingEntriesPage() {
       });
 
       setMessage(
-        autoPost
-          ? "Comprobante procesado y registrado."
-          : "Comprobante grabado como borrador.",
+        mode === "POSTED"
+          ? "Asiento manual registrado y posteado."
+          : "Asiento manual guardado como borrador.",
       );
-      resetVoucherForm(false);
-      await loadPageData();
+      resetForm(false);
     } catch (saveError) {
       setError(
         saveError instanceof Error
@@ -358,655 +608,351 @@ export function AccountingEntriesPage() {
     }
   }
 
-  if (loading && accounts.length === 0) {
-    return (
-      <Paper
-        elevation={0}
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          gap: 1.5,
-          borderRadius: "20px",
-          border: "1px solid rgba(226, 232, 240, 1)",
-          p: 2,
-          color: "text.secondary",
-        }}
-      >
-        <CircularProgress size={18} thickness={5} />
-        <Typography>Cargando asientos contables...</Typography>
-      </Paper>
-    );
-  }
-
   return (
-    <Stack spacing={2.5}>
+    <Stack spacing={3}>
+      <Stack
+        direction={{ xs: "column", lg: "row" }}
+        spacing={2}
+        justifyContent="space-between"
+        alignItems={{ xs: "flex-start", lg: "center" }}
+      >
+        <Stack direction="row" spacing={1.1} alignItems="center">
+          <ReceiptText size={18} color="#475569" />
+          <Typography
+            variant="h5"
+            sx={{ color: "#0f172a", fontWeight: 700, lineHeight: 1.15 }}
+          >
+            Asientos contables
+          </Typography>
+        </Stack>
+
+        <Stack direction="row" spacing={1.2} flexWrap="wrap" useFlexGap>
+          <Button
+            type="button"
+            variant="outlined"
+            startIcon={<FilePlus2 size={16} />}
+            onClick={() => resetForm()}
+            sx={{ borderRadius: "999px", fontWeight: 700 }}
+          >
+            Nuevo
+          </Button>
+
+          <Button
+            type="button"
+            variant="outlined"
+            startIcon={<Save size={16} />}
+            disabled={saving || entryLines.length === 0}
+            onClick={() => void submitEntry("DRAFT")}
+            sx={{ borderRadius: "999px", fontWeight: 700 }}
+          >
+            Grabar
+          </Button>
+          <Button
+            type="button"
+            variant="contained"
+            startIcon={<CheckCircle size={16} />}
+            disabled={saving || entryLines.length === 0}
+            onClick={() => void submitEntry("POSTED")}
+            sx={{ borderRadius: "999px", fontWeight: 700 }}
+          >
+            Procesar
+          </Button>
+        </Stack>
+      </Stack>
+
+      {error ? (
+        <Alert severity="error" variant="outlined" sx={{ borderRadius: "18px" }}>
+          {error}
+        </Alert>
+      ) : null}
+
+      {message ? (
+        <Alert severity="success" variant="outlined" sx={{ borderRadius: "18px" }}>
+          {message}
+        </Alert>
+      ) : null}
+
       <Paper
         elevation={0}
         sx={{
-          borderRadius: "32px",
+          borderRadius: "28px",
           border: "1px solid rgba(226, 232, 240, 0.95)",
           backgroundColor: "#fff",
-          p: { xs: 2, md: 3 },
+          p: 2.2,
         }}
       >
-        <Stack spacing={2.4}>
-          <Stack
-            direction={{ xs: "column", lg: "row" }}
-            spacing={1.2}
-            justifyContent="space-between"
-            alignItems={{ xs: "stretch", lg: "center" }}
-          >
-            <Stack
-              direction={{ xs: "column", sm: "row" }}
-              spacing={1}
-              flexWrap="wrap"
-              useFlexGap
-            >
-              <Button
-                type="button"
-                variant="outlined"
-                startIcon={<RefreshCcw size={16} />}
-                onClick={() =>
+        <Stack spacing={2}>
+          <Typography variant="h6" sx={{ fontWeight: 700, color: "#0f172a" }}>
+            Cabecera del asiento
+          </Typography>
+
+          <Grid container spacing={1.5}>
+            <Grid size={{ xs: 12, md: 3 }}>
+              <TextField
+                label="Fecha"
+                type="date"
+                value={header.date}
+                onChange={(event) =>
                   setHeader((current) => ({
                     ...current,
-                    recurrent: !current.recurrent,
+                    date: event.target.value,
                   }))
                 }
-                sx={actionButtonSx()}
-              >
-                Recurrente
-              </Button>
-              <Button
-                type="button"
+                InputLabelProps={{ shrink: true }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <CalendarRange size={16} color="#64748b" />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </Grid>
+
+            <Grid size={{ xs: 12, md: 3 }}>
+              <FormControl fullWidth>
+                <InputLabel id="accounting-voucher-type-label">Tipo</InputLabel>
+                <Select
+                  labelId="accounting-voucher-type-label"
+                  label="Tipo"
+                  value={header.voucherType}
+                  onChange={(event) =>
+                    setHeader((current) => ({
+                      ...current,
+                      voucherType: event.target.value,
+                    }))
+                  }
+                >
+                  {VOUCHER_TYPES.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+
+            <Grid size={{ xs: 12, md: 6 }}>
+              <TextField
+                label="Glosa"
+                placeholder="Descripcion general del asiento"
+                value={header.gloss}
+                onChange={(event) =>
+                  setHeader((current) => ({
+                    ...current,
+                    gloss: event.target.value,
+                  }))
+                }
+              />
+            </Grid>
+
+            <Grid size={12}>
+              <TextField
+                label="Referencia"
+                placeholder="Documento o referencia opcional"
+                value={header.reference}
+                onChange={(event) =>
+                  setHeader((current) => ({
+                    ...current,
+                    reference: event.target.value,
+                  }))
+                }
+              />
+            </Grid>
+          </Grid>
+        </Stack>
+      </Paper>
+
+      <Paper
+        elevation={0}
+        sx={{
+          borderRadius: "28px",
+          border: "1px solid rgba(226, 232, 240, 0.95)",
+          backgroundColor: "#fff",
+          p: 2.2,
+        }}
+      >
+        <Stack spacing={2}>
+          <Typography variant="h6" sx={{ fontWeight: 700, color: "#0f172a" }}>
+            Agregar linea
+          </Typography>
+
+          <DraftLineForm
+            accounts={postingAccounts}
+            line={draftLine}
+            selectedAccount={selectedAccount}
+            accountCodeInputRef={accountCodeInputRef}
+            debitInputRef={debitInputRef}
+            error={error}
+            onChange={handleDraftLineChange}
+            onSearchByCode={searchAccountByCode}
+            onAccountSelected={(value) => {
+              handleDraftLineChange("accountCode", value?.code ?? "");
+              if (value) {
+                setError(null);
+                focusDebitInput();
+              }
+            }}
+          />
+
+          <Stack
+            direction={{ xs: "column", md: "row" }}
+            spacing={1.2}
+            justifyContent="space-between"
+            alignItems={{ xs: "stretch", md: "center" }}
+          >
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+              <Chip
+                label={`Lineas: ${totals.lineCount}`}
                 variant="outlined"
-                startIcon={<FolderOpen size={16} />}
-                onClick={() => setShowRecentEntries((current) => !current)}
-                sx={actionButtonSx()}
-              >
-                Abrir
-              </Button>
-              <Button
-                type="button"
+                sx={{ borderRadius: "999px", fontWeight: 700 }}
+              />
+              <Chip
+                label={`Debito: ${formatCurrency(totals.debit)}`}
+                color="primary"
                 variant="outlined"
-                startIcon={<FilePlus2 size={16} />}
-                onClick={resetVoucherForm}
-                sx={actionButtonSx()}
-              >
-                Nuevo
-              </Button>
-              <Button
-                type="button"
+                sx={{ borderRadius: "999px", fontWeight: 700 }}
+              />
+              <Chip
+                label={`Credito: ${formatCurrency(totals.credit)}`}
+                color="primary"
                 variant="outlined"
-                startIcon={<Save size={16} />}
-                disabled={saving || voucherLines.length === 0}
-                onClick={() => void persistEntry(false)}
-                sx={actionButtonSx()}
-              >
-                Grabar
-              </Button>
-              <Button
-                type="button"
-                variant="contained"
-                startIcon={<BadgeCheck size={16} />}
-                disabled={saving || voucherLines.length === 0}
-                onClick={() => void persistEntry(true)}
-                sx={actionButtonSx(true)}
-              >
-                Procesar
-              </Button>
+                sx={{ borderRadius: "999px", fontWeight: 700 }}
+              />
+              <Chip
+                label={`Diferencia: ${formatCurrency(totals.difference)}`}
+                color={Math.abs(totals.difference) < 0.0001 ? "success" : "error"}
+                variant="outlined"
+                sx={{ borderRadius: "999px", fontWeight: 700 }}
+              />
             </Stack>
 
             <Button
               type="button"
-              variant="text"
-              disabled
-              startIcon={<FileText size={16} />}
-              sx={{
-                color: "#94a3b8",
-                fontWeight: 700,
-                justifyContent: "flex-start",
-              }}
-            >
-              Pdf
-            </Button>
-          </Stack>
-
-          {error ? (
-            <Alert severity="error" variant="outlined" sx={{ borderRadius: "18px" }}>
-              {error}
-            </Alert>
-          ) : null}
-
-          {message ? (
-            <Alert severity="success" variant="outlined" sx={{ borderRadius: "18px" }}>
-              {message}
-            </Alert>
-          ) : null}
-
-          {showRecentEntries ? (
-            <Paper
-              elevation={0}
-              sx={{
-                borderRadius: "24px",
-                border: "1px solid rgba(226, 232, 240, 0.95)",
-                backgroundColor: "rgba(248, 250, 252, 0.78)",
-                p: 1.6,
-              }}
-            >
-              <Stack spacing={1.2}>
-                <Typography sx={{ fontWeight: 700, color: "#0f172a" }}>
-                  Ultimos comprobantes manuales
-                </Typography>
-                <Box
-                  sx={{
-                    display: "grid",
-                    gridTemplateColumns: {
-                      xs: "1fr",
-                      lg: "repeat(3, minmax(0, 1fr))",
-                    },
-                    gap: 1.2,
-                  }}
-                >
-                  {recentEntries.length > 0 ? (
-                    recentEntries.map((entry) => (
-                      <Paper
-                        key={entry.id}
-                        elevation={0}
-                        sx={{
-                          borderRadius: "18px",
-                          border: "1px solid rgba(226, 232, 240, 0.95)",
-                          backgroundColor: "#fff",
-                          p: 1.4,
-                        }}
-                      >
-                        <Stack spacing={0.7}>
-                          <Stack
-                            direction="row"
-                            justifyContent="space-between"
-                            alignItems="center"
-                            spacing={1}
-                          >
-                            <Typography sx={{ fontWeight: 700, color: "#0f172a" }}>
-                              {entry.source.title}
-                            </Typography>
-                            <Chip
-                              size="small"
-                              color={ACCOUNTING_STATUS_TONES[entry.status] ?? "default"}
-                              label={
-                                ACCOUNTING_STATUS_LABELS[entry.status] ?? entry.status
-                              }
-                              sx={{ borderRadius: "999px", fontWeight: 700 }}
-                            />
-                          </Stack>
-                          <Typography variant="body2" sx={{ color: "#64748b" }}>
-                            {formatDateTime(entry.createdAt)}
-                          </Typography>
-                          <Typography variant="body2" sx={{ color: "#475569" }}>
-                            Debito {formatCurrency(entry.debitTotal)} · Credito{" "}
-                            {formatCurrency(entry.creditTotal)}
-                          </Typography>
-                        </Stack>
-                      </Paper>
-                    ))
-                  ) : (
-                    <Typography variant="body2" sx={{ color: "#64748b" }}>
-                      No hay comprobantes manuales recientes.
-                    </Typography>
-                  )}
-                </Box>
-              </Stack>
-            </Paper>
-          ) : null}
-
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: {
-                xs: "1fr",
-                lg: "240px minmax(260px, 1fr) minmax(260px, 1.2fr) 300px",
-              },
-              gap: 1.5,
-            }}
-          >
-            <TextField
-              label="Fecha"
-              type="date"
-              value={header.date}
-              onChange={(event) =>
-                setHeader((current) => ({ ...current, date: event.target.value }))
-              }
-              InputLabelProps={{ shrink: true }}
-              sx={{
-                "& .MuiOutlinedInput-root": {
-                  borderRadius: "18px",
-                },
-              }}
-            />
-
-            <FormControl>
-              <InputLabel id="voucher-type-label">Comprobante</InputLabel>
-              <Select
-                labelId="voucher-type-label"
-                label="Comprobante"
-                value={header.voucherType}
-                onChange={(event) =>
-                  setHeader((current) => ({
-                    ...current,
-                    voucherType: event.target.value,
-                  }))
-                }
-                sx={{ borderRadius: "18px" }}
-              >
-                {VOUCHER_TYPES.map((voucherType) => (
-                  <MenuItem key={voucherType} value={voucherType}>
-                    {voucherType}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <TextField
-              label="Glosa"
-              placeholder="Detalle general del comprobante"
-              value={header.gloss}
-              onChange={(event) =>
-                setHeader((current) => ({ ...current, gloss: event.target.value }))
-              }
-              sx={{
-                "& .MuiOutlinedInput-root": {
-                  borderRadius: "18px",
-                },
-              }}
-            />
-
-            <Paper
-              elevation={0}
-              sx={{
-                borderRadius: "18px",
-                border: "1px solid rgba(226, 232, 240, 0.95)",
-                backgroundColor: "#eef2f6",
-                minHeight: 72,
-                px: 2,
-                py: 1.35,
-              }}
-            >
-              <Typography variant="body2" sx={{ color: "#94a3b8" }}>
-                Sec. Contable
-              </Typography>
-              <Typography sx={{ mt: 0.7, fontWeight: 700, color: "#64748b" }}>
-                Pendiente
-              </Typography>
-            </Paper>
-          </Box>
-
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: {
-                xs: "1fr",
-                lg: "minmax(260px, 1.2fr) 220px 300px",
-              },
-              gap: 1.5,
-            }}
-          >
-            <TextField
-              label="Referencia"
-              placeholder="Documento o referencia externa"
-              value={header.reference}
-              onChange={(event) =>
-                setHeader((current) => ({ ...current, reference: event.target.value }))
-              }
-              sx={{
-                "& .MuiOutlinedInput-root": {
-                  borderRadius: "18px",
-                },
-              }}
-            />
-
-            <TextField
-              label="Cod."
-              placeholder="C. costo"
-              value={header.costCenterCode}
-              onChange={(event) =>
-                setHeader((current) => ({
-                  ...current,
-                  costCenterCode: event.target.value,
-                }))
-              }
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <Search size={18} color="#94a3b8" />
-                  </InputAdornment>
-                ),
-              }}
-              sx={{
-                "& .MuiOutlinedInput-root": {
-                  borderRadius: "18px",
-                },
-              }}
-            />
-
-            <Paper
-              elevation={0}
-              sx={{
-                borderRadius: "18px",
-                border: "1px solid rgba(226, 232, 240, 0.95)",
-                backgroundColor: "#eef2f6",
-                minHeight: 72,
-                px: 2,
-                py: 1.35,
-              }}
-            >
-              <Typography variant="body2" sx={{ color: "#94a3b8" }}>
-                Nombre C. Costo
-              </Typography>
-              <Typography sx={{ mt: 0.7, fontWeight: 700, color: "#64748b" }}>
-                {header.costCenterName || "----"}
-              </Typography>
-            </Paper>
-          </Box>
-
-          <Stack direction="row" spacing={3} flexWrap="wrap" useFlexGap>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={header.openingVoucher}
-                  onChange={(event) =>
-                    setHeader((current) => ({
-                      ...current,
-                      openingVoucher: event.target.checked,
-                    }))
-                  }
-                />
-              }
-              label="Comprobante Apertura"
-            />
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={header.recurrent}
-                  onChange={(event) =>
-                    setHeader((current) => ({
-                      ...current,
-                      recurrent: event.target.checked,
-                    }))
-                  }
-                />
-              }
-              label="Recurrente"
-            />
-          </Stack>
-
-          <Stack direction="row" alignItems="center" spacing={1.8}>
-            <Divider sx={{ flex: 1 }} />
-            <Chip
-              label="Comprobante Contable"
-              sx={{
-                borderRadius: "999px",
-                backgroundColor: "#eef2f6",
-                color: "#334155",
-                fontWeight: 700,
-                px: 1.2,
-              }}
-            />
-            <Divider sx={{ flex: 1 }} />
-          </Stack>
-
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: {
-                xs: "1fr",
-                lg: "320px minmax(240px, 1fr) 180px 180px",
-              },
-              gap: 1.5,
-            }}
-          >
-            <TextField
-              label="Cod. Cta"
-              placeholder="Selecciona cuenta"
-              value={draftLine.accountCode}
-              onChange={(event) =>
-                setDraftLine((current) => ({
-                  ...current,
-                  accountCode: event.target.value,
-                }))
-              }
-              list="account-codes"
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <Search size={18} color="#94a3b8" />
-                  </InputAdornment>
-                ),
-              }}
-              sx={{
-                "& .MuiOutlinedInput-root": {
-                  borderRadius: "18px",
-                },
-                "& .MuiInputLabel-root": {
-                  color: "#c62839",
-                },
-              }}
-            />
-            <datalist id="account-codes">
-              {postingAccounts.map((account) => (
-                <option key={account.code} value={account.code}>
-                  {account.name}
-                </option>
-              ))}
-            </datalist>
-
-            <Paper
-              elevation={0}
-              sx={{
-                borderRadius: "18px",
-                border: "1px solid rgba(226, 232, 240, 0.95)",
-                backgroundColor: "#eef2f6",
-                minHeight: 72,
-                px: 2,
-                py: 1.35,
-              }}
-            >
-              <Typography variant="body2" sx={{ color: "#94a3b8" }}>
-                Cuenta Contable
-              </Typography>
-              <Typography sx={{ mt: 0.7, fontWeight: 700, color: "#64748b" }}>
-                {selectedAccount?.name ?? "----"}
-              </Typography>
-            </Paper>
-
-            <TextField
-              label="Debito"
-              type="number"
-              value={draftLine.debit}
-              onChange={(event) =>
-                setDraftLine((current) => ({
-                  ...current,
-                  debit: event.target.value,
-                }))
-              }
-              sx={{
-                "& .MuiOutlinedInput-root": {
-                  borderRadius: "18px",
-                },
-              }}
-            />
-
-            <TextField
-              label="Credito"
-              type="number"
-              value={draftLine.credit}
-              onChange={(event) =>
-                setDraftLine((current) => ({
-                  ...current,
-                  credit: event.target.value,
-                }))
-              }
-              sx={{
-                "& .MuiOutlinedInput-root": {
-                  borderRadius: "18px",
-                },
-              }}
-            />
-          </Box>
-
-          <Stack
-            direction={{ xs: "column", lg: "row" }}
-            spacing={1.5}
-            alignItems={{ xs: "stretch", lg: "center" }}
-          >
-            <TextField
-              label="Detalle"
-              placeholder="Detalle de la linea"
-              value={draftLine.detail}
-              onChange={(event) =>
-                setDraftLine((current) => ({
-                  ...current,
-                  detail: event.target.value,
-                }))
-              }
-              sx={{
-                flex: 1,
-                "& .MuiOutlinedInput-root": {
-                  borderRadius: "18px",
-                },
-              }}
-            />
-            <Button
-              type="button"
-              variant="text"
-              startIcon={<PlusCircle size={18} />}
+              variant="outlined"
+              startIcon={<PlusCircle size={16} />}
               onClick={addDraftLine}
-              sx={{
-                alignSelf: { xs: "flex-start", lg: "center" },
-                color: "#d32f45",
-                fontWeight: 700,
-                px: 1.2,
-              }}
+              sx={{ borderRadius: "999px", fontWeight: 700 }}
             >
-              Agregar
+              Agregar linea
             </Button>
           </Stack>
-
-          <TableContainer
-            component={Paper}
-            elevation={0}
-            sx={{
-              borderRadius: "22px",
-              border: "1px solid rgba(226, 232, 240, 0.95)",
-              overflow: "hidden",
-            }}
-          >
-            <Table>
-              <TableHead>
-                <TableRow
-                  sx={{
-                    backgroundColor: "#f1f5f9",
-                    "& .MuiTableCell-root": {
-                      fontSize: 13,
-                      fontWeight: 700,
-                      color: "#334155",
-                      borderBottom: "1px solid rgba(226, 232, 240, 0.95)",
-                    },
-                  }}
-                >
-                  <TableCell>Linea</TableCell>
-                  <TableCell>Cuenta</TableCell>
-                  <TableCell>Nombre</TableCell>
-                  <TableCell align="right">Debito</TableCell>
-                  <TableCell align="right">Credito</TableCell>
-                  <TableCell>Detalle</TableCell>
-                  <TableCell align="center">Eliminar</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {voucherLines.length > 0 ? (
-                  voucherLines.map((line, index) => {
-                    const account =
-                      postingAccounts.find((item) => item.code === line.accountCode) ??
-                      null;
-
-                    return (
-                      <TableRow
-                        key={line.localId}
-                        sx={{
-                          "& .MuiTableCell-root": {
-                            fontSize: 13,
-                            borderBottom: "1px solid rgba(241, 245, 249, 1)",
-                          },
-                        }}
-                      >
-                        <TableCell>{index + 1}</TableCell>
-                        <TableCell>{line.accountCode}</TableCell>
-                        <TableCell>{account?.name ?? "Cuenta no encontrada"}</TableCell>
-                        <TableCell align="right">
-                          {formatCurrency(Number(line.debit || 0))}
-                        </TableCell>
-                        <TableCell align="right">
-                          {formatCurrency(Number(line.credit || 0))}
-                        </TableCell>
-                        <TableCell>{line.detail || header.gloss || "Sin detalle"}</TableCell>
-                        <TableCell align="center">
-                          <IconButton
-                            size="small"
-                            onClick={() => removeVoucherLine(line.localId)}
-                          >
-                            <Trash2 size={16} />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={7} sx={{ py: 6 }}>
-                      <Stack alignItems="center" spacing={1.2}>
-                        <FileSearch size={44} color="#cbd5e1" />
-                        <Typography sx={{ color: "#64748b" }}>Sin datos</Typography>
-                      </Stack>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: {
-                xs: "1fr",
-                md: "repeat(4, minmax(0, 1fr))",
-              },
-              gap: 2,
-            }}
-          >
-            <SummaryCard label="Total Lineas" value={String(totals.lineCount)} tone="blue" />
-            <SummaryCard
-              label="Total Debito"
-              value={formatCurrency(totals.debit)}
-              tone="blue"
-            />
-            <SummaryCard
-              label="Total Credito"
-              value={formatCurrency(totals.credit)}
-              tone="blue"
-            />
-            <SummaryCard
-              label="Diferencia"
-              value={formatCurrency(totals.difference)}
-              tone="red"
-            />
-          </Box>
-
-          <Alert severity="info" variant="outlined" sx={{ borderRadius: "18px" }}>
-            La UI ya sigue el flujo de comprobante. La cabecera aun es referencial en
-            parte; el backend sigue persistiendo solo las lineas del asiento manual.
-          </Alert>
         </Stack>
       </Paper>
+
+      <Paper
+        elevation={0}
+        sx={{
+          borderRadius: "28px",
+          border: "1px solid rgba(226, 232, 240, 0.95)",
+          backgroundColor: "#fff",
+          p: 2.2,
+        }}
+      >
+        <Stack spacing={2}>
+          <Typography variant="h6" sx={{ fontWeight: 700, color: "#0f172a" }}>
+            Lineas del asiento
+          </Typography>
+
+          <Box
+            sx={{
+              overflow: "hidden",
+              borderRadius: "22px",
+              border: "1px solid rgba(226, 232, 240, 0.95)",
+            }}
+          >
+            <DataGrid
+              rows={lineRows}
+              columns={lineColumns}
+              disableColumnMenu
+              disableRowSelectionOnClick
+              hideFooterSelectedRowCount
+              hideFooterPagination
+              localeText={{
+                noRowsLabel:
+                  "Aun no hay lineas agregadas. Empieza por seleccionar una cuenta y registrar un debito o credito.",
+              }}
+              sx={{
+                minHeight: 320,
+                "& .MuiDataGrid-columnHeaders": {
+                  backgroundColor: "#f8fafc",
+                },
+                "& .MuiDataGrid-columnHeaderTitle": {
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: "#334155",
+                },
+                "& .MuiDataGrid-cell": {
+                  fontSize: 13,
+                  alignItems: "center",
+                },
+                "& .MuiDataGrid-cell:focus, & .MuiDataGrid-columnHeader:focus": {
+                  outline: "none",
+                },
+                "& .MuiDataGrid-footerContainer": {
+                  display: "none",
+                },
+              }}
+            />
+          </Box>
+        </Stack>
+      </Paper>
+
+      <Dialog
+        open={Boolean(editingLineId)}
+        onClose={closeEditLineDialog}
+        fullWidth
+        maxWidth="md"
+        PaperProps={{
+          sx: {
+            borderRadius: "24px",
+            border: "1px solid rgba(226, 232, 240, 0.95)",
+          },
+        }}
+      >
+        <DialogTitle sx={{ pb: 0.75 }}>
+          <Typography variant="h6" sx={{ color: "#0f172a", fontWeight: 700 }}>
+            Editar linea
+          </Typography>
+        </DialogTitle>
+
+        <DialogContent sx={{ pt: 2.25 }}>
+          <DraftLineForm
+            accounts={postingAccounts}
+            line={editingLine}
+            selectedAccount={selectedEditingAccount}
+            error={error}
+            onChange={handleEditingLineChange}
+            onSearchByCode={searchEditingAccountByCode}
+            onAccountSelected={(value) => {
+              handleEditingLineChange("accountCode", value?.code ?? "");
+              if (value) {
+                setError(null);
+              }
+            }}
+          />
+        </DialogContent>
+
+        <DialogActions sx={{ px: 3, pb: 2.5, pt: 0.5 }}>
+          <Button
+            type="button"
+            variant="text"
+            onClick={closeEditLineDialog}
+            sx={{ borderRadius: "999px", fontWeight: 700 }}
+          >
+            Cancelar
+          </Button>
+          <Button
+            type="button"
+            variant="contained"
+            startIcon={<Save size={16} />}
+            onClick={saveEditedLine}
+            sx={{ borderRadius: "999px", fontWeight: 700 }}
+          >
+            Guardar linea
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Stack>
   );
 }

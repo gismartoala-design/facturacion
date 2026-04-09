@@ -15,6 +15,7 @@ export const MODULE_CATALOG: Record<
   REPORTS: { label: "Reportes", description: "Analitica y lectura operativa del negocio." },
   ACCOUNTS_RECEIVABLE: { label: "Cuentas por cobrar", description: "Ventas a credito y cartera." },
   CASH_MANAGEMENT: { label: "Gestion de caja", description: "Apertura, cierre y movimientos de caja." },
+  ACCOUNTING: { label: "Contabilidad", description: "Plan de cuentas, asientos y estados financieros." },
 };
 
 export const EDITION_CATALOG: Record<EditionKey, { label: string }> = {

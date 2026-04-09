@@ -41,9 +41,63 @@ export const listAccountingEntriesFiltersSchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(100),
 });
 
+export const accountLedgerFiltersSchema = z.object({
+  accountCode: z.string().trim().min(1).max(40),
+  from: z.string().trim().min(1).optional(),
+  to: z.string().trim().min(1).optional(),
+  limit: z.coerce.number().int().min(1).max(500).default(200),
+});
+
+export const accountTrialBalanceFiltersSchema = z.object({
+  from: z.string().trim().min(1).optional(),
+  to: z.string().trim().min(1).optional(),
+  onlyPostable: z.coerce.boolean().default(true),
+  includeZeroBalances: z.coerce.boolean().default(false),
+  includeInactive: z.coerce.boolean().default(false),
+});
+
+export const balanceSheetFiltersSchema = z.object({
+  to: z.string().trim().min(1).optional(),
+  includeZeroBalances: z.coerce.boolean().default(false),
+  includeInactive: z.coerce.boolean().default(false),
+});
+
+export const incomeStatementFiltersSchema = z.object({
+  from: z.string().trim().min(1).optional(),
+  to: z.string().trim().min(1).optional(),
+  includeZeroBalances: z.coerce.boolean().default(false),
+  includeInactive: z.coerce.boolean().default(false),
+});
+
 export const createManualAdjustmentEntrySchema = z.object({
   autoPost: z.boolean().default(true),
   lines: z.array(accountingEntryLineSchema).min(2),
+});
+
+export const accountingAccountBaseSchema = z.object({
+  code: z.string().trim().min(1).max(40),
+  name: z.string().trim().min(1).max(120),
+  groupKey: z.enum(["ASSET", "LIABILITY", "EQUITY", "INCOME", "EXPENSE"]),
+  defaultNature: z.enum(["DEBIT", "CREDIT"]),
+  parentId: z.string().uuid().nullable().optional(),
+  acceptsPostings: z.boolean(),
+  active: z.boolean().default(true),
+  description: z.string().trim().max(240).nullable().optional(),
+});
+
+export const importAccountingAccountRowSchema = accountingAccountBaseSchema.extend({
+  parentCode: z.string().trim().min(1).max(40).nullable().optional(),
+});
+
+export const importAccountingAccountsSchema = z.object({
+  overwriteExisting: z.boolean().default(true),
+  rows: z.array(importAccountingAccountRowSchema).min(1),
+});
+
+export const createAccountingAccountSchema = accountingAccountBaseSchema;
+
+export const updateAccountingAccountSchema = accountingAccountBaseSchema.extend({
+  id: z.string().uuid(),
 });
 
 export type CreateDraftEntryInput = z.infer<typeof createDraftEntrySchema>;
@@ -52,6 +106,24 @@ export type ReverseEntryInput = z.infer<typeof reverseEntrySchema>;
 export type ListAccountingEntriesFilters = z.infer<
   typeof listAccountingEntriesFiltersSchema
 >;
+export type AccountLedgerFilters = z.infer<typeof accountLedgerFiltersSchema>;
+export type AccountTrialBalanceFilters = z.infer<
+  typeof accountTrialBalanceFiltersSchema
+>;
+export type BalanceSheetFilters = z.infer<typeof balanceSheetFiltersSchema>;
+export type IncomeStatementFilters = z.infer<typeof incomeStatementFiltersSchema>;
 export type CreateManualAdjustmentEntryInput = z.infer<
   typeof createManualAdjustmentEntrySchema
+>;
+export type CreateAccountingAccountInput = z.infer<
+  typeof createAccountingAccountSchema
+>;
+export type UpdateAccountingAccountInput = z.infer<
+  typeof updateAccountingAccountSchema
+>;
+export type ImportAccountingAccountRowInput = z.infer<
+  typeof importAccountingAccountRowSchema
+>;
+export type ImportAccountingAccountsInput = z.infer<
+  typeof importAccountingAccountsSchema
 >;

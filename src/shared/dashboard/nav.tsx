@@ -86,6 +86,12 @@ const BUSINESS_NAV_ITEMS: NavItem[] = [
         icon: HandCoins,
       },
       {
+        id: "balance-comprobacion",
+        href: "/accounting/balance-comprobacion",
+        label: "Balance de Comprobación",
+        icon: HandCoins,
+      },
+      {
         id: "balance-general",
         href: "/accounting/balance-general",
         label: "Balance General",

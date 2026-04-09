@@ -102,6 +102,19 @@ enum AccountingEntryStatus {
   REVERSED
 }
 
+enum AccountingAccountGroupKey {
+  ASSET
+  LIABILITY
+  EQUITY
+  INCOME
+  EXPENSE
+}
+
+enum AccountingAccountNature {
+  DEBIT
+  CREDIT
+}
+
 enum AccountingSourceType {
   SALE
   COLLECTION
@@ -159,6 +172,7 @@ model Business {
   cashMovements     CashMovement[]
   collections       Collection[]
   receivables       AccountsReceivable[]
+  accountingAccounts AccountingAccount[]
   accountingEntries AccountingEntry[]
   createdAt         DateTime             @default(now())
   updatedAt         DateTime             @updatedAt
@@ -661,19 +675,45 @@ model AccountsReceivable {
   @@index([customerId, status, dueAt])
 }
 
+model AccountingAccount {
+  id              String                     @id @default(uuid()) @db.Uuid
+  businessId      String                     @db.Uuid
+  business        Business                   @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  code            String
+  name            String
+  groupKey        AccountingAccountGroupKey
+  defaultNature   AccountingAccountNature
+  parentId        String?                    @db.Uuid
+  parent          AccountingAccount?         @relation("AccountingAccountParent", fields: [parentId], references: [id], onDelete: SetNull)
+  children        AccountingAccount[]        @relation("AccountingAccountParent")
+  level           Int                        @default(1)
+  acceptsPostings Boolean                    @default(true)
+  system          Boolean                    @default(false)
+  active          Boolean                    @default(true)
+  description     String?
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
+
+  @@unique([businessId, code])
+  @@index([businessId, groupKey, active])
+  @@index([parentId])
+}
+
 model AccountingEntry {
-  id         String                @id @default(uuid()) @db.Uuid
-  businessId String                @db.Uuid
-  business   Business              @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  sourceType AccountingSourceType
-  sourceId   String                @db.Uuid
-  status     AccountingEntryStatus @default(DRAFT)
-  postedAt   DateTime?
-  createdAt  DateTime              @default(now())
-  updatedAt  DateTime              @updatedAt
+  id          String                @id @default(uuid()) @db.Uuid
+  businessId  String                @db.Uuid
+  business    Business              @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  entryNumber Int?
+  sourceType  AccountingSourceType
+  sourceId    String                @db.Uuid
+  status      AccountingEntryStatus @default(DRAFT)
+  postedAt    DateTime?
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
 
   lines AccountingEntryLine[]
 
+  @@unique([businessId, entryNumber])
   @@index([businessId, sourceType, sourceId])
   @@index([status, createdAt])
 }

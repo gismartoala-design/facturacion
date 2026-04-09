@@ -52,6 +52,7 @@ export const ACCOUNTING_GROUP_TONES: Record<
 > = {
   ASSET: "primary",
   LIABILITY: "warning",
+  EQUITY: "warning",
   INCOME: "success",
   EXPENSE: "error",
 };

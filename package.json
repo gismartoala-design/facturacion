@@ -14,6 +14,8 @@
     "pos:migrate:blueprints": "node --experimental-strip-types --experimental-specifier-resolution=node ./scripts/migrate-pos-blueprints.mts",
     "cash:backfill:legacy-sessions": "node --experimental-strip-types --experimental-specifier-resolution=node ./scripts/backfill-pos-cash-sessions.mts",
     "cash:backfill:sale-cash-in": "node --experimental-strip-types --experimental-specifier-resolution=node ./scripts/backfill-sale-cash-in-to-collections.mts",
+    "accounting:seed:base": "node --experimental-strip-types --experimental-specifier-resolution=node ./scripts/seed-accounting-base-accounts.mts",
+    "accounting:backfill:entry-numbers": "node --experimental-strip-types --experimental-specifier-resolution=node ./scripts/backfill-accounting-entry-numbers.mts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "db:push": "prisma db push",

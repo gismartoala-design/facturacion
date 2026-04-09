@@ -1,0 +1,1 @@
+ALTER TYPE "AccountingAccountGroupKey" ADD VALUE IF NOT EXISTS 'EQUITY';
