@@ -103,18 +103,17 @@ async function backfillForBusiness(params: { businessId: string; dryRun: boolean
     return { updated: entries.length, skipped: 0 };
   }
 
-  // Actualizar uno a uno dentro de una transaccion para evitar gaps por concurrencia
+  // Actualizar uno a uno sin transaccion envolvente — el script es idempotente:
+  // los que ya tienen entryNumber no son seleccionados en la query inicial.
   let updatedCount = 0;
-  await prisma.$transaction(async (tx) => {
-    for (const entry of entries) {
-      await tx.accountingEntry.update({
-        where: { id: entry.id },
-        data: { entryNumber: nextNumber },
-      });
-      nextNumber++;
-      updatedCount++;
-    }
-  });
+  for (const entry of entries) {
+    await prisma.accountingEntry.update({
+      where: { id: entry.id },
+      data: { entryNumber: nextNumber },
+    });
+    nextNumber++;
+    updatedCount++;
+  }
 
   return { updated: updatedCount, skipped: 0 };
 }
