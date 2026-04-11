@@ -1,4 +1,12 @@
-import { MovementType, Prisma, ReferenceType, SaleDocumentStatus, SaleStatus } from "@prisma/client";
+import {
+  AccountingEntryStatus,
+  AccountingSourceType,
+  MovementType,
+  Prisma,
+  ReferenceType,
+  SaleDocumentStatus,
+  SaleStatus,
+} from "@prisma/client";
 
 import {
   parsePosFeatureBlueprint,
@@ -124,6 +132,21 @@ export async function cancelSaleBySriInvoiceId(sriInvoiceId: string) {
       where: { id: invoice.saleId },
       data: { status: SaleStatus.CANCELLED },
     });
+
+    const saleEntry = await tx.accountingEntry.findFirst({
+      where: {
+        sourceType: AccountingSourceType.SALE,
+        sourceId: invoice.saleId,
+        status: AccountingEntryStatus.POSTED,
+      },
+    });
+
+    if (saleEntry) {
+      await tx.accountingEntry.update({
+        where: { id: saleEntry.id },
+        data: { status: AccountingEntryStatus.REVERSED },
+      });
+    }
 
     await tx.sriInvoice.update({
       where: { id: sriInvoiceId },
