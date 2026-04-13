@@ -13,6 +13,7 @@ type DashboardShellProps = {
   userRole?: "ADMIN" | "SELLER";
   businessName?: string;
   enabledFeatures?: SessionFeatureKey[];
+  restaurantEnabled?: boolean;
   userName?: string;
   roleLabel?: string;
   canManageCompany?: boolean;
@@ -23,19 +24,18 @@ export function DashboardShell({
   userRole,
   businessName,
   enabledFeatures,
+  restaurantEnabled = false,
   userName,
   roleLabel,
   canManageCompany = false,
 }: DashboardShellProps) {
-  const [collapsed, setCollapsed] = useState(false);
-
-  useEffect(() => {
-    const storedValue = window.localStorage.getItem(STORAGE_KEY);
-
-    if (storedValue !== null) {
-      setCollapsed(storedValue === "true");
+  const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window === "undefined") {
+      return false;
     }
-  }, []);
+
+    return window.localStorage.getItem(STORAGE_KEY) === "true";
+  });
 
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, String(collapsed));
@@ -48,6 +48,7 @@ export function DashboardShell({
           userRole={userRole}
           businessName={businessName}
           enabledFeatures={enabledFeatures}
+          restaurantEnabled={restaurantEnabled}
         />
       </Box>
 
@@ -67,6 +68,7 @@ export function DashboardShell({
           userRole={userRole}
           businessName={businessName}
           enabledFeatures={enabledFeatures}
+          restaurantEnabled={restaurantEnabled}
           collapsed={collapsed}
           onToggle={() => setCollapsed((prev) => !prev)}
         />

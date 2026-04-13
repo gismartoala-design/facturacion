@@ -10,22 +10,28 @@ import Typography from "@mui/material/Typography";
 import { alpha, useTheme } from "@mui/material/styles";
 import {
   Boxes,
+  ChefHat,
+  ConciergeBell,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   FileText,
   FolderTree,
   HandCoins,
+  LayoutGrid,
   Monitor,
   PackageSearch,
+  Settings2,
   ShoppingCart,
+  Table2,
+  UtensilsCrossed,
   type LucideIcon,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { Dispatch, SetStateAction } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 type NavItem = {
   id: string;
@@ -51,6 +57,57 @@ const CORE_NAV_ITEMS: NavItem[] = [
     label: "POS",
     icon: Monitor,
     requiredFeature: "POS",
+  },
+];
+
+const RESTAURANT_NAV_ITEMS: NavItem[] = [
+  {
+    id: "restaurant-floor",
+    href: "/restaurant/floor",
+    label: "Piso y Mesas",
+    icon: ChefHat,
+    requiredFeature: "POS",
+  },
+  {
+    id: "restaurant-orders",
+    href: "/restaurant/orders/new",
+    label: "Pedidos",
+    icon: ConciergeBell,
+    requiredFeature: "POS",
+  },
+  {
+    id: "restaurant-kitchen",
+    href: "/restaurant/kitchen",
+    label: "Cocina",
+    icon: ChefHat,
+    requiredFeature: "POS",
+  },
+  {
+    id: "restaurant-settings",
+    label: "Configuración restaurante",
+    icon: Settings2,
+    requiredFeature: "POS",
+    adminOnly: true,
+    children: [
+      {
+        id: "restaurant-settings-dishes",
+        href: "/restaurant/settings/dishes",
+        label: "Menú",
+        icon: UtensilsCrossed,
+      },
+      {
+        id: "restaurant-settings-halls",
+        href: "/restaurant/settings/halls",
+        label: "Salón",
+        icon: LayoutGrid,
+      },
+      {
+        id: "restaurant-settings-tables",
+        href: "/restaurant/settings/tables",
+        label: "Mesas",
+        icon: Table2,
+      },
+    ],
   },
 ];
 
@@ -152,15 +209,11 @@ const BUSINESS_NAV_ITEMS: NavItem[] = [
   },
 ];
 
-const NAV_SECTIONS: NavSection[] = [
-  { id: "core", label: "Accesos principales", items: CORE_NAV_ITEMS },
-  { id: "business", label: "Procesos del negocio", items: BUSINESS_NAV_ITEMS },
-];
-
 type MvpDashboardNavProps = {
   userRole?: "ADMIN" | "SELLER";
   businessName?: string;
   enabledFeatures?: SessionFeatureKey[];
+  restaurantEnabled?: boolean;
   collapsed?: boolean;
   onToggle?: () => void;
 };
@@ -168,8 +221,6 @@ type MvpDashboardNavProps = {
 type NavLinkCardProps = {
   item: NavItem;
   active: boolean;
-  compact?: boolean;
-  iconOnly?: boolean;
 };
 
 const TRANSITION = "320ms cubic-bezier(0.2, 0, 0, 1)";
@@ -234,11 +285,25 @@ function getVisibleNavSections(
   }, []);
 }
 
+function getNavSections(options?: { restaurantEnabled?: boolean }) {
+  return [
+    { id: "core", label: "Accesos principales", items: CORE_NAV_ITEMS },
+    ...(options?.restaurantEnabled
+      ? ([
+          {
+            id: "restaurant",
+            label: "Operación restaurante",
+            items: RESTAURANT_NAV_ITEMS,
+          },
+        ] satisfies NavSection[])
+      : []),
+    { id: "business", label: "Procesos del negocio", items: BUSINESS_NAV_ITEMS },
+  ];
+}
+
 function NavLinkCard({
   item,
   active,
-  compact = false,
-  iconOnly = false,
 }: NavLinkCardProps) {
   const theme = useTheme();
   const Icon = item.icon;
@@ -449,9 +514,7 @@ function NavLinkCard({
 
 type NavModuleCardProps = {
   item: NavItem;
-  children: NavItem[];
-  iconOnly?: boolean;
-  compact?: boolean;
+  items: NavItem[];
   open: boolean;
   onToggle: () => void;
   idPrefix?: string;
@@ -527,9 +590,7 @@ function NavSubItem({ item, active }: { item: NavItem; active: boolean }) {
 
 function NavModuleCard({
   item,
-  children,
-  iconOnly = false,
-  compact = false,
+  items,
   open,
   onToggle,
   idPrefix = "nav",
@@ -538,14 +599,13 @@ function NavModuleCard({
   const pathname = usePathname();
   const Icon = item.icon;
 
-  const anyChildActive = children.some((child) =>
+  const anyChildActive = items.some((child) =>
     isPathActive(pathname, child.href),
   );
   const collapseId = `${idPrefix}-${item.id}-children`;
 
   const headerHighlighted = open || anyChildActive;
   const activeBg = `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.16)}, ${alpha(theme.palette.primary.main, 0.08)})`;
-  const hoverBg = alpha(theme.palette.background.paper, 0.72);
   const focusRing = `0 0 0 1px ${alpha(theme.palette.primary.main, 0.34)}, 0 0 0 4px ${alpha(theme.palette.primary.main, 0.16)}`;
 
   return (
@@ -646,7 +706,7 @@ function NavModuleCard({
             borderLeft: `1px solid ${alpha(theme.palette.divider, 0.72)}`,
           }}
         >
-          {children.map((subItem) => (
+          {items.map((subItem) => (
             <NavSubItem
               key={subItem.id}
               item={subItem}
@@ -794,14 +854,20 @@ export function MvpDashboardNav({
   userRole,
   businessName,
   enabledFeatures,
+  restaurantEnabled = false,
   collapsed = false,
   onToggle,
 }: MvpDashboardNavProps) {
   const theme = useTheme();
   const pathname = usePathname();
   const visibleSections = useMemo(
-    () => getVisibleNavSections(NAV_SECTIONS, userRole, enabledFeatures),
-    [enabledFeatures, userRole],
+    () =>
+      getVisibleNavSections(
+        getNavSections({ restaurantEnabled }),
+        userRole,
+        enabledFeatures,
+      ),
+    [enabledFeatures, restaurantEnabled, userRole],
   );
 
   const shellBorder = alpha(theme.palette.divider, 0.72);
@@ -874,13 +940,6 @@ export function MvpDashboardNav({
     firstActiveModuleId,
   );
 
-  useEffect(() => {
-    if (firstActiveModuleId) {
-      setDesktopOpenModuleId(firstActiveModuleId);
-      setMobileOpenModuleId(firstActiveModuleId);
-    }
-  }, [firstActiveModuleId]);
-
   function toggleModule(
     moduleId: string,
     currentOpenId: string | null,
@@ -888,7 +947,6 @@ export function MvpDashboardNav({
   ) {
     setOpenId(currentOpenId === moduleId ? null : moduleId);
   }
-  const desktopCompact = collapsed;
 
   return (
     <>
@@ -1060,8 +1118,7 @@ export function MvpDashboardNav({
                         <NavModuleCard
                           key={item.id}
                           item={item}
-                          children={item.children}
-                          compact={desktopCompact}
+                          items={item.children}
                           open={desktopOpenModuleId === item.id}
                           onToggle={() =>
                             toggleModule(
@@ -1077,7 +1134,6 @@ export function MvpDashboardNav({
                           key={item.id}
                           item={item}
                           active={isPathActive(pathname, item.href)}
-                          compact={desktopCompact}
                         />
                       );
 
@@ -1230,8 +1286,7 @@ export function MvpDashboardNav({
                       <NavModuleCard
                         key={`mobile-${item.id}`}
                         item={item}
-                        children={item.children}
-                        compact
+                        items={item.children}
                         open={mobileOpenModuleId === item.id}
                         onToggle={() =>
                           toggleModule(
@@ -1247,7 +1302,6 @@ export function MvpDashboardNav({
                         key={`mobile-${item.id}`}
                         item={item}
                         active={isPathActive(pathname, item.href)}
-                        compact
                       />
                     ),
                   )}

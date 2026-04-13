@@ -1,5 +1,10 @@
 import { Box } from "@mui/material";
 
+import {
+  ensureDefaultBusiness,
+  getBusinessContextById,
+} from "@/core/business/business.service";
+import { resolvePosRuntime } from "@/modules/pos/policies/resolve-pos-runtime";
 import { DashboardShell } from "@/shared/dashboard/shell";
 import { getSession } from "@/lib/auth";
 
@@ -10,6 +15,16 @@ export default async function DashboardLayout({
 }>) {
   const session = await getSession();
   const roleLabel = session?.role === "ADMIN" ? "Administrador" : "Vendedor";
+  const business = session
+    ? session.businessId
+      ? await getBusinessContextById(session.businessId)
+      : await ensureDefaultBusiness()
+    : null;
+  const restaurantEnabled = business
+    ? resolvePosRuntime({
+        blueprint: business.blueprint,
+      }).policyPack === "POS_RESTAURANT"
+    : false;
 
   return (
     <Box
@@ -27,6 +42,7 @@ export default async function DashboardLayout({
         userRole={session?.role}
         businessName={session?.businessName}
         enabledFeatures={session?.features}
+        restaurantEnabled={restaurantEnabled}
         userName={session?.name}
         roleLabel={roleLabel}
         canManageCompany={session?.role === "ADMIN"}

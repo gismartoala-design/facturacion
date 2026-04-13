@@ -15,6 +15,11 @@ const productSelect = {
   precio: true,
   tarifaIva: true,
   activo: true,
+  restaurantVisible: true,
+  restaurantCategory: true,
+  restaurantStationCode: true,
+  allowsModifiers: true,
+  prepTimeMinutes: true,
   createdAt: true,
   stockLevel: {
     select: {
@@ -37,6 +42,11 @@ function productPresenter(product: Prisma.ProductGetPayload<{ select: typeof pro
     precio: Number(product.precio),
     tarifaIva: Number(product.tarifaIva),
     activo: product.activo,
+    restaurantVisible: product.restaurantVisible,
+    restaurantCategory: product.restaurantCategory,
+    restaurantStationCode: product.restaurantStationCode,
+    allowsModifiers: product.allowsModifiers,
+    prepTimeMinutes: product.prepTimeMinutes,
     stock: Number(product.stockLevel?.quantity ?? 0),
     minStock: Number(product.stockLevel?.minQuantity ?? 0),
     createdAt: product.createdAt,
@@ -109,6 +119,11 @@ export async function createProduct(rawInput: unknown) {
       descripcion: input.descripcion || null,
       precio: input.precio,
       tarifaIva: input.tarifaIva,
+      restaurantVisible: input.restaurantVisible,
+      restaurantCategory: input.restaurantCategory || null,
+      restaurantStationCode: input.restaurantStationCode || null,
+      allowsModifiers: input.allowsModifiers,
+      prepTimeMinutes: input.prepTimeMinutes ?? null,
       stockLevel: {
         create: {
           quantity: input.tipoProducto === "BIEN" ? input.stockInicial : 0,
@@ -183,6 +198,21 @@ export async function updateProduct(id: string, rawInput: unknown) {
       ...(input.descripcion !== undefined ? { descripcion: input.descripcion || null } : {}),
       ...(input.precio !== undefined ? { precio: input.precio } : {}),
       ...(input.tarifaIva !== undefined ? { tarifaIva: input.tarifaIva } : {}),
+      ...(input.restaurantVisible !== undefined
+        ? { restaurantVisible: input.restaurantVisible }
+        : {}),
+      ...(input.restaurantCategory !== undefined
+        ? { restaurantCategory: input.restaurantCategory || null }
+        : {}),
+      ...(input.restaurantStationCode !== undefined
+        ? { restaurantStationCode: input.restaurantStationCode || null }
+        : {}),
+      ...(input.allowsModifiers !== undefined
+        ? { allowsModifiers: input.allowsModifiers }
+        : {}),
+      ...(input.prepTimeMinutes !== undefined
+        ? { prepTimeMinutes: input.prepTimeMinutes ?? null }
+        : {}),
       ...((input.minStock !== undefined || nextTipoProducto === "SERVICIO")
         ? { stockLevel: { update: { minQuantity: nextTipoProducto === "SERVICIO" ? 0 : (input.minStock ?? 0) } } }
         : {}),

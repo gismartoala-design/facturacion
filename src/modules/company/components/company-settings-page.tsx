@@ -16,7 +16,15 @@ import {
   Typography,
 } from "@mui/material";
 import { alpha, useTheme } from "@mui/material/styles";
-import { Save, Upload } from "lucide-react";
+import {
+  ArrowRight,
+  BarChart3,
+  ChefHat,
+  PackageSearch,
+  Save,
+  Upload,
+} from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState, type ChangeEvent, type SyntheticEvent } from "react";
 
 import type { BusinessBlueprint } from "@/core/platform/business-blueprint";
@@ -138,6 +146,127 @@ const PROFILE_OPTIONS = [
 const ENVIRONMENT_OPTIONS = [
   { value: "PRUEBAS", label: "Pruebas" },
   { value: "PRODUCCION", label: "Produccion" },
+];
+
+const PLATFORM_BLUEPRINT_PRESETS: Array<{
+  key: string;
+  title: string;
+  description: string;
+  blueprint: BusinessBlueprint;
+}> = [
+  {
+    key: "retail",
+    title: "Retail base",
+    description:
+      "POS generico con inventario operativo para mostrador o caja simple.",
+    blueprint: {
+      modules: ["POS", "INVENTORY"],
+      edition: "STARTER",
+      policyPacks: ["POS_GENERIC"],
+      capabilities: ["POS_TRACK_INVENTORY_ON_SALE"],
+    },
+  },
+  {
+    key: "butchery",
+    title: "Carniceria",
+    description:
+      "Preset base para balanza, lectura de peso y control operativo en POS.",
+    blueprint: {
+      modules: ["POS", "INVENTORY", "BILLING"],
+      edition: "STARTER",
+      policyPacks: ["POS_BUTCHERY"],
+      capabilities: [
+        "POS_SCALE_BARCODES",
+        "POS_WEIGHT_FROM_BARCODE",
+        "POS_TRACK_INVENTORY_ON_SALE",
+      ],
+    },
+  },
+  {
+    key: "restaurant",
+    title: "Restaurante",
+    description:
+      "Habilita mesas, cocina, takeout, delivery, caja e inventario por receta.",
+    blueprint: {
+      modules: ["POS", "BILLING", "REPORTS", "CASH_MANAGEMENT", "INVENTORY"],
+      edition: "GROWTH",
+      policyPacks: ["POS_RESTAURANT"],
+      capabilities: [
+        "POS_TABLE_SERVICE",
+        "POS_KITCHEN_TICKETS",
+        "POS_KITCHEN_DISPLAY",
+        "POS_TAKEOUT_ORDERS",
+        "POS_DELIVERY_ORDERS",
+        "POS_SPLIT_BILL",
+        "POS_TRANSFER_TABLES",
+        "POS_MERGE_TABLES",
+        "INVENTORY_RECIPE_CONSUMPTION",
+        "INVENTORY_PREP_PRODUCTION",
+      ],
+    },
+  },
+];
+
+const CAPABILITY_GROUPS: Array<{
+  title: string;
+  description: string;
+  capabilities: CapabilityKey[];
+}> = [
+  {
+    title: "POS base",
+    description: "Capacidades operativas generales del punto de venta.",
+    capabilities: [
+      "POS_TRACK_INVENTORY_ON_SALE",
+      "POS_SCALE_BARCODES",
+      "POS_WEIGHT_FROM_BARCODE",
+    ],
+  },
+  {
+    title: "Restaurante / salon",
+    description: "Atencion de mesa, divisiones y movimientos operativos.",
+    capabilities: [
+      "POS_TABLE_SERVICE",
+      "POS_SPLIT_BILL",
+      "POS_TRANSFER_TABLES",
+      "POS_MERGE_TABLES",
+    ],
+  },
+  {
+    title: "Restaurante / canales",
+    description: "Operaciones sin mesa fisica o con despacho interno.",
+    capabilities: ["POS_TAKEOUT_ORDERS", "POS_DELIVERY_ORDERS"],
+  },
+  {
+    title: "Restaurante / cocina",
+    description: "Tickets impresos y visibilidad KDS por estacion.",
+    capabilities: ["POS_KITCHEN_TICKETS", "POS_KITCHEN_DISPLAY"],
+  },
+  {
+    title: "Restaurante / inventario",
+    description: "Consumo de receta y mise en place para operacion real.",
+    capabilities: [
+      "INVENTORY_RECIPE_CONSUMPTION",
+      "INVENTORY_PREP_PRODUCTION",
+    ],
+  },
+  {
+    title: "Caja",
+    description: "Reglas operativas y controles de sesion de caja.",
+    capabilities: [
+      "CASH_SESSION_REQUIRED",
+      "CASH_DECLARED_CLOSING",
+      "CASH_WITHDRAWALS",
+      "CASH_DEPOSITS",
+      "CASH_SHIFT_RECONCILIATION",
+      "CASH_BLIND_CLOSE",
+      "CASH_APPROVAL_CLOSE",
+    ],
+  },
+  {
+    title: "Control y auditoria",
+    description: "Trazabilidad y aprobaciones para escenarios formales.",
+    capabilities: ["AUDIT_LOG", "APPROVAL_FLOWS"],
+  },
 ];
 
 function toFormState(data: BusinessSettingsResponse): FormState {
@@ -283,6 +412,13 @@ export function CompanySettingsPage({ canEdit }: CompanySettingsPageProps) {
     return values.filter((currentValue) => currentValue !== value);
   }
 
+  function mergeModules(
+    values: readonly ModuleKey[],
+    requiredModules: readonly ModuleKey[],
+  ) {
+    return Array.from(new Set([...values, ...requiredModules]));
+  }
+
   function handleModuleToggle(moduleKey: ModuleKey, enabled: boolean) {
     updateBlueprint((current) => ({
       ...current,
@@ -294,14 +430,35 @@ export function CompanySettingsPage({ canEdit }: CompanySettingsPageProps) {
     policyPackKey: PolicyPackKey,
     enabled: boolean,
   ) {
-    updateBlueprint((current) => ({
-      ...current,
-      policyPacks: toggleBlueprintValue(
-        current.policyPacks,
-        policyPackKey,
-        enabled,
-      ),
-    }));
+    updateBlueprint((current) => {
+      if (!enabled) {
+        return {
+          ...current,
+          policyPacks: toggleBlueprintValue(
+            current.policyPacks,
+            policyPackKey,
+            false,
+          ),
+        };
+      }
+
+      const nextModules = mergeModules(
+        current.modules,
+        POLICY_PACK_CATALOG[policyPackKey].requiresModules,
+      );
+      const nextPolicyPacks = current.policyPacks.filter(
+        (currentValue) =>
+          !(
+            currentValue.startsWith("POS_") && policyPackKey.startsWith("POS_")
+          ),
+      );
+
+      return {
+        ...current,
+        modules: nextModules,
+        policyPacks: toggleBlueprintValue(nextPolicyPacks, policyPackKey, true),
+      };
+    });
   }
 
   function handleCapabilityToggle(
@@ -310,12 +467,22 @@ export function CompanySettingsPage({ canEdit }: CompanySettingsPageProps) {
   ) {
     updateBlueprint((current) => ({
       ...current,
+      modules: enabled
+        ? mergeModules(
+            current.modules,
+            CAPABILITY_CATALOG[capabilityKey].requiresModules,
+          )
+        : current.modules,
       capabilities: toggleBlueprintValue(
         current.capabilities,
         capabilityKey,
         enabled,
       ),
     }));
+  }
+
+  function applyBlueprintPreset(blueprint: BusinessBlueprint) {
+    updateBlueprint(() => blueprint);
   }
 
   async function handleLogoSelected(
@@ -416,11 +583,104 @@ export function CompanySettingsPage({ canEdit }: CompanySettingsPageProps) {
     setSnackbar(null);
   }
 
-  function modulesSatisfied(requiredModules: readonly ModuleKey[]) {
-    return requiredModules.every((moduleKey) =>
-      form.blueprint.modules.includes(moduleKey),
-    );
-  }
+  const groupedCapabilities = new Set(
+    CAPABILITY_GROUPS.flatMap((group) => group.capabilities),
+  );
+  const otherCapabilities = (Object.keys(CAPABILITY_CATALOG) as CapabilityKey[]).filter(
+    (capability) => !groupedCapabilities.has(capability),
+  );
+  const restaurantPresetActive = form.blueprint.policyPacks.includes(
+    "POS_RESTAURANT",
+  );
+  const restaurantConfigStatus = [
+    {
+      title: "Salon y mesas",
+      enabled: form.blueprint.capabilities.includes("POS_TABLE_SERVICE"),
+      detail: "Apertura de mesas, sesiones activas y servicio en salon.",
+    },
+    {
+      title: "Cocina hibrida",
+      enabled:
+        form.blueprint.capabilities.includes("POS_KITCHEN_TICKETS") &&
+        form.blueprint.capabilities.includes("POS_KITCHEN_DISPLAY"),
+      detail: "Tickets por estacion y tablero KDS para seguimiento.",
+    },
+    {
+      title: "Canales takeout y delivery",
+      enabled:
+        form.blueprint.capabilities.includes("POS_TAKEOUT_ORDERS") &&
+        form.blueprint.capabilities.includes("POS_DELIVERY_ORDERS"),
+      detail: "Pedidos sin mesa y despacho interno sobre la misma orden.",
+    },
+    {
+      title: "Cierre y division de cuenta",
+      enabled: form.blueprint.capabilities.includes("POS_SPLIT_BILL"),
+      detail: "Liquidaciones parciales, multiples ventas y pagos mixtos.",
+    },
+    {
+      title: "Inventario por receta",
+      enabled:
+        form.blueprint.capabilities.includes("INVENTORY_RECIPE_CONSUMPTION") &&
+        form.blueprint.modules.includes("INVENTORY"),
+      detail: "Descarga de insumos al enviar a cocina, no al cobrar.",
+    },
+  ];
+  const restaurantChecklist = [
+    {
+      title: "Marcar productos visibles para restaurante",
+      done: form.blueprint.modules.includes("INVENTORY"),
+      detail:
+        "Configura categoria, estacion y visibilidad del menu desde Productos.",
+    },
+    {
+      title: "Activar flujo de cocina",
+      done:
+        form.blueprint.capabilities.includes("POS_KITCHEN_TICKETS") ||
+        form.blueprint.capabilities.includes("POS_KITCHEN_DISPLAY"),
+      detail:
+        "Sin cocina activa podras tomar ordenes, pero no operar tandas ni estaciones.",
+    },
+    {
+      title: "Configurar consumo de inventario",
+      done: form.blueprint.capabilities.includes("INVENTORY_RECIPE_CONSUMPTION"),
+      detail:
+        "Necesario para descargar recetas y preparar mise en place real.",
+    },
+    {
+      title: "Habilitar caja y cobro formal",
+      done:
+        form.blueprint.modules.includes("CASH_MANAGEMENT") &&
+        form.blueprint.modules.includes("BILLING"),
+      detail:
+        "Permite operar caja, cierres y emision documental al liquidar la orden.",
+    },
+  ];
+  const restaurantQuickActions = [
+    {
+      title: "Operar POS restaurante",
+      caption: "Abrir mesas, tomar ordenes y enviar tandas a cocina.",
+      href: "/pos",
+      icon: ChefHat,
+    },
+    {
+      title: "Configurar menu",
+      caption: "Ajustar productos, categorias y datos operativos del menu.",
+      href: "/products",
+      icon: PackageSearch,
+    },
+    {
+      title: "Revisar inventario",
+      caption: "Validar stock, recetas y preproduccion sobre inventario real.",
+      href: "/inventory",
+      icon: PackageSearch,
+    },
+    {
+      title: "Monitorear reportes",
+      caption: "Ver lectura operativa y cierres del negocio.",
+      href: "/reports",
+      icon: BarChart3,
+    },
+  ];
 
   function renderChipList<T extends string>(
     values: readonly T[],
@@ -665,7 +925,8 @@ export function CompanySettingsPage({ canEdit }: CompanySettingsPageProps) {
                 </Typography>
                 <Typography sx={{ mt: 0.5, color: "text.secondary", fontSize: 14 }}>
                   Configura la plataforma como piezas: modulos, edicion,
-                  policy packs y capabilities.
+                  policy packs y capabilities. Al activar una pieza, el sistema
+                  incorpora sus modulos requeridos.
                 </Typography>
               </Box>
 
@@ -698,6 +959,226 @@ export function CompanySettingsPage({ canEdit }: CompanySettingsPageProps) {
                   ))}
                 </TextField>
               </Box>
+
+              <Paper
+                variant="outlined"
+                sx={{
+                  borderRadius: "18px",
+                  backgroundColor: alpha(theme.palette.background.paper, 0.72),
+                  p: 1.5,
+                }}
+              >
+                <Stack spacing={1.5}>
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                      Presets de composicion
+                    </Typography>
+                    <Typography sx={{ color: "text.secondary", fontSize: 13, mt: 0.4 }}>
+                      Cargan una base recomendada y luego puedes ajustar el blueprint manualmente.
+                    </Typography>
+                  </Box>
+
+                  <Box
+                    sx={{
+                      display: "grid",
+                      gap: 1.25,
+                      gridTemplateColumns: {
+                        xs: "1fr",
+                        md: "repeat(3, minmax(0, 1fr))",
+                      },
+                    }}
+                  >
+                    {PLATFORM_BLUEPRINT_PRESETS.map((preset) => (
+                      <Paper
+                        key={preset.key}
+                        variant="outlined"
+                        sx={{
+                          borderRadius: "16px",
+                          p: 1.5,
+                          backgroundColor: alpha(theme.palette.background.paper, 0.68),
+                        }}
+                      >
+                        <Stack spacing={1.25}>
+                          <Box>
+                            <Typography sx={{ fontWeight: 700 }}>
+                              {preset.title}
+                            </Typography>
+                            <Typography sx={{ color: "text.secondary", fontSize: 12, mt: 0.35 }}>
+                              {preset.description}
+                            </Typography>
+                          </Box>
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            disabled={!canEdit}
+                            onClick={() => applyBlueprintPreset(preset.blueprint)}
+                          >
+                            Aplicar preset
+                          </Button>
+                        </Stack>
+                      </Paper>
+                    ))}
+                  </Box>
+                </Stack>
+              </Paper>
+
+              {restaurantPresetActive ? (
+                <Stack spacing={1.5}>
+                  <Alert severity="success" variant="outlined" sx={{ borderRadius: "18px" }}>
+                    Restaurante activo en el blueprint. El POS resolvera mesas, cocina,
+                    takeout, delivery y consumo de inventario por receta cuando las
+                    capabilities correspondientes esten encendidas.
+                  </Alert>
+
+                  <Paper
+                    variant="outlined"
+                    sx={{
+                      borderRadius: "18px",
+                      backgroundColor: alpha(theme.palette.background.paper, 0.76),
+                      p: 1.5,
+                    }}
+                  >
+                    <Stack spacing={1.5}>
+                      <Box>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                          Configuracion restaurante
+                        </Typography>
+                        <Typography sx={{ fontSize: 13, color: "text.secondary", mt: 0.35 }}>
+                          Este bloque resume el runtime operativo del vertical y te lleva a
+                          los lugares donde terminas la parametrizacion real.
+                        </Typography>
+                      </Box>
+
+                      <Box
+                        sx={{
+                          display: "grid",
+                          gap: 1.25,
+                          gridTemplateColumns: {
+                            xs: "1fr",
+                            md: "repeat(2, minmax(0, 1fr))",
+                          },
+                        }}
+                      >
+                        {restaurantConfigStatus.map((item) => (
+                          <Paper
+                            key={item.title}
+                            variant="outlined"
+                            sx={{
+                              borderRadius: "16px",
+                              p: 1.25,
+                              backgroundColor: alpha(theme.palette.background.paper, 0.62),
+                            }}
+                          >
+                            <Stack spacing={0.9}>
+                              <Stack
+                                direction="row"
+                                spacing={1}
+                                alignItems="center"
+                                justifyContent="space-between"
+                              >
+                                <Typography sx={{ fontWeight: 700 }}>
+                                  {item.title}
+                                </Typography>
+                                <Chip
+                                  size="small"
+                                  color={item.enabled ? "success" : "default"}
+                                  variant={item.enabled ? "filled" : "outlined"}
+                                  label={item.enabled ? "Activo" : "Pendiente"}
+                                />
+                              </Stack>
+                              <Typography sx={{ fontSize: 12, color: "text.secondary" }}>
+                                {item.detail}
+                              </Typography>
+                            </Stack>
+                          </Paper>
+                        ))}
+                      </Box>
+
+                      <Paper
+                        variant="outlined"
+                        sx={{
+                          borderRadius: "16px",
+                          p: 1.25,
+                          backgroundColor: alpha(theme.palette.warning.light, 0.12),
+                        }}
+                      >
+                        <Stack spacing={1}>
+                          <Typography sx={{ fontWeight: 700 }}>
+                            Checklist de salida operativa
+                          </Typography>
+                          {restaurantChecklist.map((item) => (
+                            <Stack
+                              key={item.title}
+                              direction="row"
+                              spacing={1}
+                              alignItems="flex-start"
+                              justifyContent="space-between"
+                            >
+                              <Box sx={{ minWidth: 0, flex: 1 }}>
+                                <Typography sx={{ fontSize: 13, fontWeight: 600 }}>
+                                  {item.title}
+                                </Typography>
+                                <Typography sx={{ fontSize: 12, color: "text.secondary" }}>
+                                  {item.detail}
+                                </Typography>
+                              </Box>
+                              <Chip
+                                size="small"
+                                color={item.done ? "success" : "warning"}
+                                variant={item.done ? "filled" : "outlined"}
+                                label={item.done ? "Listo" : "Falta"}
+                              />
+                            </Stack>
+                          ))}
+                        </Stack>
+                      </Paper>
+
+                      <Box
+                        sx={{
+                          display: "grid",
+                          gap: 1.25,
+                          gridTemplateColumns: {
+                            xs: "1fr",
+                            md: "repeat(2, minmax(0, 1fr))",
+                          },
+                        }}
+                      >
+                        {restaurantQuickActions.map((action) => {
+                          const Icon = action.icon;
+
+                          return (
+                            <Button
+                              key={action.href}
+                              component={Link}
+                              href={action.href}
+                              variant="outlined"
+                              sx={{
+                                justifyContent: "space-between",
+                                borderRadius: "16px",
+                                px: 2,
+                                py: 1.5,
+                              }}
+                            >
+                              <Stack direction="row" spacing={1.25} alignItems="center">
+                                <Icon className="h-4 w-4" />
+                                <Stack spacing={0.15} alignItems="flex-start">
+                                  <Typography sx={{ fontSize: 14, fontWeight: 700 }}>
+                                    {action.title}
+                                  </Typography>
+                                  <Typography sx={{ fontSize: 11, color: "text.secondary" }}>
+                                    {action.caption}
+                                  </Typography>
+                                </Stack>
+                              </Stack>
+                              <ArrowRight className="h-4 w-4" />
+                            </Button>
+                          );
+                        })}
+                      </Box>
+                    </Stack>
+                  </Paper>
+                </Stack>
+              ) : null}
 
               <Paper
                 variant="outlined"
@@ -773,8 +1254,10 @@ export function CompanySettingsPage({ canEdit }: CompanySettingsPageProps) {
                     }}
                   >
                     {Object.entries(POLICY_PACK_CATALOG).map(([value, config]) => {
-                      const disabled =
-                        !canEdit || !modulesSatisfied(config.requiresModules);
+                      const missingModules = config.requiresModules.filter(
+                        (moduleKey) => !form.blueprint.modules.includes(moduleKey),
+                      );
+                      const disabled = !canEdit;
 
                       return (
                         <FormControlLabel
@@ -798,6 +1281,11 @@ export function CompanySettingsPage({ canEdit }: CompanySettingsPageProps) {
                               <Typography>{config.label}</Typography>
                               <Typography sx={{ fontSize: 12, color: "text.secondary" }}>
                                 {config.description}
+                                {missingModules.length
+                                  ? ` Al activarlo se agregan: ${missingModules
+                                      .map((moduleKey) => MODULE_CATALOG[moduleKey].label)
+                                      .join(", ")}.`
+                                  : ""}
                               </Typography>
                             </Stack>
                           }
@@ -820,49 +1308,148 @@ export function CompanySettingsPage({ canEdit }: CompanySettingsPageProps) {
                   <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
                     Capabilities
                   </Typography>
-                  <Box
-                    sx={{
-                      display: "grid",
-                      gap: 1.25,
-                      gridTemplateColumns: {
-                        xs: "1fr",
-                        md: "repeat(2, minmax(0, 1fr))",
-                      },
-                    }}
-                  >
-                    {Object.entries(CAPABILITY_CATALOG).map(([value, config]) => {
-                      const disabled =
-                        !canEdit || !modulesSatisfied(config.requiresModules);
+                  <Stack spacing={1.25}>
+                    {CAPABILITY_GROUPS.map((group) => (
+                      <Paper
+                        key={group.title}
+                        variant="outlined"
+                        sx={{
+                          borderRadius: "16px",
+                          backgroundColor: alpha(theme.palette.background.paper, 0.62),
+                          p: 1.25,
+                        }}
+                      >
+                        <Stack spacing={1.2}>
+                          <Box>
+                            <Typography sx={{ fontWeight: 700 }}>
+                              {group.title}
+                            </Typography>
+                            <Typography sx={{ fontSize: 12, color: "text.secondary", mt: 0.3 }}>
+                              {group.description}
+                            </Typography>
+                          </Box>
+                          <Box
+                            sx={{
+                              display: "grid",
+                              gap: 1.25,
+                              gridTemplateColumns: {
+                                xs: "1fr",
+                                md: "repeat(2, minmax(0, 1fr))",
+                              },
+                            }}
+                          >
+                            {group.capabilities.map((capabilityKey) => {
+                              const config = CAPABILITY_CATALOG[capabilityKey];
+                              const missingModules = config.requiresModules.filter(
+                                (moduleKey) =>
+                                  !form.blueprint.modules.includes(moduleKey),
+                              );
 
-                      return (
-                        <FormControlLabel
-                          key={value}
-                          control={
-                            <Switch
-                              checked={form.blueprint.capabilities.includes(
-                                value as CapabilityKey,
-                              )}
-                              onChange={(e) =>
-                                handleCapabilityToggle(
-                                  value as CapabilityKey,
-                                  e.target.checked,
-                                )
-                              }
-                              disabled={disabled}
-                            />
-                          }
-                          label={
-                            <Stack spacing={0.2}>
-                              <Typography>{config.label}</Typography>
-                              <Typography sx={{ fontSize: 12, color: "text.secondary" }}>
-                                {config.description}
-                              </Typography>
-                            </Stack>
-                          }
-                        />
-                      );
-                    })}
-                  </Box>
+                              return (
+                                <FormControlLabel
+                                  key={capabilityKey}
+                                  control={
+                                    <Switch
+                                      checked={form.blueprint.capabilities.includes(
+                                        capabilityKey,
+                                      )}
+                                      onChange={(e) =>
+                                        handleCapabilityToggle(
+                                          capabilityKey,
+                                          e.target.checked,
+                                        )
+                                      }
+                                      disabled={!canEdit}
+                                    />
+                                  }
+                                  label={
+                                    <Stack spacing={0.2}>
+                                      <Typography>{config.label}</Typography>
+                                      <Typography sx={{ fontSize: 12, color: "text.secondary" }}>
+                                        {config.description}
+                                        {missingModules.length
+                                          ? ` Al activarlo se agregan: ${missingModules
+                                              .map(
+                                                (moduleKey) =>
+                                                  MODULE_CATALOG[moduleKey].label,
+                                              )
+                                              .join(", ")}.`
+                                          : ""}
+                                      </Typography>
+                                    </Stack>
+                                  }
+                                />
+                              );
+                            })}
+                          </Box>
+                        </Stack>
+                      </Paper>
+                    ))}
+
+                    {otherCapabilities.length ? (
+                      <Paper
+                        variant="outlined"
+                        sx={{
+                          borderRadius: "16px",
+                          backgroundColor: alpha(theme.palette.background.paper, 0.62),
+                          p: 1.25,
+                        }}
+                      >
+                        <Stack spacing={1.2}>
+                          <Box>
+                            <Typography sx={{ fontWeight: 700 }}>
+                              Otras capabilities
+                            </Typography>
+                            <Typography sx={{ fontSize: 12, color: "text.secondary", mt: 0.3 }}>
+                              Capacidades adicionales que no entran en una agrupacion principal.
+                            </Typography>
+                          </Box>
+                          <Box
+                            sx={{
+                              display: "grid",
+                              gap: 1.25,
+                              gridTemplateColumns: {
+                                xs: "1fr",
+                                md: "repeat(2, minmax(0, 1fr))",
+                              },
+                            }}
+                          >
+                            {otherCapabilities.map((capabilityKey) => {
+                              const config = CAPABILITY_CATALOG[capabilityKey];
+
+                              return (
+                                <FormControlLabel
+                                  key={capabilityKey}
+                                  control={
+                                    <Switch
+                                      checked={form.blueprint.capabilities.includes(
+                                        capabilityKey,
+                                      )}
+                                      onChange={(e) =>
+                                        handleCapabilityToggle(
+                                          capabilityKey,
+                                          e.target.checked,
+                                        )
+                                      }
+                                      disabled={!canEdit}
+                                    />
+                                  }
+                                  label={
+                                    <Stack spacing={0.2}>
+                                      <Typography>{config.label}</Typography>
+                                      <Typography sx={{ fontSize: 12, color: "text.secondary" }}>
+                                        {config.description}
+                                      </Typography>
+                                    </Stack>
+                                  }
+                                />
+                              );
+                            })}
+                          </Box>
+                        </Stack>
+                      </Paper>
+                    ) : null}
+                  </Stack>
                 </Stack>
               </Paper>
 

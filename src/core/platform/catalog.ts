@@ -9,6 +9,7 @@ export const MODULE_CATALOG: Record<
   ModuleKey,
   { label: string; description: string }
 > = {
+  INVENTORY: { label: "Inventario", description: "Catalogo, existencias y movimientos operativos." },
   POS: { label: "POS", description: "Terminal de venta y flujos de mostrador." },
   BILLING: { label: "Facturacion", description: "Documentos, SRI y emision comercial." },
   QUOTES: { label: "Cotizaciones", description: "Proformas, conversion y seguimiento." },
@@ -73,6 +74,46 @@ export const CAPABILITY_CATALOG: Record<
     label: "Tickets de cocina",
     description: "Genera salidas separadas para preparacion interna.",
     requiresModules: ["POS"],
+  },
+  POS_KITCHEN_DISPLAY: {
+    label: "Pantalla de cocina",
+    description: "Habilita cola KDS por estacion para seguimiento operativo.",
+    requiresModules: ["POS"],
+  },
+  POS_TAKEOUT_ORDERS: {
+    label: "Pedidos takeout",
+    description: "Permite pedidos para retiro sin mesa asociada.",
+    requiresModules: ["POS"],
+  },
+  POS_DELIVERY_ORDERS: {
+    label: "Pedidos delivery",
+    description: "Permite pedidos con direccion y despacho interno.",
+    requiresModules: ["POS"],
+  },
+  POS_SPLIT_BILL: {
+    label: "Dividir cuenta",
+    description: "Liquida una orden en multiples cierres parciales.",
+    requiresModules: ["POS"],
+  },
+  POS_TRANSFER_TABLES: {
+    label: "Transferir mesas",
+    description: "Mueve sesiones abiertas entre mesas sin perder la orden.",
+    requiresModules: ["POS"],
+  },
+  POS_MERGE_TABLES: {
+    label: "Unir mesas",
+    description: "Combina consumos abiertos en una sola sesion operativa.",
+    requiresModules: ["POS"],
+  },
+  INVENTORY_RECIPE_CONSUMPTION: {
+    label: "Consumo por receta",
+    description: "Descuenta insumos al enviar ordenes a preparacion.",
+    requiresModules: ["POS", "INVENTORY"],
+  },
+  INVENTORY_PREP_PRODUCTION: {
+    label: "Preproduccion basica",
+    description: "Registra lotes simples para mise en place y consumo posterior.",
+    requiresModules: ["POS", "INVENTORY"],
   },
   AUDIT_LOG: {
     label: "Bitacora de auditoria",

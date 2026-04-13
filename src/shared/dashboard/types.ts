@@ -11,6 +11,11 @@ export type Product = {
   precio: number;
   tarifaIva: number;
   activo: boolean;
+  restaurantVisible?: boolean;
+  restaurantCategory?: string | null;
+  restaurantStationCode?: string | null;
+  allowsModifiers?: boolean;
+  prepTimeMinutes?: number | null;
   stock: number;
   minStock: number;
 };
@@ -250,6 +255,65 @@ export type PaginationMeta = {
   limit: number;
   total: number;
   totalPages: number;
+};
+
+export type RestaurantBootstrap = {
+  business: {
+    id: string;
+    name: string;
+  };
+  operator: {
+    id: string;
+    name: string;
+    role: "ADMIN" | "SELLER";
+  };
+};
+
+export type RestaurantFloorTable = {
+  id: string;
+  code: string;
+  name: string;
+  areaName: string | null;
+  capacity: number;
+  hasActiveSession: boolean;
+  activeOrderId: string | null;
+  openTotal: number;
+};
+
+export type RestaurantOrderDetail = {
+  id: string;
+  channel: "DINE_IN" | "TAKEOUT" | "DELIVERY";
+  status:
+    | "OPEN"
+    | "IN_PREPARATION"
+    | "PARTIALLY_SERVED"
+    | "SERVED"
+    | "PARTIALLY_PAID"
+    | "PAID"
+    | "CANCELLED";
+};
+
+export type KitchenTicketView = {
+  id: string;
+  stationCode: string;
+  status: "NEW" | "IN_PREPARATION" | "READY" | "SERVED" | "CANCELLED";
+};
+
+export type SettlementDraft = {
+  orderId: string;
+  total: number;
+};
+
+export type RecipeSummary = {
+  id: string;
+  productId: string;
+  ingredientCount: number;
+};
+
+export type PrepBatchSummary = {
+  id: string;
+  productId: string;
+  availableQuantity: number;
 };
 
 export type PaginatedResult<T> = {

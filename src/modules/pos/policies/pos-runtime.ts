@@ -9,6 +9,32 @@ export type PosRuntime = {
     weightFromBarcode: boolean;
     tableService: boolean;
     kitchenTickets: boolean;
+    kitchenDisplay: boolean;
+    takeoutOrders: boolean;
+    deliveryOrders: boolean;
+    splitBill: boolean;
+    transferTables: boolean;
+    mergeTables: boolean;
+  };
+  service: {
+    tableService: boolean;
+    splitBill: boolean;
+    transferTables: boolean;
+    mergeTables: boolean;
+  };
+  channels: {
+    takeout: boolean;
+    delivery: boolean;
+  };
+  kitchen: {
+    kds: boolean;
+    printTickets: boolean;
+  };
+  inventory: {
+    trackInventoryOnSale: boolean;
+    recipeConsumption: boolean;
+    prepProduction: boolean;
+    consumePoint: "SALE_CONFIRM" | "KITCHEN_FIRE";
   };
   operationalRules: {
     trackInventoryOnSale: boolean;

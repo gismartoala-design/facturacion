@@ -148,34 +148,91 @@ enum DocumentSeriesType {
   DEBIT_NOTE
 }
 
+enum TableSessionStatus {
+  OPEN
+  CLOSED
+  MERGED
+  TRANSFERRED
+}
+
+enum RestaurantOrderChannel {
+  DINE_IN
+  TAKEOUT
+  DELIVERY
+}
+
+enum RestaurantOrderStatus {
+  OPEN
+  IN_PREPARATION
+  PARTIALLY_SERVED
+  SERVED
+  PARTIALLY_PAID
+  PAID
+  CANCELLED
+}
+
+enum RestaurantOrderItemStatus {
+  PENDING
+  SENT
+  IN_PREPARATION
+  READY
+  SERVED
+  CANCELLED
+  BILLED
+}
+
+enum KitchenTicketStatus {
+  NEW
+  IN_PREPARATION
+  READY
+  SERVED
+  CANCELLED
+}
+
+enum KitchenTicketItemStatus {
+  NEW
+  IN_PREPARATION
+  READY
+  SERVED
+  CANCELLED
+}
+
 model Business {
-  id                String               @id @default(uuid()) @db.Uuid
-  name              String
-  legalName         String?
-  ruc               String?              @unique
-  phone             String?
-  email             String?
-  address           String?
-  slug              String               @unique
-  isActive          Boolean              @default(true)
-  logoStorageKey    String?
+  id                 String               @id @default(uuid()) @db.Uuid
+  name               String
+  legalName          String?
+  ruc                String?              @unique
+  phone              String?
+  email              String?
+  address            String?
+  slug               String               @unique
+  isActive           Boolean              @default(true)
+  logoStorageKey     String?
   /// Blueprint canónico del negocio. Fuente de verdad para módulos, edición y capabilities.
   /// Reemplaza al blueprint embebido en BusinessFeature.config (sistema legado).
-  blueprintConfig   Json?
-  users             User[]
-  features          BusinessFeature[]
-  taxProfile        TaxProfile?
-  documentIssuers   DocumentIssuer[]
-  posCashSessions   PosCashSession[]
-  posHeldSales      PosHeldSale[]
-  cashSessions      CashSession[]
-  cashMovements     CashMovement[]
-  collections       Collection[]
-  receivables       AccountsReceivable[]
+  blueprintConfig    Json?
+  users              User[]
+  features           BusinessFeature[]
+  taxProfile         TaxProfile?
+  documentIssuers    DocumentIssuer[]
+  posCashSessions    PosCashSession[]
+  posHeldSales       PosHeldSale[]
+  cashSessions       CashSession[]
+  cashMovements      CashMovement[]
+  collections        Collection[]
+  receivables        AccountsReceivable[]
   accountingAccounts AccountingAccount[]
-  accountingEntries AccountingEntry[]
-  createdAt         DateTime             @default(now())
-  updatedAt         DateTime             @updatedAt
+  accountingEntries  AccountingEntry[]
+  diningAreas        DiningArea[]
+  restaurantTables   RestaurantTable[]
+  tableSessions      TableSession[]
+  restaurantOrders   RestaurantOrder[]
+  kitchenStations    KitchenStation[]
+  kitchenTickets     KitchenTicket[]
+  recipes            Recipe[]
+  prepBatches        PrepBatch[]
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
 }
 
 model BusinessFeature {
@@ -243,26 +300,29 @@ model DocumentSeries {
 }
 
 model User {
-  id                      String                  @id @default(uuid()) @db.Uuid
-  businessId              String                  @db.Uuid
-  business                Business                @relation(fields: [businessId], references: [id], onDelete: Restrict)
-  name                    String
-  email                   String                  @unique
-  passwordHash            String
-  role                    UserRole                @default(SELLER)
-  sales                   Sale[]
-  movements               StockMovement[]
-  openedCashSessions      PosCashSession[]        @relation("PosCashSessionOpenedBy")
-  closedCashSessions      PosCashSession[]        @relation("PosCashSessionClosedBy")
-  heldSales               PosHeldSale[]
-  openedCashMgmtSessions  CashSession[]           @relation("CashSessionOpenedBy")
-  closedCashMgmtSessions  CashSession[]           @relation("CashSessionClosedBy")
-  cashMovements           CashMovement[]
-  registeredCollections   Collection[]            @relation("CollectionRegisteredBy")
-  collectionApplications  CollectionApplication[] @relation("CollectionApplicationCreatedBy")
-  approvedReconciliations CashReconciliation[]    @relation("CashReconciliationApprovedBy")
-  createdAt               DateTime                @default(now())
-  updatedAt               DateTime                @updatedAt
+  id                            String                  @id @default(uuid()) @db.Uuid
+  businessId                    String                  @db.Uuid
+  business                      Business                @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  name                          String
+  email                         String                  @unique
+  passwordHash                  String
+  role                          UserRole                @default(SELLER)
+  sales                         Sale[]
+  movements                     StockMovement[]
+  openedCashSessions            PosCashSession[]        @relation("PosCashSessionOpenedBy")
+  closedCashSessions            PosCashSession[]        @relation("PosCashSessionClosedBy")
+  heldSales                     PosHeldSale[]
+  openedCashMgmtSessions        CashSession[]           @relation("CashSessionOpenedBy")
+  closedCashMgmtSessions        CashSession[]           @relation("CashSessionClosedBy")
+  cashMovements                 CashMovement[]
+  registeredCollections         Collection[]            @relation("CollectionRegisteredBy")
+  collectionApplications        CollectionApplication[] @relation("CollectionApplicationCreatedBy")
+  approvedReconciliations       CashReconciliation[]    @relation("CashReconciliationApprovedBy")
+  openedRestaurantTableSessions TableSession[]          @relation("RestaurantTableSessionOpenedBy")
+  closedRestaurantTableSessions TableSession[]          @relation("RestaurantTableSessionClosedBy")
+  createdRestaurantOrders       RestaurantOrder[]       @relation("RestaurantOrderCreatedBy")
+  createdAt                     DateTime                @default(now())
+  updatedAt                     DateTime                @updatedAt
 
   @@index([businessId])
 }
@@ -315,6 +375,7 @@ model Customer {
   quotes             Quote[]
   collections        Collection[]
   receivables        AccountsReceivable[]
+  restaurantOrders   RestaurantOrder[]
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
 
@@ -322,22 +383,32 @@ model Customer {
 }
 
 model Product {
-  id             String          @id @default(uuid()) @db.Uuid
-  secuencial     BigInt          @unique @default(autoincrement())
-  sku            String?
-  codigoBarras   String?
-  tipoProducto   ProductType     @default(BIEN)
-  nombre         String
-  descripcion    String?
-  precio         Decimal         @db.Decimal(12, 2)
-  tarifaIva      Decimal         @default(15) @db.Decimal(5, 2)
-  activo         Boolean         @default(true)
-  stockLevel     StockLevel?
-  saleItems      SaleItem[]
-  quoteItems     QuoteItem[]
-  stockMovements StockMovement[]
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  id                    String                @id @default(uuid()) @db.Uuid
+  secuencial            BigInt                @unique @default(autoincrement())
+  sku                   String?
+  codigoBarras          String?
+  tipoProducto          ProductType           @default(BIEN)
+  nombre                String
+  descripcion           String?
+  precio                Decimal               @db.Decimal(12, 2)
+  tarifaIva             Decimal               @default(15) @db.Decimal(5, 2)
+  activo                Boolean               @default(true)
+  restaurantVisible     Boolean               @default(false)
+  restaurantCategory    String?
+  restaurantStationCode String?
+  allowsModifiers       Boolean               @default(false)
+  prepTimeMinutes       Int?
+  recipeConsumptionEnabled Boolean            @default(false)
+  stockLevel            StockLevel?
+  saleItems             SaleItem[]
+  quoteItems            QuoteItem[]
+  stockMovements        StockMovement[]
+  restaurantOrderItems  RestaurantOrderItem[]
+  recipeMenuItems       Recipe[]              @relation("RecipeMenuProduct")
+  recipeIngredientItems RecipeIngredient[]    @relation("RecipeIngredientProduct")
+  prepBatches           PrepBatch[]
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
 
   @@index([sku, activo])
   @@index([codigoBarras, activo])
@@ -369,33 +440,37 @@ model StockMovement {
 }
 
 model Sale {
-  id                     String                  @id @default(uuid()) @db.Uuid
-  saleNumber             BigInt                  @unique @default(autoincrement())
-  customerId             String                  @db.Uuid
-  customer               Customer                @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  cashSessionId          String?                 @db.Uuid
-  cashSession            CashSession?            @relation(fields: [cashSessionId], references: [id], onDelete: SetNull)
-  subtotal               Decimal                 @db.Decimal(12, 2)
-  discountTotal          Decimal                 @db.Decimal(12, 2)
-  taxTotal               Decimal                 @db.Decimal(12, 2)
-  total                  Decimal                 @db.Decimal(12, 2)
-  status                 SaleStatus              @default(COMPLETED)
-  source                 SaleSource?
-  createdById            String?                 @db.Uuid
-  createdBy              User?                   @relation(fields: [createdById], references: [id], onDelete: SetNull)
-  items                  SaleItem[]
-  payments               SalePayment[]
-  document               SaleDocument?
-  sriInvoice             SriInvoice?
-  receivable             AccountsReceivable?
-  collectionApplications CollectionApplication[]
-  sourceQuotes           Quote[]                 @relation("QuoteConvertedSale")
-  cashMovements          CashMovement[]
-  createdAt              DateTime                @default(now())
-  updatedAt              DateTime                @updatedAt
+  id                        String                          @id @default(uuid()) @db.Uuid
+  saleNumber                BigInt                          @unique @default(autoincrement())
+  customerId                String                          @db.Uuid
+  customer                  Customer                        @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  cashSessionId             String?                         @db.Uuid
+  cashSession               CashSession?                    @relation(fields: [cashSessionId], references: [id], onDelete: SetNull)
+  restaurantOrderId         String?                         @db.Uuid
+  restaurantOrder           RestaurantOrder?                @relation(fields: [restaurantOrderId], references: [id], onDelete: SetNull)
+  subtotal                  Decimal                         @db.Decimal(12, 2)
+  discountTotal             Decimal                         @db.Decimal(12, 2)
+  taxTotal                  Decimal                         @db.Decimal(12, 2)
+  total                     Decimal                         @db.Decimal(12, 2)
+  status                    SaleStatus                      @default(COMPLETED)
+  source                    SaleSource?
+  createdById               String?                         @db.Uuid
+  createdBy                 User?                           @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  items                     SaleItem[]
+  payments                  SalePayment[]
+  document                  SaleDocument?
+  sriInvoice                SriInvoice?
+  receivable                AccountsReceivable?
+  collectionApplications    CollectionApplication[]
+  sourceQuotes              Quote[]                         @relation("QuoteConvertedSale")
+  cashMovements             CashMovement[]
+  restaurantSettlementItems RestaurantOrderItemSettlement[]
+  createdAt                 DateTime                        @default(now())
+  updatedAt                 DateTime                        @updatedAt
 
   @@index([createdAt])
   @@index([cashSessionId, createdAt])
+  @@index([restaurantOrderId, createdAt])
 }
 
 model Quote {
@@ -676,23 +751,23 @@ model AccountsReceivable {
 }
 
 model AccountingAccount {
-  id              String                     @id @default(uuid()) @db.Uuid
-  businessId      String                     @db.Uuid
-  business        Business                   @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  id              String                    @id @default(uuid()) @db.Uuid
+  businessId      String                    @db.Uuid
+  business        Business                  @relation(fields: [businessId], references: [id], onDelete: Cascade)
   code            String
   name            String
   groupKey        AccountingAccountGroupKey
   defaultNature   AccountingAccountNature
-  parentId        String?                    @db.Uuid
-  parent          AccountingAccount?         @relation("AccountingAccountParent", fields: [parentId], references: [id], onDelete: SetNull)
-  children        AccountingAccount[]        @relation("AccountingAccountParent")
-  level           Int                        @default(1)
-  acceptsPostings Boolean                    @default(true)
-  system          Boolean                    @default(false)
-  active          Boolean                    @default(true)
+  parentId        String?                   @db.Uuid
+  parent          AccountingAccount?        @relation("AccountingAccountParent", fields: [parentId], references: [id], onDelete: SetNull)
+  children        AccountingAccount[]       @relation("AccountingAccountParent")
+  level           Int                       @default(1)
+  acceptsPostings Boolean                   @default(true)
+  system          Boolean                   @default(false)
+  active          Boolean                   @default(true)
   description     String?
-  createdAt       DateTime                   @default(now())
-  updatedAt       DateTime                   @updatedAt
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
 
   @@unique([businessId, code])
   @@index([businessId, groupKey, active])
@@ -763,4 +838,266 @@ model CashReconciliation {
   createdAt DateTime @default(now())
 
   @@index([sessionId])
+}
+
+model DiningArea {
+  id         String            @id @default(uuid()) @db.Uuid
+  businessId String            @db.Uuid
+  business   Business          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  code       String
+  name       String
+  sortOrder  Int               @default(0)
+  active     Boolean           @default(true)
+  tables     RestaurantTable[]
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  @@unique([businessId, code])
+  @@index([businessId, active, sortOrder])
+}
+
+model RestaurantTable {
+  id           String         @id @default(uuid()) @db.Uuid
+  businessId   String         @db.Uuid
+  business     Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  diningAreaId String?        @db.Uuid
+  diningArea   DiningArea?    @relation(fields: [diningAreaId], references: [id], onDelete: SetNull)
+  code         String
+  name         String
+  capacity     Int            @default(4)
+  active       Boolean        @default(true)
+  sessions     TableSession[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@unique([businessId, code])
+  @@index([businessId, active, diningAreaId])
+}
+
+model TableSession {
+  id         String             @id @default(uuid()) @db.Uuid
+  businessId String             @db.Uuid
+  business   Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  tableId    String             @db.Uuid
+  table      RestaurantTable    @relation(fields: [tableId], references: [id], onDelete: Restrict)
+  openedById String             @db.Uuid
+  openedBy   User               @relation("RestaurantTableSessionOpenedBy", fields: [openedById], references: [id], onDelete: Restrict)
+  closedById String?            @db.Uuid
+  closedBy   User?              @relation("RestaurantTableSessionClosedBy", fields: [closedById], references: [id], onDelete: SetNull)
+  status     TableSessionStatus @default(OPEN)
+  guestCount Int                @default(1)
+  notes      String?
+  openedAt   DateTime           @default(now())
+  closedAt   DateTime?
+  orders     RestaurantOrder[]
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+
+  @@index([businessId, status, openedAt])
+  @@index([tableId, status, openedAt])
+}
+
+model RestaurantOrder {
+  id                 String                 @id @default(uuid()) @db.Uuid
+  businessId         String                 @db.Uuid
+  business           Business               @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  tableSessionId     String?                @db.Uuid
+  tableSession       TableSession?          @relation(fields: [tableSessionId], references: [id], onDelete: SetNull)
+  customerId         String?                @db.Uuid
+  customer           Customer?              @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  channel            RestaurantOrderChannel
+  status             RestaurantOrderStatus  @default(OPEN)
+  guestCount         Int?
+  customerName       String?
+  customerPhone      String?
+  deliveryAddress    String?
+  deliveryReference  String?
+  assignedDriverName String?
+  dispatchedAt       DateTime?
+  deliveredAt        DateTime?
+  notes              String?
+  createdById        String?                @db.Uuid
+  createdBy          User?                  @relation("RestaurantOrderCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  items              RestaurantOrderItem[]
+  kitchenTickets     KitchenTicket[]
+  sales              Sale[]
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+
+  @@index([businessId, status, createdAt])
+  @@index([tableSessionId, status])
+  @@index([channel, status, createdAt])
+}
+
+model RestaurantOrderItem {
+  id                    String                          @id @default(uuid()) @db.Uuid
+  orderId               String                          @db.Uuid
+  order                 RestaurantOrder                 @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId             String                          @db.Uuid
+  product               Product                         @relation(fields: [productId], references: [id], onDelete: Restrict)
+  quantity              Decimal                         @db.Decimal(14, 3)
+  billedQuantity        Decimal                         @default(0) @db.Decimal(14, 3)
+  cancelledQuantity     Decimal                         @default(0) @db.Decimal(14, 3)
+  precioUnitario        Decimal                         @db.Decimal(12, 2)
+  descuento             Decimal                         @default(0) @db.Decimal(12, 2)
+  tarifaIva             Decimal                         @db.Decimal(5, 2)
+  notes                 String?
+  status                RestaurantOrderItemStatus       @default(PENDING)
+  sentAt                DateTime?
+  preparedAt            DateTime?
+  readyAt               DateTime?
+  servedAt              DateTime?
+  modifiers             OrderItemModifier[]
+  kitchenTicketItems    KitchenTicketItem[]
+  settlements           RestaurantOrderItemSettlement[]
+  prepBatchConsumptions PrepBatchConsumption[]
+  createdAt             DateTime                        @default(now())
+  updatedAt             DateTime                        @updatedAt
+
+  @@index([orderId, status, createdAt])
+  @@index([productId, status])
+}
+
+model OrderItemModifier {
+  id          String              @id @default(uuid()) @db.Uuid
+  orderItemId String              @db.Uuid
+  orderItem   RestaurantOrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  name        String
+  priceDelta  Decimal             @default(0) @db.Decimal(12, 2)
+  createdAt   DateTime            @default(now())
+}
+
+model KitchenStation {
+  id         String          @id @default(uuid()) @db.Uuid
+  businessId String          @db.Uuid
+  business   Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  code       String
+  name       String
+  sortOrder  Int             @default(0)
+  active     Boolean         @default(true)
+  tickets    KitchenTicket[]
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  @@unique([businessId, code])
+  @@index([businessId, active, sortOrder])
+}
+
+model KitchenTicket {
+  id          String              @id @default(uuid()) @db.Uuid
+  businessId  String              @db.Uuid
+  business    Business            @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  orderId     String              @db.Uuid
+  order       RestaurantOrder     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  stationId   String?             @db.Uuid
+  station     KitchenStation?     @relation(fields: [stationId], references: [id], onDelete: SetNull)
+  stationCode String
+  status      KitchenTicketStatus @default(NEW)
+  printedAt   DateTime?
+  startedAt   DateTime?
+  readyAt     DateTime?
+  servedAt    DateTime?
+  notes       String?
+  items       KitchenTicketItem[]
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@index([businessId, status, createdAt])
+  @@index([orderId, status, createdAt])
+}
+
+model KitchenTicketItem {
+  id          String                  @id @default(uuid()) @db.Uuid
+  ticketId    String                  @db.Uuid
+  ticket      KitchenTicket           @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  orderItemId String                  @db.Uuid
+  orderItem   RestaurantOrderItem     @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  quantity    Decimal                 @db.Decimal(14, 3)
+  status      KitchenTicketItemStatus @default(NEW)
+  startedAt   DateTime?
+  readyAt     DateTime?
+  servedAt    DateTime?
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+
+  @@index([ticketId, status, createdAt])
+  @@index([orderItemId, status, createdAt])
+}
+
+model Recipe {
+  id          String             @id @default(uuid()) @db.Uuid
+  businessId  String             @db.Uuid
+  business    Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  productId   String             @db.Uuid
+  product     Product            @relation("RecipeMenuProduct", fields: [productId], references: [id], onDelete: Cascade)
+  notes       String?
+  ingredients RecipeIngredient[]
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@unique([businessId, productId])
+}
+
+model RecipeIngredient {
+  id             String   @id @default(uuid()) @db.Uuid
+  recipeId       String   @db.Uuid
+  recipe         Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  productId      String   @db.Uuid
+  product        Product  @relation("RecipeIngredientProduct", fields: [productId], references: [id], onDelete: Restrict)
+  quantity       Decimal  @db.Decimal(14, 3)
+  usePrepBatches Boolean  @default(false)
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([recipeId])
+  @@index([productId])
+}
+
+model PrepBatch {
+  id                String                 @id @default(uuid()) @db.Uuid
+  businessId        String                 @db.Uuid
+  business          Business               @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  productId         String                 @db.Uuid
+  product           Product                @relation(fields: [productId], references: [id], onDelete: Restrict)
+  label             String
+  producedQuantity  Decimal                @db.Decimal(14, 3)
+  availableQuantity Decimal                @db.Decimal(14, 3)
+  notes             String?
+  producedAt        DateTime               @default(now())
+  expiresAt         DateTime?
+  consumptions      PrepBatchConsumption[]
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  @@index([businessId, productId, producedAt])
+}
+
+model PrepBatchConsumption {
+  id                    String               @id @default(uuid()) @db.Uuid
+  prepBatchId           String               @db.Uuid
+  prepBatch             PrepBatch            @relation(fields: [prepBatchId], references: [id], onDelete: Cascade)
+  restaurantOrderItemId String?              @db.Uuid
+  restaurantOrderItem   RestaurantOrderItem? @relation(fields: [restaurantOrderItemId], references: [id], onDelete: SetNull)
+  quantity              Decimal              @db.Decimal(14, 3)
+  createdAt             DateTime             @default(now())
+
+  @@index([prepBatchId, createdAt])
+  @@index([restaurantOrderItemId, createdAt])
+}
+
+model RestaurantOrderItemSettlement {
+  id                    String              @id @default(uuid()) @db.Uuid
+  restaurantOrderItemId String              @db.Uuid
+  restaurantOrderItem   RestaurantOrderItem @relation(fields: [restaurantOrderItemId], references: [id], onDelete: Cascade)
+  saleId                String              @db.Uuid
+  sale                  Sale                @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  quantity              Decimal             @db.Decimal(14, 3)
+  subtotal              Decimal             @db.Decimal(12, 2)
+  taxTotal              Decimal             @db.Decimal(12, 2)
+  total                 Decimal             @db.Decimal(12, 2)
+  createdAt             DateTime            @default(now())
+
+  @@index([saleId, createdAt])
+  @@index([restaurantOrderItemId, createdAt])
 }

@@ -16,6 +16,7 @@ import { mergeBusinessBlueprint } from "@/core/platform/blueprint-config";
 import { mapLegacyPosBlueprint } from "@/core/platform/legacy-mappers";
 import { prisma } from "@/lib/prisma";
 import { resolvePosRuntime } from "@/modules/pos/policies/resolve-pos-runtime";
+import { reverseRestaurantSaleSettlementBySaleId } from "@/modules/restaurant/restaurant.service";
 
 export async function cancelSaleBySriInvoiceId(sriInvoiceId: string) {
   await prisma.$transaction(async (tx) => {
@@ -132,6 +133,8 @@ export async function cancelSaleBySriInvoiceId(sriInvoiceId: string) {
       where: { id: invoice.saleId },
       data: { status: SaleStatus.CANCELLED },
     });
+
+    await reverseRestaurantSaleSettlementBySaleId(tx, invoice.saleId);
 
     const saleEntry = await tx.accountingEntry.findFirst({
       where: {

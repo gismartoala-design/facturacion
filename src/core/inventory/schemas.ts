@@ -10,6 +10,11 @@ export const createProductSchema = z.object({
   descripcion: z.string().trim().max(500).optional().or(z.literal("")),
   precio: z.number().positive(),
   tarifaIva: z.number().min(0).max(100).default(15),
+  restaurantVisible: z.boolean().default(false),
+  restaurantCategory: z.string().trim().max(120).optional().or(z.literal("")),
+  restaurantStationCode: z.string().trim().max(40).optional().or(z.literal("")),
+  allowsModifiers: z.boolean().default(false),
+  prepTimeMinutes: z.number().int().min(0).max(1440).optional(),
   stockInicial: z.number().min(0).default(0),
   minStock: z.number().min(0).default(0),
 });
@@ -22,6 +27,11 @@ export const updateProductSchema = z.object({
   descripcion: z.string().trim().max(500).optional().or(z.literal("")),
   precio: z.number().positive().optional(),
   tarifaIva: z.number().min(0).max(100).optional(),
+  restaurantVisible: z.boolean().optional(),
+  restaurantCategory: z.string().trim().max(120).optional().or(z.literal("")),
+  restaurantStationCode: z.string().trim().max(40).optional().or(z.literal("")),
+  allowsModifiers: z.boolean().optional(),
+  prepTimeMinutes: z.number().int().min(0).max(1440).optional().nullable(),
   minStock: z.number().min(0).optional(),
 });
 

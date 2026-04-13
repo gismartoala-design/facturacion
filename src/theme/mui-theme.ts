@@ -99,6 +99,16 @@ export const muiTheme = createTheme({
         },
       },
     },
+    MuiCard: {
+      styleOverrides: {
+        root: {
+          backgroundColor: colors.card,
+          border: `1px solid ${alpha(colors.border, 0.9)}`,
+          boxShadow: "0 14px 34px rgba(15, 23, 42, 0.06)",
+          borderRadius: "22px",
+        },
+      },
+    },
     MuiDialog: {
       styleOverrides: {
         paper: {

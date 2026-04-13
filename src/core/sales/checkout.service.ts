@@ -104,7 +104,7 @@ function resolveDueDate(
   return dueAt;
 }
 
-async function createImmediateCollectionsInTransaction(
+export async function createImmediateCollectionsInTransaction(
   tx: Parameters<typeof createSaleInTransaction>[0],
   input: CheckoutInput,
   saleContext: Awaited<ReturnType<typeof createSaleInTransaction>>,
@@ -158,7 +158,7 @@ async function createImmediateCollectionsInTransaction(
   }
 }
 
-async function createReceivableForPendingBalanceInTransaction(
+export async function createReceivableForPendingBalanceInTransaction(
   tx: Parameters<typeof createSaleInTransaction>[0],
   input: CheckoutInput,
   saleContext: Awaited<ReturnType<typeof createSaleInTransaction>>,

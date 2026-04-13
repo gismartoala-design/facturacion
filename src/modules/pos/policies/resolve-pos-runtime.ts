@@ -30,6 +30,24 @@ export function resolvePosRuntime({
   );
   const tableService = hasCapability(blueprint, "POS_TABLE_SERVICE");
   const kitchenTickets = hasCapability(blueprint, "POS_KITCHEN_TICKETS");
+  const kitchenDisplay = hasCapability(blueprint, "POS_KITCHEN_DISPLAY");
+  const takeoutOrders = hasCapability(blueprint, "POS_TAKEOUT_ORDERS");
+  const deliveryOrders = hasCapability(blueprint, "POS_DELIVERY_ORDERS");
+  const splitBill = hasCapability(blueprint, "POS_SPLIT_BILL");
+  const transferTables = hasCapability(blueprint, "POS_TRANSFER_TABLES");
+  const mergeTables = hasCapability(blueprint, "POS_MERGE_TABLES");
+  const recipeConsumption = hasCapability(
+    blueprint,
+    "INVENTORY_RECIPE_CONSUMPTION",
+  );
+  const prepProduction = hasCapability(
+    blueprint,
+    "INVENTORY_PREP_PRODUCTION",
+  );
+  const consumePoint =
+    policyPack === "POS_RESTAURANT" && recipeConsumption
+      ? "KITCHEN_FIRE"
+      : "SALE_CONFIRM";
 
   return {
     enabled,
@@ -40,6 +58,32 @@ export function resolvePosRuntime({
       weightFromBarcode,
       tableService,
       kitchenTickets,
+      kitchenDisplay,
+      takeoutOrders,
+      deliveryOrders,
+      splitBill,
+      transferTables,
+      mergeTables,
+    },
+    service: {
+      tableService,
+      splitBill,
+      transferTables,
+      mergeTables,
+    },
+    channels: {
+      takeout: takeoutOrders,
+      delivery: deliveryOrders,
+    },
+    kitchen: {
+      kds: kitchenDisplay,
+      printTickets: kitchenTickets,
+    },
+    inventory: {
+      trackInventoryOnSale,
+      recipeConsumption,
+      prepProduction,
+      consumePoint,
     },
     operationalRules: {
       trackInventoryOnSale,
