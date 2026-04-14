@@ -2,6 +2,7 @@
 
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Card,
@@ -14,6 +15,7 @@ import {
   DialogTitle,
   Grid,
   IconButton,
+  InputAdornment,
   MenuItem,
   Stack,
   Switch,
@@ -107,6 +109,13 @@ type RecipeFormState = {
   ingredients: RecipeIngredientFormRow[];
 };
 
+type IngredientDraftState = {
+  product: InventoryProductOption | null;
+  quantity: string;
+  usePrepBatches: boolean;
+  notes: string;
+};
+
 type RestaurantDishesSettingsScreenProps = {
   recipeCapabilityEnabled: boolean;
 };
@@ -127,6 +136,13 @@ const EMPTY_RECIPE_FORM: RecipeFormState = {
   ingredients: [],
 };
 
+const EMPTY_INGREDIENT_DRAFT: IngredientDraftState = {
+  product: null,
+  quantity: "1",
+  usePrepBatches: false,
+  notes: "",
+};
+
 const GRID_SX = {
   height: 600,
   "& .MuiDataGrid-cell": {
@@ -143,10 +159,10 @@ const GRID_SX = {
 } as const;
 
 const INGREDIENT_GRID_SX = {
-  minHeight: 280,
+  height: 280,
   "& .MuiDataGrid-cell": {
     alignItems: "center",
-    py: 1,
+    // py: 1,
   },
   "& .MuiDataGrid-columnHeaderTitle": {
     fontSize: 13,
@@ -179,9 +195,7 @@ function createRecipeIngredientRow(
   };
 }
 
-function buildRecipeStatus(
-  row: DishRow,
-): {
+function buildRecipeStatus(row: DishRow): {
   label: string;
   color: "warning" | "success" | "default";
   variant: "filled" | "outlined";
@@ -240,9 +254,10 @@ export function RestaurantDishesSettingsScreen({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingRow, setEditingRow] = useState<DishRow | null>(null);
   const [form, setForm] = useState<DishFormState>(EMPTY_FORM);
-  const [recipeForm, setRecipeForm] = useState<RecipeFormState>(
-    EMPTY_RECIPE_FORM,
-  );
+  const [recipeForm, setRecipeForm] =
+    useState<RecipeFormState>(EMPTY_RECIPE_FORM);
+  const [ingredientDraft, setIngredientDraft] =
+    useState<IngredientDraftState>(EMPTY_INGREDIENT_DRAFT);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -276,9 +291,8 @@ export function RestaurantDishesSettingsScreen({
       return inventoryProducts;
     }
 
-    const products = await fetchJson<InventoryProductOption[]>(
-      "/api/v1/products",
-    );
+    const products =
+      await fetchJson<InventoryProductOption[]>("/api/v1/products");
     setInventoryProducts(products);
     return products;
   }, [inventoryProducts]);
@@ -295,10 +309,37 @@ export function RestaurantDishesSettingsScreen({
     );
   }, [rows, search]);
 
+  const availableIngredientOptions = useMemo(
+    () =>
+      inventoryProducts.filter(
+        (product) =>
+          product.id !== editingRow?.id &&
+          !recipeForm.ingredients.some(
+            (ingredient) => ingredient.productId === product.id,
+          ),
+      ),
+    [editingRow?.id, inventoryProducts, recipeForm.ingredients],
+  );
+
+  const inventoryProductMap = useMemo(
+    () =>
+      new Map(
+        inventoryProducts.map((product) => [
+          product.id,
+          {
+            codigo: product.codigo,
+            nombre: product.nombre,
+          },
+        ]),
+      ),
+    [inventoryProducts],
+  );
+
   const openCreateDialog = useCallback(async () => {
     setEditingRow(null);
     setForm(EMPTY_FORM);
     setRecipeForm(EMPTY_RECIPE_FORM);
+    setIngredientDraft(EMPTY_INGREDIENT_DRAFT);
     setDialogOpen(true);
 
     if (!recipeCapabilityEnabled) {
@@ -338,6 +379,7 @@ export function RestaurantDishesSettingsScreen({
         notes: "",
         ingredients: [],
       });
+      setIngredientDraft(EMPTY_INGREDIENT_DRAFT);
       setDialogOpen(true);
 
       if (!recipeCapabilityEnabled) {
@@ -377,27 +419,43 @@ export function RestaurantDishesSettingsScreen({
     setEditingRow(null);
     setForm(EMPTY_FORM);
     setRecipeForm(EMPTY_RECIPE_FORM);
+    setIngredientDraft(EMPTY_INGREDIENT_DRAFT);
   }
 
   function addRecipeIngredient() {
-    setRecipeForm((current) => ({
-      ...current,
-      ingredients: [...current.ingredients, createRecipeIngredientRow()],
-    }));
-  }
+    if (!ingredientDraft.product) {
+      setMessage("Selecciona un insumo del inventario antes de agregarlo");
+      return;
+    }
 
-  function updateRecipeIngredient(
-    localId: string,
-    patch: Partial<RecipeIngredientFormRow>,
-  ) {
+    if (!ingredientDraft.quantity) {
+      setMessage("Ingresa la cantidad usada del insumo");
+      return;
+    }
+
+    const alreadyExists = recipeForm.ingredients.some(
+      (ingredient) => ingredient.productId === ingredientDraft.product?.id,
+    );
+
+    if (alreadyExists) {
+      setMessage("Ese insumo ya forma parte de la composición del plato");
+      return;
+    }
+
     setRecipeForm((current) => ({
       ...current,
-      ingredients: current.ingredients.map((ingredient) =>
-        ingredient.localId === localId
-          ? { ...ingredient, ...patch }
-          : ingredient,
-      ),
+      ingredients: [
+        ...current.ingredients,
+        createRecipeIngredientRow({
+          productId: ingredientDraft.product!.id,
+          quantity: ingredientDraft.quantity,
+          usePrepBatches: ingredientDraft.usePrepBatches,
+          notes: ingredientDraft.notes,
+        }),
+      ],
     }));
+    setIngredientDraft(EMPTY_INGREDIENT_DRAFT);
+    setMessage(null);
   }
 
   function removeRecipeIngredient(localId: string) {
@@ -526,28 +584,6 @@ export function RestaurantDishesSettingsScreen({
       },
     ];
 
-    if (recipeCapabilityEnabled) {
-      baseColumns.push({
-        field: "recipeStatus",
-        headerName: "Composición",
-        minWidth: 230,
-        flex: 1.15,
-        sortable: false,
-        filterable: false,
-        renderCell: (params) => {
-          const status = buildRecipeStatus(params.row);
-          return (
-            <Chip
-              label={status.label}
-              size="small"
-              color={status.color}
-              variant={status.variant}
-            />
-          );
-        },
-      });
-    }
-
     baseColumns.push(
       {
         field: "restaurantVisible",
@@ -611,50 +647,25 @@ export function RestaurantDishesSettingsScreen({
   const ingredientColumns = useMemo<GridColDef<RecipeIngredientFormRow>[]>(
     () => [
       {
-        field: "productId",
-        headerName: "Producto de inventario",
-        minWidth: 280,
-        flex: 1.7,
+        field: "codigo",
+        headerName: "Código",
+        minWidth: 120,
+        flex: 0.7,
         sortable: false,
         filterable: false,
-        renderCell: (params) => {
-          const selectedIds = new Set(
-            recipeForm.ingredients
-              .filter((row) => row.localId !== params.row.localId)
-              .map((row) => row.productId),
-          );
-
-          return (
-            <TextField
-              select
-              fullWidth
-              size="small"
-              value={params.row.productId}
-              onChange={(event) =>
-                updateRecipeIngredient(params.row.localId, {
-                  productId: event.target.value,
-                })
-              }
-              disabled={!recipeForm.recipeConsumptionEnabled || saving}
-            >
-              {inventoryProducts
-                .filter(
-                  (product) =>
-                    product.id !== editingRow?.id &&
-                    (!selectedIds.has(product.id) ||
-                      product.id === params.row.productId),
-                )
-                .map((product) => (
-                  <MenuItem key={product.id} value={product.id}>
-                    {product.codigo} · {product.nombre}
-                    {product.tipoProducto === "BIEN"
-                      ? ` · Stock ${product.stock.toFixed(3)}`
-                      : ""}
-                  </MenuItem>
-                ))}
-            </TextField>
-          );
-        },
+        valueGetter: (_value, row) =>
+          inventoryProductMap.get(row.productId)?.codigo ?? "-",
+      },
+      {
+        field: "productId",
+        headerName: "Insumo",
+        minWidth: 240,
+        flex: 1.45,
+        sortable: false,
+        filterable: false,
+        valueGetter: (_value, row) =>
+          inventoryProductMap.get(row.productId)?.nombre ??
+          "Insumo no encontrado",
       },
       {
         field: "quantity",
@@ -663,21 +674,7 @@ export function RestaurantDishesSettingsScreen({
         flex: 0.7,
         sortable: false,
         filterable: false,
-        renderCell: (params) => (
-          <TextField
-            fullWidth
-            size="small"
-            type="number"
-            value={params.row.quantity}
-            onChange={(event) =>
-              updateRecipeIngredient(params.row.localId, {
-                quantity: event.target.value,
-              })
-            }
-            inputProps={{ min: 0, step: "0.001" }}
-            disabled={!recipeForm.recipeConsumptionEnabled || saving}
-          />
-        ),
+        valueGetter: (_value, row) => row.quantity || "-",
       },
       {
         field: "usePrepBatches",
@@ -688,39 +685,7 @@ export function RestaurantDishesSettingsScreen({
         filterable: false,
         align: "center",
         headerAlign: "center",
-        renderCell: (params) => (
-          <Switch
-            checked={params.row.usePrepBatches}
-            onChange={(event) =>
-              updateRecipeIngredient(params.row.localId, {
-                usePrepBatches: event.target.checked,
-              })
-            }
-            disabled={!recipeForm.recipeConsumptionEnabled || saving}
-          />
-        ),
-      },
-      {
-        field: "notes",
-        headerName: "Nota",
-        minWidth: 200,
-        flex: 1.1,
-        sortable: false,
-        filterable: false,
-        renderCell: (params) => (
-          <TextField
-            fullWidth
-            size="small"
-            value={params.row.notes}
-            onChange={(event) =>
-              updateRecipeIngredient(params.row.localId, {
-                notes: event.target.value,
-              })
-            }
-            placeholder="Opcional"
-            disabled={!recipeForm.recipeConsumptionEnabled || saving}
-          />
-        ),
+        valueGetter: (_value, row) => (row.usePrepBatches ? "Sí" : "No"),
       },
       {
         field: "actions",
@@ -743,13 +708,7 @@ export function RestaurantDishesSettingsScreen({
         ),
       },
     ],
-    [
-      editingRow?.id,
-      inventoryProducts,
-      recipeForm.ingredients,
-      recipeForm.recipeConsumptionEnabled,
-      saving,
-    ],
+    [inventoryProductMap, recipeForm.recipeConsumptionEnabled, saving],
   );
 
   return (
@@ -770,10 +729,7 @@ export function RestaurantDishesSettingsScreen({
                 fontSize: 14,
               }}
             >
-              Crea y administra los ítems vendibles del restaurante. La
-              composición del plato se define dentro del mismo modal, usando
-              productos del inventario cuando el blueprint permite consumo por
-              receta.
+              Crea y administra los ítems vendibles del restaurante.
             </Typography>
           </Stack>
         </Box>
@@ -905,9 +861,6 @@ export function RestaurantDishesSettingsScreen({
                 <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
                   Datos del ítem
                 </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Define la información básica de venta del menú.
-                </Typography>
               </Stack>
 
               <Grid container spacing={1.5}>
@@ -963,7 +916,7 @@ export function RestaurantDishesSettingsScreen({
                     fullWidth
                   />
                 </Grid>
-                <Grid size={{ xs: 12, md: 6 }}>
+                <Grid size={{ xs: 12, md: 3 }}>
                   <TextField
                     label="Tiempo de preparación"
                     size="small"
@@ -980,7 +933,6 @@ export function RestaurantDishesSettingsScreen({
                     fullWidth
                   />
                 </Grid>
-
                 {stations.length > 0 ? (
                   <Grid size={{ xs: 12, md: 6 }}>
                     <TextField
@@ -1005,9 +957,13 @@ export function RestaurantDishesSettingsScreen({
                     </TextField>
                   </Grid>
                 ) : null}
-
-                <Grid size={12}>
-                  <Stack direction="row" spacing={2} alignItems="center">
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <Stack
+                    direction={{ xs: "column", sm: "row" }}
+                    spacing={2}
+                    alignItems={{ xs: "flex-start", sm: "center" }}
+                    sx={{ minHeight: { md: 40 } }}
+                  >
                     <Stack direction="row" spacing={1} alignItems="center">
                       <Typography variant="body2" color="text.secondary">
                         Visible en restaurante
@@ -1046,66 +1002,144 @@ export function RestaurantDishesSettingsScreen({
                     <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
                       Composición del plato
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Selecciona los productos del inventario que componen este
-                      ítem del menú.
-                    </Typography>
                   </Stack>
 
-                  <Alert severity="info" variant="outlined">
-                    Si activas el control por receta, al enviar a cocina el
-                    sistema validará la composición y el stock disponible.
-                  </Alert>
-
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <Typography variant="body2" color="text.secondary">
-                      Descontar inventario usando esta composición
-                    </Typography>
-                    <Switch
-                      checked={recipeForm.recipeConsumptionEnabled}
-                      onChange={(event) =>
-                        setRecipeForm((current) => ({
-                          ...current,
-                          recipeConsumptionEnabled: event.target.checked,
-                        }))
-                      }
-                    />
-                  </Stack>
-
-                  <TextField
-                    label="Notas internas de preparación"
-                    size="small"
-                    multiline
-                    minRows={2}
-                    value={recipeForm.notes}
-                    onChange={(event) =>
-                      setRecipeForm((current) => ({
-                        ...current,
-                        notes: event.target.value,
-                      }))
-                    }
-                    placeholder="Opcional"
-                    disabled={!recipeForm.recipeConsumptionEnabled}
-                  />
-
-                  <Stack
-                    direction={{ xs: "column", sm: "row" }}
-                    spacing={1}
-                    justifyContent="space-between"
-                    alignItems={{ xs: "stretch", sm: "center" }}
-                  >
-                    <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                      Productos que componen el plato
-                    </Typography>
-                    <Button
-                      variant="outlined"
-                      startIcon={<Plus size={16} />}
-                      onClick={addRecipeIngredient}
-                      disabled={!recipeForm.recipeConsumptionEnabled || saving}
+                  <Card variant="outlined">
+                    <CardContent
+                      sx={{
+                        p: { xs: 1.25, sm: 1.5 },
+                        "&:last-child": { pb: { xs: 1.25, sm: 1.5 } },
+                      }}
                     >
-                      Agregar producto
-                    </Button>
-                  </Stack>
+                      <Grid container spacing={1.5}>
+                        <Grid size={{ xs: 12, md: 6 }}>
+                          <Autocomplete
+                            options={availableIngredientOptions}
+                            value={ingredientDraft.product}
+                            onChange={(_event, value) =>
+                              setIngredientDraft((current) => ({
+                                ...current,
+                                product: value,
+                              }))
+                            }
+                            isOptionEqualToValue={(option, value) =>
+                              option.id === value.id
+                            }
+                            filterOptions={(options, state) => {
+                              const normalized = state.inputValue
+                                .trim()
+                                .toLowerCase();
+                              if (!normalized) return options;
+                              return options.filter((option) =>
+                                `${option.codigo} ${option.nombre}`
+                                  .toLowerCase()
+                                  .includes(normalized),
+                              );
+                            }}
+                            getOptionLabel={(option) =>
+                              `${option.codigo} · ${option.nombre}`
+                            }
+                            renderInput={(params) => (
+                              <TextField
+                                {...params}
+                                fullWidth
+                                label="Agregar insumo"
+                                size="small"
+                                placeholder="Buscar por nombre o código"
+                                InputProps={{
+                                  ...params.InputProps,
+                                  startAdornment: (
+                                    <>
+                                      <InputAdornment position="start">
+                                        <Search size={16} />
+                                      </InputAdornment>
+                                      {params.InputProps.startAdornment}
+                                    </>
+                                  ),
+                                }}
+                              />
+                            )}
+                            renderOption={(props, option) => {
+                              const { key, ...optionProps } = props;
+                              return (
+                                <Box
+                                  component="li"
+                                  key={key}
+                                  {...optionProps}
+                                  sx={{ py: 0.75 }}
+                                >
+                                  <Stack spacing={0.15} sx={{ width: "100%" }}>
+                                    <Typography
+                                      variant="body2"
+                                      sx={{ fontWeight: 700 }}
+                                    >
+                                      {option.nombre}
+                                    </Typography>
+                                    <Typography
+                                      variant="caption"
+                                      color="text.secondary"
+                                    >
+                                      {option.codigo} ·{" "}
+                                      {option.tipoProducto === "BIEN"
+                                        ? `Stock ${option.stock.toFixed(3)}`
+                                        : "Servicio"}
+                                    </Typography>
+                                  </Stack>
+                                </Box>
+                              );
+                            }}
+                          />
+                        </Grid>
+                        <Grid size={{ xs: 12, sm: 4, md: 2 }}>
+                          <TextField
+                            fullWidth
+                            label="Cant."
+                            size="small"
+                            value={ingredientDraft.quantity}
+                            onChange={(event) =>
+                              setIngredientDraft((current) => ({
+                                ...current,
+                                quantity: event.target.value,
+                              }))
+                            }
+                            inputProps={{ min: 0, step: "0.001" }}
+                          />
+                        </Grid>
+                        <Grid size={{ xs: 12, sm: 8, md: 1.5 }}>
+                          <Stack
+                            direction="row"
+                            spacing={1}
+                            alignItems="center"
+                            sx={{ minHeight: 40 }}
+                          >
+                            <Typography variant="body2" color="text.secondary">
+                              Prep.
+                            </Typography>
+                            <Switch
+                              checked={ingredientDraft.usePrepBatches}
+                              onChange={(event) =>
+                                setIngredientDraft((current) => ({
+                                  ...current,
+                                  usePrepBatches: event.target.checked,
+                                }))
+                              }
+                            />
+                          </Stack>
+                        </Grid>
+                        <Grid size={{ xs: 12, md: 2.5 }}>
+                          <Button
+                            fullWidth
+                            variant="outlined"
+                            startIcon={<Plus size={16} />}
+                            onClick={addRecipeIngredient}
+                            disabled={saving}
+                          >
+                            Agregar insumo
+                          </Button>
+                        </Grid>
+                      </Grid>
+                    </CardContent>
+                  </Card>
 
                   <Card variant="outlined">
                     <CardContent
@@ -1121,22 +1155,15 @@ export function RestaurantDishesSettingsScreen({
                         hideFooter
                         disableRowSelectionOnClick
                         disableColumnMenu
-                        rowHeight={76}
+                        rowHeight={22}
                         sx={INGREDIENT_GRID_SX}
                         localeText={{
                           noRowsLabel:
-                            "Agrega productos del inventario para componer este plato.",
+                            "Busca un insumo arriba y agrégalo a la composición del plato.",
                         }}
                       />
                     </CardContent>
                   </Card>
-
-                  {!recipeForm.recipeConsumptionEnabled ? (
-                    <Alert severity="warning" variant="outlined">
-                      La composición puede quedar cargada, pero no se exigirá ni
-                      descontará inventario hasta activar esta opción.
-                    </Alert>
-                  ) : null}
                 </Stack>
               ) : null}
             </Box>

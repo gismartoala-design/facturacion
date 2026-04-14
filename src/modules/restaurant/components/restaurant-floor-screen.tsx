@@ -47,9 +47,6 @@ export function RestaurantFloorScreen({
       sx={{
         p: 2,
         borderRadius: "22px",
-        background: "#fbf7f1",
-        border: "1px solid",
-        borderColor: "rgba(205, 191, 173, 0.72)",
         minHeight: "calc(100vh - 180px)",
       }}
     >

@@ -509,8 +509,6 @@ export function RestaurantOperationsApp({
             px: 2,
             py: 1.75,
             borderRadius: "22px",
-            border: "1px solid",
-            borderColor: "rgba(205, 191, 173, 0.72)",
           }}
         >
           <Stack
@@ -528,8 +526,6 @@ export function RestaurantOperationsApp({
                     borderRadius: "12px",
                     display: "grid",
                     placeItems: "center",
-                    bgcolor: alpha("#6c4f3e", 0.08),
-                    color: "#6c4f3e",
                   }}
                 >
                   <CookingPot size={17} />
@@ -540,7 +536,6 @@ export function RestaurantOperationsApp({
                     fontWeight: 800,
                     letterSpacing: "0.16em",
                     textTransform: "uppercase",
-                    color: "#8a654a",
                   }}
                 >
                   {headerCopy.eyebrow}
@@ -551,7 +546,6 @@ export function RestaurantOperationsApp({
                 sx={{
                   fontWeight: 800,
                   letterSpacing: "-0.02em",
-                  color: "#2d241e",
                 }}
               >
                 {headerCopy.title}
@@ -574,11 +568,7 @@ export function RestaurantOperationsApp({
                 }}
                 clickable
                 sx={{
-                  bgcolor: "#fffdf9",
-                  color: "#4a3a31",
-                  borderRadius: "999px",
-                  border: "1px solid",
-                  borderColor: "rgba(205, 191, 173, 0.72)",
+                  p: 1.25,
                 }}
               />
             </Stack>

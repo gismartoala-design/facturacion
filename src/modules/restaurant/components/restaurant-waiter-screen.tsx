@@ -85,16 +85,13 @@ export function RestaurantWaiterScreen({
           borderRadius: "22px",
           width: { xs: "100%", xl: 360 },
           flexShrink: 0,
-          background: "#fbf7f1",
-          border: "1px solid",
-          borderColor: "rgba(205, 191, 173, 0.72)",
         }}
       >
         <Stack spacing={1.5}>
           <Stack spacing={0.55}>
             <Typography
               variant="overline"
-              sx={{ color: "#8a654a", fontWeight: 800, letterSpacing: "0.14em" }}
+              sx={{ fontWeight: 800, letterSpacing: "0.14em" }}
             >
               Pedidos / Mesero
             </Typography>
@@ -118,26 +115,17 @@ export function RestaurantWaiterScreen({
               sx={{
                 p: 1.35,
                 borderRadius: "18px",
-                bgcolor: alpha("#fff8ef", 0.92),
-                borderColor: alpha("#bc8f66", 0.18),
               }}
             >
               <Stack spacing={0.75}>
                 <Stack direction="row" spacing={1} alignItems="center">
-                  <Users size={15} color="#8a654a" />
+                  <Users size={15} />
                   <Typography fontWeight={800}>{selectedTable.name}</Typography>
                 </Stack>
                 <Stack direction="row" spacing={0.75} flexWrap="wrap">
                   <Chip
                     label={selectedTable.hasActiveSession ? "Sesión activa" : "Mesa disponible"}
                     size="small"
-                    sx={{
-                      bgcolor: alpha(
-                        selectedTable.hasActiveSession ? "#5f8f74" : "#8a654a",
-                        0.12,
-                      ),
-                      color: selectedTable.hasActiveSession ? "#4f7c64" : "#8a654a",
-                    }}
                   />
                   <Chip
                     label={`Abierto ${formatCurrency(selectedTable.openTotal)}`}
