@@ -84,6 +84,8 @@ export type RestaurantProduct = {
   activo: boolean;
   restaurantVisible: boolean;
   restaurantCategory: string | null;
+  restaurantMenuGroup: string | null;
+  restaurantMenuSortOrder: number | null;
   restaurantStationCode: string | null;
   allowsModifiers: boolean;
   prepTimeMinutes: number | null;
@@ -97,9 +99,24 @@ export type RestaurantFloorTable = {
   name: string;
   capacity: number;
   areaName: string | null;
+  guestCount: number | null;
   hasActiveSession: boolean;
   activeSessionId: string | null;
   activeOrderId: string | null;
+  orderStatus:
+    | "OPEN"
+    | "IN_PREPARATION"
+    | "PARTIALLY_SERVED"
+    | "SERVED"
+    | "PARTIALLY_PAID"
+    | "PAID"
+    | "CANCELLED"
+    | null;
+  operationalStatus:
+    | "AVAILABLE"
+    | "SESSION_OPEN"
+    | "ORDER_OPEN"
+    | "READY_FOR_SETTLEMENT";
   openTotal: number;
 };
 

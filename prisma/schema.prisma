@@ -395,6 +395,8 @@ model Product {
   activo                Boolean               @default(true)
   restaurantVisible     Boolean               @default(false)
   restaurantCategory    String?
+  restaurantMenuGroup   String?
+  restaurantMenuSortOrder Int?
   restaurantStationCode String?
   allowsModifiers       Boolean               @default(false)
   prepTimeMinutes       Int?

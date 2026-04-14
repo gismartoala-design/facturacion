@@ -148,6 +148,8 @@ type MenuRecipeSelectProduct = {
   precio: Prisma.Decimal;
   restaurantVisible: boolean;
   restaurantCategory: string | null;
+  restaurantMenuGroup: string | null;
+  restaurantMenuSortOrder: number | null;
   restaurantStationCode: string | null;
   allowsModifiers: boolean;
   prepTimeMinutes: number | null;
@@ -175,6 +177,8 @@ function presentRestaurantMenuProduct(product: MenuRecipeSelectProduct) {
     precio: toNumber(product.precio),
     restaurantVisible: product.restaurantVisible,
     restaurantCategory: product.restaurantCategory,
+    restaurantMenuGroup: product.restaurantMenuGroup,
+    restaurantMenuSortOrder: product.restaurantMenuSortOrder,
     restaurantStationCode: product.restaurantStationCode,
     allowsModifiers: product.allowsModifiers,
     prepTimeMinutes: product.prepTimeMinutes,
@@ -1098,7 +1102,11 @@ export async function getRestaurantBootstrap(session: SessionPayload) {
         activo: true,
         restaurantVisible: true,
       },
-      orderBy: { nombre: "asc" },
+      orderBy: [
+        { restaurantMenuGroup: "asc" },
+        { restaurantMenuSortOrder: "asc" },
+        { nombre: "asc" },
+      ],
       select: {
         id: true,
         secuencial: true,
@@ -1112,6 +1120,8 @@ export async function getRestaurantBootstrap(session: SessionPayload) {
         activo: true,
         restaurantVisible: true,
         restaurantCategory: true,
+        restaurantMenuGroup: true,
+        restaurantMenuSortOrder: true,
         restaurantStationCode: true,
         allowsModifiers: true,
         prepTimeMinutes: true,
@@ -1168,6 +1178,8 @@ export async function getRestaurantBootstrap(session: SessionPayload) {
       activo: product.activo,
       restaurantVisible: product.restaurantVisible,
       restaurantCategory: product.restaurantCategory,
+      restaurantMenuGroup: product.restaurantMenuGroup,
+      restaurantMenuSortOrder: product.restaurantMenuSortOrder,
       restaurantStationCode: product.restaurantStationCode,
       allowsModifiers: product.allowsModifiers,
       prepTimeMinutes: product.prepTimeMinutes,
@@ -1341,6 +1353,8 @@ export async function listRestaurantMenuProductsAdmin(session: SessionPayload) {
       precio: true,
       restaurantVisible: true,
       restaurantCategory: true,
+      restaurantMenuGroup: true,
+      restaurantMenuSortOrder: true,
       restaurantStationCode: true,
       allowsModifiers: true,
       prepTimeMinutes: true,
@@ -1358,7 +1372,12 @@ export async function listRestaurantMenuProductsAdmin(session: SessionPayload) {
         take: 1,
       },
     },
-    orderBy: [{ activo: "desc" }, { nombre: "asc" }],
+    orderBy: [
+      { activo: "desc" },
+      { restaurantMenuGroup: "asc" },
+      { restaurantMenuSortOrder: "asc" },
+      { nombre: "asc" },
+    ],
   });
 
   return products.map(presentRestaurantMenuProduct);
@@ -1399,6 +1418,8 @@ export async function createRestaurantMenuProductAdmin(
       activo: input.activo,
       restaurantVisible: input.restaurantVisible,
       restaurantCategory: input.restaurantCategory || null,
+      restaurantMenuGroup: input.restaurantMenuGroup || null,
+      restaurantMenuSortOrder: input.restaurantMenuSortOrder ?? null,
       restaurantStationCode: normalizedStationCode,
       prepTimeMinutes: input.prepTimeMinutes ?? null,
       recipeConsumptionEnabled: input.recipeConsumptionEnabled,
@@ -1419,6 +1440,8 @@ export async function createRestaurantMenuProductAdmin(
       precio: true,
       restaurantVisible: true,
       restaurantCategory: true,
+      restaurantMenuGroup: true,
+      restaurantMenuSortOrder: true,
       restaurantStationCode: true,
       allowsModifiers: true,
       prepTimeMinutes: true,
@@ -1493,6 +1516,12 @@ export async function updateRestaurantMenuProductAdmin(
       ...(input.restaurantCategory !== undefined
         ? { restaurantCategory: input.restaurantCategory || null }
         : {}),
+      ...(input.restaurantMenuGroup !== undefined
+        ? { restaurantMenuGroup: input.restaurantMenuGroup || null }
+        : {}),
+      ...(input.restaurantMenuSortOrder !== undefined
+        ? { restaurantMenuSortOrder: input.restaurantMenuSortOrder ?? null }
+        : {}),
       ...(input.restaurantStationCode !== undefined
         ? {
             restaurantStationCode: input.restaurantStationCode
@@ -1520,6 +1549,8 @@ export async function updateRestaurantMenuProductAdmin(
       precio: true,
       restaurantVisible: true,
       restaurantCategory: true,
+      restaurantMenuGroup: true,
+      restaurantMenuSortOrder: true,
       restaurantStationCode: true,
       allowsModifiers: true,
       prepTimeMinutes: true,
@@ -1768,6 +1799,22 @@ export async function listRestaurantFloor(session: SessionPayload) {
   return tables.map((table) => {
     const activeSession = table.sessions[0] ?? null;
     const activeOrder = activeSession?.orders[0] ?? null;
+    const readyForSettlementStatuses: RestaurantOrderStatus[] = [
+      RestaurantOrderStatus.SERVED,
+      RestaurantOrderStatus.PARTIALLY_SERVED,
+      RestaurantOrderStatus.PARTIALLY_PAID,
+    ];
+    const operationalStatus:
+      | "AVAILABLE"
+      | "SESSION_OPEN"
+      | "ORDER_OPEN"
+      | "READY_FOR_SETTLEMENT" = !activeSession
+      ? "AVAILABLE"
+      : !activeOrder
+        ? "SESSION_OPEN"
+        : readyForSettlementStatuses.includes(activeOrder.status)
+          ? "READY_FOR_SETTLEMENT"
+          : "ORDER_OPEN";
     const openTotal = activeOrder
       ? roundMoney(
           activeOrder.items.reduce((acc, item) => {
@@ -1795,9 +1842,12 @@ export async function listRestaurantFloor(session: SessionPayload) {
       name: table.name,
       capacity: table.capacity,
       areaName: table.diningArea?.name ?? null,
+      guestCount: activeSession?.guestCount ?? null,
       hasActiveSession: Boolean(activeSession),
       activeSessionId: activeSession?.id ?? null,
       activeOrderId: activeOrder?.id ?? null,
+      orderStatus: activeOrder?.status ?? null,
+      operationalStatus,
       openTotal,
     };
   });

@@ -11,10 +11,10 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
-import { alpha } from "@mui/material/styles";
-import { CookingPot, RefreshCcw } from "lucide-react";
+import { MoreHorizontal, RefreshCcw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
+  MouseEvent,
   startTransition,
   useCallback,
   useDeferredValue,
@@ -72,6 +72,8 @@ export function RestaurantOperationsApp({
   const [guestCountDraft, setGuestCountDraft] = useState("2");
   const [draftItems, setDraftItems] = useState<DraftItem[]>([]);
   const deferredProductQuery = useDeferredValue(productQuery);
+  const [toolbarMenuAnchor, setToolbarMenuAnchor] =
+      useState<null | HTMLElement>(null);
 
   const floorScreen = screen === "floor";
   const tableScreen = screen === "table";
@@ -85,7 +87,9 @@ export function RestaurantOperationsApp({
 
   const restaurantProducts = useMemo(
     () =>
-      (bootstrap?.products ?? []).filter((product) => product.restaurantVisible),
+      (bootstrap?.products ?? []).filter(
+        (product) => product.restaurantVisible,
+      ),
     [bootstrap],
   );
   const productsById = useMemo(
@@ -98,7 +102,12 @@ export function RestaurantOperationsApp({
     if (!query) return restaurantProducts;
 
     return restaurantProducts.filter((product) =>
-      [product.nombre, product.sku, product.secuencial, product.restaurantCategory]
+      [
+        product.nombre,
+        product.sku,
+        product.secuencial,
+        product.restaurantMenuGroup,
+      ]
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(query)),
     );
@@ -108,15 +117,36 @@ export function RestaurantOperationsApp({
     const groups = new Map<string, typeof restaurantProducts>();
 
     for (const product of filteredProducts) {
-      const key = product.restaurantCategory || "Sin categoría";
+      const key = product.restaurantMenuGroup || "General";
       const current = groups.get(key) ?? [];
       current.push(product);
       groups.set(key, current);
     }
 
-    return [...groups.entries()].sort(([left], [right]) =>
-      left.localeCompare(right),
-    );
+    return [...groups.entries()]
+      .map(
+        ([group, items]) =>
+          [
+            group,
+            [...items].sort((left, right) => {
+              const leftOrder =
+                left.restaurantMenuSortOrder ?? Number.MAX_SAFE_INTEGER;
+              const rightOrder =
+                right.restaurantMenuSortOrder ?? Number.MAX_SAFE_INTEGER;
+
+              if (leftOrder !== rightOrder) {
+                return leftOrder - rightOrder;
+              }
+
+              return left.nombre.localeCompare(right.nombre);
+            }),
+          ] as [string, typeof restaurantProducts],
+      )
+      .sort(([left], [right]) => {
+        if (left === "General") return -1;
+        if (right === "General") return 1;
+        return left.localeCompare(right);
+      });
   }, [filteredProducts]);
 
   const floorGroups = useMemo(() => {
@@ -186,9 +216,7 @@ export function RestaurantOperationsApp({
     if (tableScreen) {
       return {
         eyebrow: "Mesa",
-        title: selectedTable
-          ? `${selectedTable.name}`
-          : "Detalle de mesa",
+        title: selectedTable ? `${selectedTable.name}` : "Detalle de mesa",
         description:
           "Detalle operativo de la mesa, su orden y los ítems pendientes de cocina o cobro.",
       };
@@ -211,10 +239,14 @@ export function RestaurantOperationsApp({
   }, [initialSelectedTableId]);
 
   const refreshFloor = useCallback(async () => {
-    const data = await fetchJson<RestaurantFloorTable[]>("/api/v1/restaurant/floor");
+    const data = await fetchJson<RestaurantFloorTable[]>(
+      "/api/v1/restaurant/floor",
+    );
     startTransition(() => {
       setFloor(data);
-      setBootstrap((current) => (current ? { ...current, floor: data } : current));
+      setBootstrap((current) =>
+        current ? { ...current, floor: data } : current,
+      );
     });
   }, []);
 
@@ -303,7 +335,9 @@ export function RestaurantOperationsApp({
     setDraftItems((current) => {
       const existing = current.find((item) => item.productId === productId);
       if (!existing) {
-        return delta > 0 ? [...current, { productId, quantity: delta }] : current;
+        return delta > 0
+          ? [...current, { productId, quantity: delta }]
+          : current;
       }
 
       const nextQuantity = Math.max(existing.quantity + delta, 0);
@@ -312,9 +346,21 @@ export function RestaurantOperationsApp({
       }
 
       return current.map((item) =>
-        item.productId === productId ? { ...item, quantity: nextQuantity } : item,
+        item.productId === productId
+          ? { ...item, quantity: nextQuantity }
+          : item,
       );
     });
+  }
+
+  function clearDraftItems() {
+    setDraftItems([]);
+    setProductQuery("");
+  }
+
+  function handleSelectTable(tableId: string) {
+    setSelectedTableId(tableId);
+    clearDraftItems();
   }
 
   async function handleOpenTable(tableId: string) {
@@ -327,11 +373,14 @@ export function RestaurantOperationsApp({
         }),
       });
       await refreshFloor();
-      setSelectedTableId(tableId);
+      handleSelectTable(tableId);
       if (!waiterScreen) {
         router.push(`/restaurant/tables/${tableId}`);
       }
-      setMessage({ tone: "success", text: "Mesa abierta y lista para comandar" });
+      setMessage({
+        tone: "success",
+        text: "Mesa abierta y lista para comandar",
+      });
     } catch (error) {
       setMessage({
         tone: "error",
@@ -417,7 +466,9 @@ export function RestaurantOperationsApp({
       setMessage({
         tone: "error",
         text:
-          error instanceof Error ? error.message : "No se pudo guardar la orden",
+          error instanceof Error
+            ? error.message
+            : "No se pudo guardar la orden",
       });
     } finally {
       setActionLoading(null);
@@ -468,6 +519,14 @@ export function RestaurantOperationsApp({
     }
   }
 
+  function openToolbarMenu(event: MouseEvent<HTMLButtonElement>) {
+    setToolbarMenuAnchor(event.currentTarget);
+  }
+
+  function closeToolbarMenu() {
+    setToolbarMenuAnchor(null);
+  }
+
   if (!bootstrap && bootError) {
     return (
       <Box
@@ -506,73 +565,141 @@ export function RestaurantOperationsApp({
       <Stack spacing={2.25}>
         <Paper
           sx={{
-            px: 2,
-            py: 1.75,
             borderRadius: "22px",
+            overflow: "hidden",
           }}
         >
-          <Stack
-            direction={{ xs: "column", lg: "row" }}
-            spacing={1.5}
-            justifyContent="space-between"
-            alignItems={{ xs: "flex-start", lg: "center" }}
+          <Box
+            sx={{
+              px: { xs: 1.5, md: 2.25 },
+              py: 1.25,
+            }}
           >
-            <Stack spacing={0.55}>
-              <Stack direction="row" spacing={1} alignItems="center">
-                <Box
-                  sx={{
-                    width: 34,
-                    height: 34,
-                    borderRadius: "12px",
-                    display: "grid",
-                    placeItems: "center",
-                  }}
-                >
-                  <CookingPot size={17} />
-                </Box>
-                <Typography
-                  sx={{
-                    fontSize: 12,
-                    fontWeight: 800,
-                    letterSpacing: "0.16em",
-                    textTransform: "uppercase",
-                  }}
-                >
-                  {headerCopy.eyebrow}
-                </Typography>
-              </Stack>
-              <Typography
-                variant="h5"
-                sx={{
-                  fontWeight: 800,
-                  letterSpacing: "-0.02em",
-                }}
+            <Stack
+              direction={{ xs: "column", md: "row" }}
+              spacing={1.25}
+              justifyContent="space-between"
+              alignItems={{ xs: "flex-start", md: "center" }}
+            >
+              <Stack
+                direction={{ xs: "column", md: "row" }}
+                spacing={1}
+                alignItems={{ xs: "flex-start", md: "center" }}
               >
-                {headerCopy.title}
-              </Typography>
-              <Typography sx={{ color: "#6c5a4f", maxWidth: 760, fontSize: 13.5 }}>
-                {headerCopy.description}
-              </Typography>
-            </Stack>
+                <Box>
+                  <Typography
+                    sx={{
+                      fontSize: 11,
+                      letterSpacing: "0.16em",
+                      textTransform: "uppercase",
+                      opacity: 0.8,
+                    }}
+                  >
+                    {headerCopy.eyebrow}
+                  </Typography>
+                  <Typography
+                    variant="h5"
+                    sx={{ mt: 0.25, fontWeight: 800, lineHeight: 1.1 }}
+                  >
+                    {bootstrap?.business.name}
+                  </Typography>
+                  <Typography sx={{ mt: 0.25, opacity: 0.78, fontSize: 13 }}>
+                    Operador: 
+                    {/* {initialSession.name} */}
+                  </Typography>
+                </Box>
+              </Stack>
 
-            <Stack spacing={1} alignItems={{ xs: "stretch", lg: "flex-end" }}>
-              <Chip
-                icon={
-                  bootLoading ? <CircularProgress size={14} /> : <RefreshCcw size={14} />
-                }
-                label="Refrescar operación"
-                onClick={() => {
-                  void loadBootstrap();
-                  void refreshFloor();
-                  void refreshKds();
-                }}
-                clickable
-                sx={{
-                  p: 1.25,
-                }}
-              />
+              <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                <Button
+                  variant="contained"
+                  color="inherit"
+                  size="small"
+                  // onClick={() => resetSaleState(bootstrap.defaultDocumentType)}
+                >
+                  Nueva · F1
+                </Button>
+                {/* <Button
+                  size="small"
+                  variant="contained"
+                  color="error"
+                  startIcon={
+                    submitting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <ShoppingCart className="h-4 w-4" />
+                    )
+                  }
+                  onClick={() => void checkoutSale()}
+                  disabled={
+                    submitting ||
+                    !cashSession ||
+                    checkoutPayments.length === 0 ||
+                    remainingAmount > 0 ||
+                    overAllocatedAmount > 0
+                  }
+                >
+                  Procesar · F10
+                </Button> */}
+                {/* <Button
+                  size="small"
+                  variant="outlined"
+                  sx={{ borderColor: headerOutline }}
+                  startIcon={<Wallet className="h-4 w-4" />}
+                  onClick={() => setCashDialogOpen(true)}
+                >
+                  {cashSession ? "Caja · F4" : "Caja · F4"}
+                </Button> */}
+                {/* <Button
+                  size="small"
+                  variant="outlined"
+                  sx={{ borderColor: headerOutline }}
+                  startIcon={
+                    holding ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <PauseCircle className="h-4 w-4" />
+                    )
+                  }
+                  onClick={() => void saveHeldSale()}
+                  disabled={holding}
+                >
+                  Espera · F8
+                </Button> */}
+                {/* <Button
+                  size="small"
+                  variant="outlined"
+                  sx={{ borderColor: headerOutline }}
+                  onClick={() => setHeldSalesDialogOpen(true)}
+                >
+                  Esperas ({heldSales.length}) · F6
+                </Button> */}
+                {/* <Button
+                  size="small"
+                  variant="outlined"
+                  sx={{ borderColor: headerOutline }}
+                  startIcon={<Printer className="h-4 w-4" />}
+                  onClick={() =>
+                    lastTicketData && void printTicket(lastTicketData)
+                  }
+                  disabled={!lastTicketData}
+                >
+                  Reimprimir · F9
+                </Button> */}
+                <Button
+                  size="small"
+                  variant="outlined"
+                  sx={{
+                    minWidth: 42,
+                    px: 1.1,
+                  }}
+                  onClick={openToolbarMenu}
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </Stack>
             </Stack>
-          </Stack>
+          </Box>
         </Paper>
 
         {floorScreen ? (
@@ -584,7 +711,7 @@ export function RestaurantOperationsApp({
             onGuestCountChange={setGuestCountDraft}
             onOpenTable={(tableId) => void handleOpenTable(tableId)}
             onEnterTable={(tableId) => {
-              setSelectedTableId(tableId);
+              handleSelectTable(tableId);
               router.push(`/restaurant/tables/${tableId}`);
             }}
           />
@@ -619,7 +746,6 @@ export function RestaurantOperationsApp({
             orderLoading={orderLoading}
             restaurantProducts={restaurantProducts}
             productQuery={productQuery}
-            productGroups={productGroups}
             draftItems={draftItems}
             draftSummary={draftSummary}
             currentPendingItems={currentPendingItems}
@@ -627,10 +753,11 @@ export function RestaurantOperationsApp({
             actionLoading={actionLoading}
             guestCountDraft={guestCountDraft}
             onGuestCountChange={setGuestCountDraft}
-            onSelectTable={setSelectedTableId}
+            onSelectTable={handleSelectTable}
             onOpenTable={(tableId) => void handleOpenTable(tableId)}
             onProductQueryChange={setProductQuery}
             onAdjustDraft={upsertDraftItem}
+            onClearDraft={clearDraftItems}
             onCreateOrUpdateOrder={() => void handleCreateOrUpdateOrder()}
             onFireOrder={() => void handleFireOrder()}
           />
@@ -652,7 +779,13 @@ export function RestaurantOperationsApp({
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       >
         <Alert
-          severity={message?.tone === "error" ? "error" : message?.tone === "success" ? "success" : "info"}
+          severity={
+            message?.tone === "error"
+              ? "error"
+              : message?.tone === "success"
+                ? "success"
+                : "info"
+          }
           variant="filled"
           onClose={() => setMessage(null)}
         >

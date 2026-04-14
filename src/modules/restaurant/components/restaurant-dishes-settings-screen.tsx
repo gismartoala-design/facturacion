@@ -43,6 +43,8 @@ type DishRow = {
   precio: number;
   restaurantVisible: boolean;
   restaurantCategory: string | null;
+  restaurantMenuGroup: string | null;
+  restaurantMenuSortOrder: number | null;
   restaurantStationCode: string | null;
   allowsModifiers: boolean;
   prepTimeMinutes: number | null;
@@ -72,6 +74,8 @@ type DishFormState = {
   tipoProducto: "BIEN" | "SERVICIO";
   precio: string;
   restaurantVisible: boolean;
+  restaurantMenuGroup: string;
+  restaurantMenuSortOrder: string;
   prepTimeMinutes: string;
   restaurantStationCode: string;
   activo: boolean;
@@ -125,6 +129,8 @@ const EMPTY_FORM: DishFormState = {
   tipoProducto: "SERVICIO",
   precio: "",
   restaurantVisible: true,
+  restaurantMenuGroup: "",
+  restaurantMenuSortOrder: "",
   prepTimeMinutes: "",
   restaurantStationCode: "",
   activo: true,
@@ -192,34 +198,6 @@ function createRecipeIngredientRow(
     usePrepBatches: false,
     notes: "",
     ...overrides,
-  };
-}
-
-function buildRecipeStatus(row: DishRow): {
-  label: string;
-  color: "warning" | "success" | "default";
-  variant: "filled" | "outlined";
-} {
-  if (!row.recipeConsumptionEnabled) {
-    return {
-      label: "Receta opcional apagada",
-      color: "default",
-      variant: "outlined",
-    };
-  }
-
-  if (row.hasRecipe) {
-    return {
-      label: `Receta configurada${row.ingredientCount > 0 ? ` · ${row.ingredientCount}` : ""}`,
-      color: "success",
-      variant: "filled",
-    };
-  }
-
-  return {
-    label: "Sin receta",
-    color: "warning",
-    variant: "outlined",
   };
 }
 
@@ -302,7 +280,12 @@ export function RestaurantDishesSettingsScreen({
     if (!query) return rows;
 
     return rows.filter((row) =>
-      [row.codigo, row.nombre, row.restaurantStationCode ?? ""]
+      [
+        row.codigo,
+        row.nombre,
+        row.restaurantMenuGroup ?? "",
+        row.restaurantStationCode ?? "",
+      ]
         .join(" ")
         .toLowerCase()
         .includes(query),
@@ -369,6 +352,11 @@ export function RestaurantDishesSettingsScreen({
         tipoProducto: row.tipoProducto,
         precio: String(row.precio),
         restaurantVisible: row.restaurantVisible,
+        restaurantMenuGroup: row.restaurantMenuGroup ?? "",
+        restaurantMenuSortOrder:
+          row.restaurantMenuSortOrder != null
+            ? String(row.restaurantMenuSortOrder)
+            : "",
         prepTimeMinutes:
           row.prepTimeMinutes != null ? String(row.prepTimeMinutes) : "",
         restaurantStationCode: row.restaurantStationCode ?? "",
@@ -507,6 +495,10 @@ export function RestaurantDishesSettingsScreen({
         precio: Number(form.precio),
         restaurantCategory: "",
         restaurantVisible: form.restaurantVisible,
+        restaurantMenuGroup: form.restaurantMenuGroup,
+        restaurantMenuSortOrder: form.restaurantMenuSortOrder
+          ? Number(form.restaurantMenuSortOrder)
+          : null,
         prepTimeMinutes: form.prepTimeMinutes
           ? Number(form.prepTimeMinutes)
           : null,
@@ -572,6 +564,23 @@ export function RestaurantDishesSettingsScreen({
         headerName: "Nombre",
         minWidth: 220,
         flex: 1.6,
+      },
+      {
+        field: "restaurantMenuGroup",
+        headerName: "Grupo menú",
+        minWidth: 150,
+        flex: 0.95,
+        valueGetter: (_value, row) => row.restaurantMenuGroup || "General",
+      },
+      {
+        field: "restaurantMenuSortOrder",
+        headerName: "Orden",
+        minWidth: 90,
+        flex: 0.45,
+        valueGetter: (_value, row) =>
+          row.restaurantMenuSortOrder != null
+            ? row.restaurantMenuSortOrder
+            : "-",
       },
       {
         field: "precio",
@@ -642,7 +651,7 @@ export function RestaurantDishesSettingsScreen({
     );
 
     return baseColumns;
-  }, [openEditDialog, recipeCapabilityEnabled]);
+  }, [openEditDialog]);
 
   const ingredientColumns = useMemo<GridColDef<RecipeIngredientFormRow>[]>(
     () => [
@@ -913,6 +922,37 @@ export function RestaurantDishesSettingsScreen({
                     }
                     inputProps={{ min: 0, step: "0.01" }}
                     required
+                    fullWidth
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, md: 3 }}>
+                  <TextField
+                    label="Grupo de menú"
+                    size="small"
+                    value={form.restaurantMenuGroup}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        restaurantMenuGroup: event.target.value,
+                      }))
+                    }
+                    placeholder="Entradas, bebidas, postres..."
+                    fullWidth
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, md: 3 }}>
+                  <TextField
+                    label="Orden en menú"
+                    size="small"
+                    type="number"
+                    value={form.restaurantMenuSortOrder}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        restaurantMenuSortOrder: event.target.value,
+                      }))
+                    }
+                    inputProps={{ min: 0, step: "1" }}
                     fullWidth
                   />
                 </Grid>
