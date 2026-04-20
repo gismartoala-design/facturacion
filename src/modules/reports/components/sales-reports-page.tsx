@@ -1,5 +1,8 @@
 "use client";
 
+import type { FormEvent } from "react";
+import { startTransition, useEffect, useMemo, useState, useTransition } from "react";
+
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -12,6 +15,7 @@ import DialogTitle from "@mui/material/DialogTitle";
 import Grid from "@mui/material/Grid";
 import IconButton from "@mui/material/IconButton";
 import InputAdornment from "@mui/material/InputAdornment";
+import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
@@ -20,16 +24,13 @@ import { alpha, useTheme } from "@mui/material/styles";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import {
   CalendarRange,
-  CircleDollarSign,
+  Download,
   Eye,
-  Package2,
   Printer,
   RefreshCcw,
   Search,
-  TrendingUp,
 } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { startTransition, useEffect, useMemo, useState, useTransition } from "react";
 
 import { fetchJson } from "@/shared/dashboard/api";
 import { PAYMENT_METHODS } from "@/shared/dashboard/types";
@@ -54,31 +55,6 @@ type SalesReportResponse = {
     discountTotal: number;
     itemsSold: number;
   };
-  topProducts: Array<{
-    productId: string;
-    productCode: string;
-    productName: string;
-    quantity: number;
-    total: number;
-  }>;
-  paymentMethods: Array<{
-    code: string;
-    salesCount: number;
-    total: number;
-  }>;
-  sellersSummary: Array<{
-    sellerId: string | null;
-    sellerName: string;
-    salesCount: number;
-    total: number;
-    averageTicket: number;
-  }>;
-  documentSummary: Array<{
-    key: string;
-    label: string;
-    salesCount: number;
-    total: number;
-  }>;
   salesRows: Array<{
     saleId: string;
     saleNumber: string;
@@ -99,6 +75,7 @@ type SalesReportResponse = {
 type FiltersForm = {
   from: string;
   to: string;
+  sellerId: string;
 };
 
 type SaleReportDetailResponse = {
@@ -125,6 +102,8 @@ type SaleReportDetailResponse = {
     total: number;
   }>;
 };
+
+type SalesRow = SalesReportResponse["salesRows"][number];
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("es-EC", {
@@ -158,7 +137,50 @@ function documentTone(key: string) {
   return "default";
 }
 
-type SalesRow = SalesReportResponse["salesRows"][number];
+function escapeCsvCell(value: string | number) {
+  const serialized = String(value ?? "");
+  if (!serialized.includes(",") && !serialized.includes("\"") && !serialized.includes("\n")) {
+    return serialized;
+  }
+
+  return `"${serialized.replaceAll("\"", "\"\"")}"`;
+}
+
+function buildSalesCsv(rows: SalesRow[]) {
+  const header = [
+    "Venta",
+    "Fecha",
+    "Cliente",
+    "Vendedor",
+    "Documento",
+    "Pagos",
+    "Lineas",
+    "Subtotal",
+    "IVA",
+    "Descuento",
+    "Total",
+  ];
+
+  const body = rows.map((row) =>
+    [
+      row.saleNumber,
+      formatDateTime(row.createdAt),
+      row.customerName,
+      row.sellerName,
+      row.documentLabel,
+      row.paymentMethods.map(paymentMethodLabel).join(" | "),
+      row.itemCount,
+      row.subtotal.toFixed(2),
+      row.taxTotal.toFixed(2),
+      row.discountTotal.toFixed(2),
+      row.total.toFixed(2),
+    ]
+      .map(escapeCsvCell)
+      .join(","),
+  );
+
+  return [header.join(","), ...body].join("\n");
+}
 
 export function SalesReportsPage() {
   const theme = useTheme();
@@ -169,6 +191,7 @@ export function SalesReportsPage() {
   const [filters, setFilters] = useState<FiltersForm>({
     from: "",
     to: "",
+    sellerId: "",
   });
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -199,6 +222,7 @@ export function SalesReportsPage() {
           setFilters({
             from: nextReport.filters.from,
             to: nextReport.filters.to,
+            sellerId: nextReport.filters.sellerId ?? "",
           });
         });
       } catch (loadError) {
@@ -238,6 +262,38 @@ export function SalesReportsPage() {
       );
     });
   }, [report, search]);
+
+  const visibleTotals = useMemo(
+    () =>
+      filteredRows.reduce(
+        (acc, row) => {
+          acc.subtotal += row.subtotal;
+          acc.taxTotal += row.taxTotal;
+          acc.discountTotal += row.discountTotal;
+          acc.total += row.total;
+          acc.salesCount += 1;
+          acc.lineCount += row.itemCount;
+          return acc;
+        },
+        {
+          subtotal: 0,
+          taxTotal: 0,
+          discountTotal: 0,
+          total: 0,
+          salesCount: 0,
+          lineCount: 0,
+        },
+      ),
+    [filteredRows],
+  );
+
+  const selectedSellerName = useMemo(() => {
+    if (!report?.filters.sellerId) return "Todos los vendedores";
+    return (
+      report.sellerOptions.find((seller) => seller.id === report.filters.sellerId)?.name ??
+      "Vendedor filtrado"
+    );
+  }, [report]);
 
   async function fetchSaleDetail(saleId: string) {
     return fetchJson<SaleReportDetailResponse>(`/api/v1/reports/sales/${saleId}`);
@@ -283,25 +339,79 @@ export function SalesReportsPage() {
     }
   }
 
+  function exportVisibleRows() {
+    if (!filteredRows.length) {
+      setError("No hay filas visibles para exportar");
+      return;
+    }
+
+    const csv = buildSalesCsv(filteredRows);
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const filename = `reporte-ventas-${filters.from || "desde"}-${filters.to || "hasta"}.csv`;
+
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  function applyFilters(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const params = new URLSearchParams(searchParams.toString());
+
+    if (filters.from) {
+      params.set("from", filters.from);
+    } else {
+      params.delete("from");
+    }
+
+    if (filters.to) {
+      params.set("to", filters.to);
+    } else {
+      params.delete("to");
+    }
+
+    if (filters.sellerId) {
+      params.set("sellerId", filters.sellerId);
+    } else {
+      params.delete("sellerId");
+    }
+
+    const newUrl = params.toString() ? `${pathname}?${params.toString()}` : pathname;
+
+    startRoutingTransition(() => {
+      router.replace(newUrl);
+    });
+  }
+
+  function resetFilters() {
+    startRoutingTransition(() => {
+      router.replace(pathname);
+    });
+  }
+
   const dataGridColumns: GridColDef<SalesRow>[] = [
     {
       field: "saleNumber",
       headerName: "Venta",
       minWidth: 110,
-      flex: 0.75,
+      flex: 0.7,
       sortable: true,
       renderCell: (params) => (
-        <Stack spacing={0.2} justifyContent="center" sx={{ py: 0.75 }}>
-          <Typography sx={{ fontWeight: 700, fontSize: 13.5 }}>
-            #{params.row.saleNumber}
-          </Typography>
-        </Stack>
+        <Typography sx={{ fontWeight: 800, fontSize: 13.5 }}>
+          #{params.row.saleNumber}
+        </Typography>
       ),
     },
     {
       field: "createdAt",
       headerName: "Fecha",
-      minWidth: 168,
+      minWidth: 170,
       flex: 0.95,
       valueGetter: (_value, row) => new Date(row.createdAt).getTime(),
       renderCell: (params) => (
@@ -313,13 +423,13 @@ export function SalesReportsPage() {
     {
       field: "customerName",
       headerName: "Cliente",
-      minWidth: 190,
+      minWidth: 210,
       flex: 1.2,
     },
     {
       field: "sellerName",
       headerName: "Vendedor",
-      minWidth: 150,
+      minWidth: 160,
       flex: 0.9,
     },
     {
@@ -339,18 +449,12 @@ export function SalesReportsPage() {
     },
     {
       field: "paymentMethods",
-      headerName: "Pagos",
-      minWidth: 230,
-      flex: 1.3,
+      headerName: "Pagos declarados",
+      minWidth: 220,
+      flex: 1.2,
       sortable: false,
       renderCell: (params) => (
-        <Stack
-          direction="row"
-          spacing={0.5}
-          useFlexGap
-          flexWrap="wrap"
-          sx={{ py: 0.75 }}
-        >
+        <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap" sx={{ py: 0.75 }}>
           {params.row.paymentMethods.map((code) => (
             <Chip
               key={`${params.row.saleId}-${code}`}
@@ -361,6 +465,15 @@ export function SalesReportsPage() {
           ))}
         </Stack>
       ),
+    },
+    {
+      field: "itemCount",
+      headerName: "Líneas",
+      minWidth: 88,
+      flex: 0.5,
+      align: "right",
+      headerAlign: "right",
+      renderCell: (params) => formatCompactNumber(params.row.itemCount),
     },
     {
       field: "subtotal",
@@ -406,7 +519,7 @@ export function SalesReportsPage() {
       field: "actions",
       headerName: "",
       minWidth: 110,
-      flex: 0.6,
+      flex: 0.55,
       sortable: false,
       filterable: false,
       disableColumnMenu: true,
@@ -437,42 +550,13 @@ export function SalesReportsPage() {
     },
   ];
 
-  function applyFilters(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    const params = new URLSearchParams(searchParams.toString());
-    if (filters.from) {
-      params.set("from", filters.from);
-    } else {
-      params.delete("from");
-    }
-
-    if (filters.to) {
-      params.set("to", filters.to);
-    } else {
-      params.delete("to");
-    }
-
-    const newUrl = params.toString() ? `${pathname}?${params.toString()}` : pathname;
-
-    startRoutingTransition(() => {
-      router.replace(newUrl);
-    });
-  }
-
-  function resetFilters() {
-    startRoutingTransition(() => {
-      router.replace(pathname);
-    });
-  }
-
   const shellBorder = alpha(theme.palette.divider, 0.76);
   const busy = loading || isPending;
 
   return (
     <Stack spacing={2.5} sx={{ px: { xs: 1, sm: 2 }, py: { xs: 1, sm: 2 } }}>
       <Box sx={{ px: { xs: 1, sm: 2 }, pt: { xs: 1, sm: 2 } }}>
-        <Stack spacing={0.75}>
+        <Stack spacing={0.9}>
           <Typography
             variant="h5"
             sx={{ color: "#4a3c58", fontWeight: 700, lineHeight: 1.15 }}
@@ -481,16 +565,40 @@ export function SalesReportsPage() {
           </Typography>
           <Typography
             sx={{
-              maxWidth: 720,
+              maxWidth: 860,
               color: "rgba(74, 60, 88, 0.68)",
               fontSize: 14,
             }}
           >
-          Consulta ventas registro por registro y usa los filtros para encontrar
-          exactamente lo que necesitas revisar.
+            Libro transaccional para revisar ventas emitidas dentro de un corte
+            específico. Esta vista responde qué se vendió, a quién, cuándo,
+            quién lo registró y con qué documento quedó respaldado.
           </Typography>
+          {report ? (
+            <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
+              <Chip
+                size="small"
+                variant="outlined"
+                label={`Corte: ${report.filters.from} a ${report.filters.to}`}
+              />
+              <Chip
+                size="small"
+                variant="outlined"
+                label={`Vendedor: ${selectedSellerName}`}
+              />
+              {search ? (
+                <Chip
+                  size="small"
+                  color="secondary"
+                  variant="outlined"
+                  label={`Búsqueda local: ${filteredRows.length} resultado${filteredRows.length === 1 ? "" : "s"}`}
+                />
+              ) : null}
+            </Stack>
+          ) : null}
         </Stack>
       </Box>
+
       <Paper
         component="form"
         onSubmit={applyFilters}
@@ -502,8 +610,28 @@ export function SalesReportsPage() {
         }}
       >
         <Stack spacing={1.75}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center">
+            <Box>
+              <Typography sx={{ fontWeight: 800, fontSize: 16.5 }}>
+                Criterio del reporte
+              </Typography>
+              <Typography sx={{ color: "text.secondary", fontSize: 13 }}>
+                Define el período y, si aplica, el vendedor sobre el que quieres auditar.
+              </Typography>
+            </Box>
+            <Button
+              type="button"
+              variant="outlined"
+              onClick={exportVisibleRows}
+              disabled={busy || !filteredRows.length}
+              startIcon={<Download className="h-4 w-4" />}
+            >
+              Exportar CSV
+            </Button>
+          </Stack>
+
           <Grid container spacing={1.25}>
-            <Grid size={{ xs: 12, md: 4 }}>
+            <Grid size={{ xs: 12, md: 3 }}>
               <TextField
                 fullWidth
                 label="Desde"
@@ -515,7 +643,7 @@ export function SalesReportsPage() {
                 InputLabelProps={{ shrink: true }}
               />
             </Grid>
-            <Grid size={{ xs: 12, md: 4 }}>
+            <Grid size={{ xs: 12, md: 3 }}>
               <TextField
                 fullWidth
                 label="Hasta"
@@ -527,7 +655,31 @@ export function SalesReportsPage() {
                 InputLabelProps={{ shrink: true }}
               />
             </Grid>
-            <Grid size={{ xs: 12, md: 4 }}>
+            <Grid size={{ xs: 12, md: 3 }}>
+              <TextField
+                select
+                fullWidth
+                label="Vendedor"
+                value={filters.sellerId}
+                onChange={(event) =>
+                  setFilters((current) => ({ ...current, sellerId: event.target.value }))
+                }
+                disabled={busy || Boolean(report?.filters.sellerLocked)}
+                helperText={
+                  report?.filters.sellerLocked
+                    ? "Tu sesión solo puede consultar tus ventas."
+                    : "Opcional. Déjalo vacío para incluir todos."
+                }
+              >
+                <MenuItem value="">Todos los vendedores</MenuItem>
+                {report?.sellerOptions.map((seller) => (
+                  <MenuItem key={seller.id} value={seller.id}>
+                    {seller.name}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid size={{ xs: 12, md: 3 }}>
               <Stack direction="row" spacing={1}>
                 <Button
                   type="submit"
@@ -552,7 +704,7 @@ export function SalesReportsPage() {
             <Grid size={{ xs: 12 }}>
               <TextField
                 fullWidth
-                label="Buscar en resultados"
+                label="Buscar en el resultado"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Venta, cliente, vendedor, documento o medio de pago"
@@ -563,17 +715,10 @@ export function SalesReportsPage() {
                     </InputAdornment>
                   ),
                 }}
+                helperText="La búsqueda reduce solo las filas visibles del reporte actual."
               />
             </Grid>
           </Grid>
-
-          {report?.filters.sellerLocked ? (
-            <Chip
-              color="secondary"
-              label="Vista limitada a tus ventas"
-              sx={{ alignSelf: "flex-start" }}
-            />
-          ) : null}
         </Stack>
       </Paper>
 
@@ -625,67 +770,42 @@ export function SalesReportsPage() {
           <Grid container spacing={1.25}>
             {[
               {
-                label: "Ventas",
+                label: "Ventas en el corte",
                 value: `${report.summary.salesCount}`,
-                meta: `${formatCompactNumber(report.summary.itemsSold)} items`,
-                icon: CircleDollarSign,
-                tone: alpha(theme.palette.primary.main, 0.1),
+                meta: `${formatCompactNumber(report.summary.itemsSold)} unidades vendidas`,
               },
               {
-                label: "Total vendido",
+                label: "Total facturado",
                 value: formatCurrency(report.summary.grossTotal),
-                meta: `IVA ${formatCurrency(report.summary.taxTotal)}`,
-                icon: TrendingUp,
-                tone: alpha(theme.palette.success.main, 0.12),
+                meta: `Subtotal ${formatCurrency(report.summary.grossTotal - report.summary.taxTotal)}`,
               },
               {
                 label: "Ticket promedio",
                 value: formatCurrency(report.summary.averageTicket),
                 meta: `Descuento ${formatCurrency(report.summary.discountTotal)}`,
-                icon: CalendarRange,
-                tone: alpha(theme.palette.info.main, 0.12),
               },
               {
-                label: "Productos top",
-                value: `${report.topProducts.length}`,
-                meta: `${report.paymentMethods.length} medios de pago`,
-                icon: Package2,
-                tone: alpha(theme.palette.warning.main, 0.14),
+                label: "IVA del corte",
+                value: formatCurrency(report.summary.taxTotal),
+                meta: `${filteredRows.length} fila${filteredRows.length === 1 ? "" : "s"} visibles`,
               },
-            ].map((card) => {
-              const Icon = card.icon;
-              return (
-                <Grid key={card.label} size={{ xs: 12, md: 6, xl: 3 }}>
-                  <Paper
-                    sx={{ borderRadius: "22px", p: 2, borderColor: shellBorder }}
-                  >
-                    <Stack spacing={1}>
-                      <Box
-                        sx={{
-                          width: 40,
-                          height: 40,
-                          borderRadius: "13px",
-                          display: "grid",
-                          placeItems: "center",
-                          backgroundColor: card.tone,
-                        }}
-                      >
-                        <Icon className="h-4.5 w-4.5" />
-                      </Box>
-                      <Typography sx={{ color: "text.secondary", fontSize: 13 }}>
-                        {card.label}
-                      </Typography>
-                      <Typography sx={{ fontSize: 26, fontWeight: 800, lineHeight: 1 }}>
-                        {card.value}
-                      </Typography>
-                      <Typography sx={{ color: "text.secondary", fontSize: 12.5 }}>
-                        {card.meta}
-                      </Typography>
-                    </Stack>
-                  </Paper>
-                </Grid>
-              );
-            })}
+            ].map((card) => (
+              <Grid key={card.label} size={{ xs: 12, md: 6, xl: 3 }}>
+                <Paper sx={{ borderRadius: "22px", p: 2, borderColor: shellBorder }}>
+                  <Stack spacing={0.9}>
+                    <Typography sx={{ color: "text.secondary", fontSize: 13 }}>
+                      {card.label}
+                    </Typography>
+                    <Typography sx={{ fontSize: 24, fontWeight: 800, lineHeight: 1 }}>
+                      {card.value}
+                    </Typography>
+                    <Typography sx={{ color: "text.secondary", fontSize: 12.5 }}>
+                      {card.meta}
+                    </Typography>
+                  </Stack>
+                </Paper>
+              </Grid>
+            ))}
           </Grid>
 
           <Paper sx={{ borderRadius: "24px", p: 0, borderColor: shellBorder, overflow: "hidden" }}>
@@ -697,32 +817,37 @@ export function SalesReportsPage() {
             >
               <Box>
                 <Typography sx={{ fontWeight: 800, fontSize: 17 }}>
-                  Registro detallado
+                  Registro de ventas
                 </Typography>
                 <Typography sx={{ color: "text.secondary", fontSize: 13 }}>
-                  {filteredRows.length} resultado{filteredRows.length === 1 ? "" : "s"} visibles
+                  Una fila por venta registrada dentro del corte consultado.
                 </Typography>
               </Box>
+              <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  label={`${visibleTotals.salesCount} visible${visibleTotals.salesCount === 1 ? "" : "s"}`}
+                />
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  label={`Subtotal ${formatCurrency(visibleTotals.subtotal)}`}
+                />
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  label={`IVA ${formatCurrency(visibleTotals.taxTotal)}`}
+                />
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  label={`Total ${formatCurrency(visibleTotals.total)}`}
+                />
+              </Stack>
             </Stack>
 
-            <Box
-              sx={{
-                height: 680,
-                // "& .MuiDataGrid-root": {
-                //   border: 0,
-                // },
-                // "& .MuiDataGrid-cell": {
-                //   borderColor: alpha(theme.palette.divider, 0.72),
-                //   alignItems: "center",
-                // },
-                // "& .MuiDataGrid-row:hover": {
-                //   backgroundColor: alpha(theme.palette.primary.light, 0.22),
-                // },
-                // "& .MuiDataGrid-footerContainer": {
-                //   borderTop: `1px solid ${shellBorder}`,
-                // },
-              }}
-            >
+            <Box sx={{ height: 680 }}>
               <DataGrid
                 rows={filteredRows}
                 columns={dataGridColumns}
@@ -754,7 +879,7 @@ export function SalesReportsPage() {
                         No hay registros para mostrar
                       </Typography>
                       <Typography sx={{ color: "text.secondary", fontSize: 13 }}>
-                        Ajusta los filtros o la búsqueda para encontrar ventas.
+                        Ajusta el corte, el vendedor o la búsqueda local.
                       </Typography>
                     </Stack>
                   ),
@@ -762,87 +887,6 @@ export function SalesReportsPage() {
               />
             </Box>
           </Paper>
-
-          <Grid container spacing={1.25}>
-            <Grid size={{ xs: 12, xl: 4 }}>
-              <Paper sx={{ borderRadius: "22px", p: 2, borderColor: shellBorder }}>
-                <Stack spacing={1.25}>
-                  <Typography sx={{ fontWeight: 800, fontSize: 16 }}>
-                    Resumen documental
-                  </Typography>
-                  {report.documentSummary.map((item) => (
-                    <Stack
-                      key={item.key}
-                      direction="row"
-                      justifyContent="space-between"
-                      sx={{ py: 0.85, borderBottom: `1px solid ${shellBorder}` }}
-                    >
-                      <Typography sx={{ fontSize: 13.5 }}>{item.label}</Typography>
-                      <Typography sx={{ fontWeight: 700, fontSize: 13.5 }}>
-                        {item.salesCount} · {formatCurrency(item.total)}
-                      </Typography>
-                    </Stack>
-                  ))}
-                </Stack>
-              </Paper>
-            </Grid>
-
-            <Grid size={{ xs: 12, xl: 4 }}>
-              <Paper sx={{ borderRadius: "22px", p: 2, borderColor: shellBorder }}>
-                <Stack spacing={1.25}>
-                  <Typography sx={{ fontWeight: 800, fontSize: 16 }}>
-                    Medios de pago
-                  </Typography>
-                  {report.paymentMethods.map((item) => (
-                    <Stack
-                      key={item.code}
-                      direction="row"
-                      justifyContent="space-between"
-                      sx={{ py: 0.85, borderBottom: `1px solid ${shellBorder}` }}
-                    >
-                      <Typography sx={{ fontSize: 13.5 }}>
-                        {paymentMethodLabel(item.code)}
-                      </Typography>
-                      <Typography sx={{ fontWeight: 700, fontSize: 13.5 }}>
-                        {item.salesCount} · {formatCurrency(item.total)}
-                      </Typography>
-                    </Stack>
-                  ))}
-                </Stack>
-              </Paper>
-            </Grid>
-
-            <Grid size={{ xs: 12, xl: 4 }}>
-              <Paper sx={{ borderRadius: "22px", p: 2, borderColor: shellBorder }}>
-                <Stack spacing={1.25}>
-                  <Typography sx={{ fontWeight: 800, fontSize: 16 }}>
-                    Top productos
-                  </Typography>
-                  {report.topProducts.slice(0, 8).map((item) => (
-                    <Stack
-                      key={item.productId}
-                      direction="row"
-                      justifyContent="space-between"
-                      spacing={1}
-                      sx={{ py: 0.85, borderBottom: `1px solid ${shellBorder}` }}
-                    >
-                      <Box sx={{ minWidth: 0 }}>
-                        <Typography sx={{ fontSize: 13.5, fontWeight: 700 }} noWrap>
-                          {item.productName}
-                        </Typography>
-                        <Typography sx={{ fontSize: 12, color: "text.secondary" }} noWrap>
-                          {item.productCode} · {formatCompactNumber(item.quantity)} uds
-                        </Typography>
-                      </Box>
-                      <Typography sx={{ fontWeight: 700, fontSize: 13.5 }}>
-                        {formatCurrency(item.total)}
-                      </Typography>
-                    </Stack>
-                  ))}
-                </Stack>
-              </Paper>
-            </Grid>
-          </Grid>
         </>
       ) : null}
 
@@ -861,9 +905,7 @@ export function SalesReportsPage() {
           {detailLoading ? (
             <Stack spacing={1.5} alignItems="center" sx={{ py: 4 }}>
               <CircularProgress size={28} />
-              <Typography color="text.secondary">
-                Cargando detalle...
-              </Typography>
+              <Typography color="text.secondary">Cargando detalle...</Typography>
             </Stack>
           ) : detailError ? (
             <Alert severity="error" variant="outlined">
@@ -907,7 +949,7 @@ export function SalesReportsPage() {
                       {selectedSaleDetail.documentLabel}
                     </Typography>
                     <Typography sx={{ color: "text.secondary", fontSize: 12.5 }}>
-                      {selectedSaleDetail.documentNumber ?? "Sin numeracion"}
+                      {selectedSaleDetail.documentNumber ?? "Sin numeración"}
                     </Typography>
                   </Paper>
                 </Grid>
@@ -926,9 +968,15 @@ export function SalesReportsPage() {
                   }}
                 >
                   <Typography sx={{ fontWeight: 700, fontSize: 12 }}>Producto</Typography>
-                  <Typography sx={{ fontWeight: 700, fontSize: 12, textAlign: "right" }}>Cant.</Typography>
-                  <Typography sx={{ fontWeight: 700, fontSize: 12, textAlign: "right" }}>P. Unit</Typography>
-                  <Typography sx={{ fontWeight: 700, fontSize: 12, textAlign: "right" }}>Total</Typography>
+                  <Typography sx={{ fontWeight: 700, fontSize: 12, textAlign: "right" }}>
+                    Cant.
+                  </Typography>
+                  <Typography sx={{ fontWeight: 700, fontSize: 12, textAlign: "right" }}>
+                    P. Unit
+                  </Typography>
+                  <Typography sx={{ fontWeight: 700, fontSize: 12, textAlign: "right" }}>
+                    Total
+                  </Typography>
                 </Box>
                 <Stack divider={<Box sx={{ borderTop: `1px solid ${alpha(theme.palette.divider, 0.72)}` }} />}>
                   {selectedSaleDetail.lines.map((line) => (
@@ -969,7 +1017,7 @@ export function SalesReportsPage() {
                 <Grid size={{ xs: 12, md: 7 }}>
                   <Paper sx={{ p: 1.5, borderRadius: "18px" }}>
                     <Typography sx={{ color: "text.secondary", fontSize: 12.5, mb: 1 }}>
-                      Medios de pago
+                      Pagos declarados
                     </Typography>
                     <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap">
                       {selectedSaleDetail.paymentMethods.map((code) => (
@@ -985,12 +1033,12 @@ export function SalesReportsPage() {
                 </Grid>
                 <Grid size={{ xs: 12, md: 5 }}>
                   <Paper sx={{ p: 1.5, borderRadius: "18px" }}>
-                    <Stack spacing={0.75}>
+                    <Stack spacing={0.85}>
                       <Stack direction="row" justifyContent="space-between">
                         <Typography sx={{ color: "text.secondary", fontSize: 13 }}>
                           Subtotal
                         </Typography>
-                        <Typography sx={{ fontSize: 13 }}>
+                        <Typography sx={{ fontWeight: 700 }}>
                           {formatCurrency(selectedSaleDetail.subtotal)}
                         </Typography>
                       </Stack>
@@ -998,7 +1046,7 @@ export function SalesReportsPage() {
                         <Typography sx={{ color: "text.secondary", fontSize: 13 }}>
                           IVA
                         </Typography>
-                        <Typography sx={{ fontSize: 13 }}>
+                        <Typography sx={{ fontWeight: 700 }}>
                           {formatCurrency(selectedSaleDetail.taxTotal)}
                         </Typography>
                       </Stack>
@@ -1006,7 +1054,7 @@ export function SalesReportsPage() {
                         <Typography sx={{ color: "text.secondary", fontSize: 13 }}>
                           Descuento
                         </Typography>
-                        <Typography sx={{ fontSize: 13 }}>
+                        <Typography sx={{ fontWeight: 700 }}>
                           {formatCurrency(selectedSaleDetail.discountTotal)}
                         </Typography>
                       </Stack>
@@ -1026,25 +1074,23 @@ export function SalesReportsPage() {
           ) : null}
         </DialogContent>
         <DialogActions>
+          {selectedSaleDetail ? (
+            <Button
+              onClick={() => {
+                void printSaleById(selectedSaleDetail.saleId);
+              }}
+              startIcon={<Printer className="h-4 w-4" />}
+            >
+              Imprimir
+            </Button>
+          ) : null}
           <Button
-            variant="outlined"
             onClick={() => {
               setDetailOpen(false);
               setDetailError(null);
             }}
           >
             Cerrar
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={<Printer className="h-4 w-4" />}
-            disabled={!selectedSaleDetail || detailLoading}
-            onClick={() => {
-              if (!selectedSaleDetail) return;
-              void printSaleById(selectedSaleDetail.saleId);
-            }}
-          >
-            Imprimir
           </Button>
         </DialogActions>
       </Dialog>

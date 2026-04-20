@@ -2,7 +2,7 @@
 
 import Alert from "@mui/material/Alert";
 import Snackbar from "@mui/material/Snackbar";
-import { useEffect, useState } from "react";
+import { useDeferredValue, useEffect, useState } from "react";
 
 import { fetchJson } from "@/shared/dashboard/api";
 import { InvoiceDetailModal } from "@/shared/dashboard/modals";
@@ -10,6 +10,8 @@ import { type PaginatedResult, type SriInvoice, type SriInvoiceDetail } from "@/
 import { BillingSection } from "@/modules/billing/components/billing-section";
 
 export type SriStatusFilter = "NOT_AUTHORIZED" | "ALL" | "DRAFT" | "AUTHORIZED" | "PENDING_SRI" | "ERROR";
+export type SaleStatusFilter = "ALL" | "COMPLETED" | "CANCELLED";
+export type RetryFilter = "ALL" | "RETRYABLE" | "NON_RETRYABLE";
 
 type SriToast = {
   message: string;
@@ -29,15 +31,47 @@ export default function SriPage() {
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [statusFilter, setStatusFilter] = useState<SriStatusFilter>("NOT_AUTHORIZED");
+  const [saleStatusFilter, setSaleStatusFilter] = useState<SaleStatusFilter>("ALL");
+  const [retryFilter, setRetryFilter] = useState<RetryFilter>("ALL");
+  const [search, setSearch] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const deferredSearch = useDeferredValue(search);
 
   async function loadInvoices() {
     setLoading(true);
 
     try {
-      const statusParam = statusFilter === "ALL" ? "" : `&status=${statusFilter}`;
-      const result = await fetchJson<PaginatedResult<SriInvoice>>(
-        `/api/v1/sri-invoices?page=${page}&limit=10${statusParam}`
-      );
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: "10",
+      });
+
+      if (statusFilter !== "ALL") {
+        params.set("status", statusFilter);
+      }
+
+      if (saleStatusFilter !== "ALL") {
+        params.set("saleStatus", saleStatusFilter);
+      }
+
+      if (retryFilter !== "ALL") {
+        params.set("retryable", retryFilter);
+      }
+
+      if (deferredSearch.trim()) {
+        params.set("search", deferredSearch.trim());
+      }
+
+      if (dateFrom) {
+        params.set("dateFrom", dateFrom);
+      }
+
+      if (dateTo) {
+        params.set("dateTo", dateTo);
+      }
+
+      const result = await fetchJson<PaginatedResult<SriInvoice>>(`/api/v1/sri-invoices?${params.toString()}`);
       setInvoices(result.data);
       setTotal(result.pagination.total);
       setTotalPages(result.pagination.totalPages);
@@ -57,11 +91,56 @@ export default function SriPage() {
   useEffect(() => {
     void loadInvoices();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, statusFilter]);
+  }, [page, statusFilter, saleStatusFilter, retryFilter, deferredSearch, dateFrom, dateTo]);
 
   function handleFilterChange(value: string) {
     setStatusFilter(value as SriStatusFilter);
     setPage(1);
+  }
+
+  function handleSaleStatusFilterChange(value: string) {
+    setSaleStatusFilter(value as SaleStatusFilter);
+    setPage(1);
+  }
+
+  function handleRetryFilterChange(value: string) {
+    setRetryFilter(value as RetryFilter);
+    setPage(1);
+  }
+
+  function handleSearchChange(value: string) {
+    setSearch(value);
+    setPage(1);
+  }
+
+  function handleDateFromChange(value: string) {
+    setDateFrom(value);
+    setPage(1);
+  }
+
+  function handleDateToChange(value: string) {
+    setDateTo(value);
+    setPage(1);
+  }
+
+  function handleResetFilters() {
+    setStatusFilter("NOT_AUTHORIZED");
+    setSaleStatusFilter("ALL");
+    setRetryFilter("ALL");
+    setSearch("");
+    setDateFrom("");
+    setDateTo("");
+    setPage(1);
+  }
+
+  function getRetryableInvoiceIds(source: SriInvoice[]) {
+    return source
+      .filter(
+        (invoice) =>
+          (invoice.status === "PENDING_SRI" || invoice.status === "ERROR") &&
+          invoice.saleStatus !== "CANCELLED",
+      )
+      .map((invoice) => invoice.id);
   }
 
   async function onRetry(invoiceId: string) {
@@ -76,6 +155,60 @@ export default function SriPage() {
       setToast({
         message:
           error instanceof Error ? error.message : "No se pudo reintentar",
+        severity: "error",
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function onRetryVisible() {
+    const invoiceIds = getRetryableInvoiceIds(invoices);
+
+    if (invoiceIds.length === 0) {
+      setToast({
+        message: "No hay facturas visibles pendientes para reintentar",
+        severity: "info",
+      });
+      return;
+    }
+
+    setSaving(true);
+    setToast(null);
+
+    try {
+      const result = await fetchJson<{
+        processed: number;
+        succeeded: number;
+        failed: number;
+        results: Array<{
+          id: string;
+          ok: boolean;
+          status: string | null;
+          retryCount: number | null;
+          message: string;
+        }>;
+      }>("/api/v1/sri-invoices/retry", {
+        method: "POST",
+        body: JSON.stringify({ invoiceIds }),
+      });
+
+      const message =
+        result.failed > 0
+          ? `Reintentos ejecutados: ${result.succeeded} exitosos, ${result.failed} con error`
+          : `Reintentos ejecutados sobre ${result.succeeded} factura${result.succeeded === 1 ? "" : "s"}`;
+
+      setToast({
+        message,
+        severity: result.failed > 0 ? "info" : "success",
+      });
+      await loadInvoices();
+    } catch (error) {
+      setToast({
+        message:
+          error instanceof Error
+            ? error.message
+            : "No se pudo ejecutar el reintento masivo",
         severity: "error",
       });
     } finally {
@@ -140,11 +273,23 @@ export default function SriPage() {
         invoices={invoices}
         pagination={{ page, limit: 10, total, totalPages }}
         statusFilter={statusFilter}
+        saleStatusFilter={saleStatusFilter}
+        retryFilter={retryFilter}
+        search={search}
+        dateFrom={dateFrom}
+        dateTo={dateTo}
         saving={saving}
         onRetry={onRetry}
+        onRetryVisible={onRetryVisible}
         onViewDetails={onViewDetails}
         onPageChange={setPage}
         onFilterChange={handleFilterChange}
+        onSaleStatusFilterChange={handleSaleStatusFilterChange}
+        onRetryFilterChange={handleRetryFilterChange}
+        onSearchChange={handleSearchChange}
+        onDateFromChange={handleDateFromChange}
+        onDateToChange={handleDateToChange}
+        onResetFilters={handleResetFilters}
       />
       <InvoiceDetailModal
         isOpen={isDetailOpen}

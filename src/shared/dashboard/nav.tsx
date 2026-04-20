@@ -9,6 +9,7 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { alpha, useTheme } from "@mui/material/styles";
 import {
+  BarChart3,
   Boxes,
   ChefHat,
   ConciergeBell,
@@ -159,7 +160,7 @@ const BUSINESS_NAV_ITEMS: NavItem[] = [
         href: "/accounting/estado-resultados",
         label: "Estado de Resultados",
         icon: HandCoins,
-      }
+      },
     ],
   },
   {
@@ -211,6 +212,33 @@ const BUSINESS_NAV_ITEMS: NavItem[] = [
         icon: FileText,
         requiredFeature: "QUOTES",
       },
+    ],
+  },
+  {
+    id: "reports",
+    label: "Reportes",
+    icon: BarChart3,
+    children: [
+      {
+        id: "reports-sales",
+        href: "/reports/sales",
+        label: "Ventas",
+        icon: BarChart3,
+      },
+    ],
+  },
+  {
+    id: "electronic-invoicing",
+    label: "Facturación Electrónica",
+    icon: FileText,
+    // requiredFeature: "ELECTRONIC_INVOICING",
+    children: [
+      {
+        id: "electronic-documents",
+        href: "/electronic-invoicing/documents",
+        label: "Documentos Electronicos",
+        icon: FileText,
+      }
     ],
   },
 ];
@@ -303,14 +331,15 @@ function getNavSections(options?: { restaurantEnabled?: boolean }) {
           },
         ] satisfies NavSection[])
       : []),
-    { id: "business", label: "Procesos del negocio", items: BUSINESS_NAV_ITEMS },
+    {
+      id: "business",
+      label: "Procesos del negocio",
+      items: BUSINESS_NAV_ITEMS,
+    },
   ];
 }
 
-function NavLinkCard({
-  item,
-  active,
-}: NavLinkCardProps) {
+function NavLinkCard({ item, active }: NavLinkCardProps) {
   const theme = useTheme();
   const Icon = item.icon;
   const activeBg = `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.18)}, ${alpha(theme.palette.primary.main, 0.09)})`;
@@ -407,115 +436,6 @@ function NavLinkCard({
       </Stack>
     </Box>
   );
-
-  // Desktop layout
-  // return (
-  //   <Box
-  //     component={Link}
-  //     href={item.href ?? "#"}
-  //     aria-current={active ? "page" : undefined}
-  //     aria-label={iconOnly ? item.label : undefined}
-  //     sx={{
-  //       display: "flex",
-  //       textDecoration: "none",
-  //       position: "relative",
-  //       borderRadius: "20px",
-  //       border: "1px solid",
-  //       borderColor: active
-  //         ? alpha(theme.palette.primary.main, 0.24)
-  //         : alpha(theme.palette.divider, 0.62),
-  //       background: active
-  //         ? activeBg
-  //         : alpha(theme.palette.background.paper, 0.34),
-  //       color: active ? "text.primary" : "text.secondary",
-  //       boxShadow: active
-  //         ? `0 12px 30px ${alpha(theme.palette.primary.main, 0.12)}`
-  //         : "none",
-  //       alignItems: "center",
-  //       justifyContent: iconOnly ? "center" : "flex-start",
-  //       px: iconOnly ? 0 : 2,
-  //       py: 1.5,
-  //       gap: iconOnly ? 0 : "10px",
-  //       overflow: "hidden",
-  //       transition: [
-  //         `border-color 180ms ease`,
-  //         `background 180ms ease`,
-  //         `color 180ms ease`,
-  //         `box-shadow 180ms ease`,
-  //         `padding ${TRANSITION}`,
-  //         `gap ${TRANSITION}`,
-  //         `justify-content ${TRANSITION}`,
-  //       ].join(", "),
-  //       "&::before": {
-  //         content: '""',
-  //         position: "absolute",
-  //         top: 11,
-  //         bottom: 11,
-  //         left: iconOnly ? "50%" : 8,
-  //         transform: iconOnly ? "translateX(-50%)" : "none",
-  //         width: 3,
-  //         borderRadius: 999,
-  //         backgroundColor: active ? theme.palette.primary.main : "transparent",
-  //         transition: "background-color 180ms ease",
-  //       },
-  //       "&:hover": {
-  //         background: active ? activeBg : hoverBg,
-  //         color: "text.primary",
-  //         borderColor: active
-  //           ? alpha(theme.palette.primary.main, 0.24)
-  //           : alpha(theme.palette.divider, 0.72),
-  //       },
-  //       "&:focus-visible": {
-  //         outline: "none",
-  //         boxShadow: focusRing,
-  //       },
-  //     }}
-  //   >
-  //     <Box
-  //       sx={{
-  //         width: 38,
-  //         height: 38,
-  //         borderRadius: "14px",
-  //         display: "flex",
-  //         alignItems: "center",
-  //         justifyContent: "center",
-  //         flexShrink: 0,
-  //         color: active ? "primary.main" : "text.secondary",
-  //         backgroundColor: active
-  //           ? alpha(theme.palette.primary.light, 0.8)
-  //           : alpha(theme.palette.background.paper, 0.76),
-  //         border: "1px solid",
-  //         borderColor: active
-  //           ? alpha(theme.palette.primary.main, 0.18)
-  //           : alpha(theme.palette.divider, 0.65),
-  //       }}
-  //     >
-  //       <Icon className="h-4.5 w-4.5" />
-  //     </Box>
-
-  //     <Box
-  //       sx={{
-  //         minWidth: 0,
-  //         overflow: "hidden",
-  //         maxWidth: iconOnly ? 0 : 300,
-  //         opacity: iconOnly ? 0 : 1,
-  //         whiteSpace: "nowrap",
-  //         transition: `max-width ${TRANSITION}, opacity 180ms ease`,
-  //       }}
-  //     >
-  //       <Typography
-  //         sx={{
-  //           fontSize: 14,
-  //           fontWeight: 700,
-  //           lineHeight: 1.2,
-  //           color: "inherit",
-  //         }}
-  //       >
-  //         {item.label}
-  //       </Typography>
-  //     </Box>
-  //   </Box>
-  // );
 }
 
 type NavModuleCardProps = {
@@ -723,137 +643,6 @@ function NavModuleCard({
       </Collapse>
     </Box>
   );
-
-  // return (
-  //   <Box>
-  //     <Box
-  //       component="button"
-  //       type="button"
-  //       onClick={() => !iconOnly && onToggle()}
-  //       aria-label={iconOnly ? item.label : undefined}
-  //       aria-expanded={!iconOnly ? open : undefined}
-  //       aria-controls={!iconOnly ? collapseId : undefined}
-  //       sx={{
-  //         display: "flex",
-  //         width: "100%",
-  //         cursor: iconOnly ? "default" : "pointer",
-  //         position: "relative",
-  //         borderRadius: "20px",
-  //         border: "1px solid",
-  //         borderColor: headerHighlighted ? alpha(theme.palette.primary.main, 0.24) : alpha(theme.palette.divider, 0.62),
-  //         background: headerHighlighted ? activeBg : alpha(theme.palette.background.paper, 0.34),
-  //         color: headerHighlighted ? "text.primary" : "text.secondary",
-  //         boxShadow: headerHighlighted ? `0 12px 30px ${alpha(theme.palette.primary.main, 0.12)}` : "none",
-  //         alignItems: "center",
-  //         justifyContent: iconOnly ? "center" : "flex-start",
-  //         px: iconOnly ? 0 : 2,
-  //         py: 1.5,
-  //         gap: iconOnly ? 0 : "10px",
-  //         overflow: "hidden",
-  //         outline: "none",
-  //         transition: [
-  //           `border-color 180ms ease`,
-  //           `background 180ms ease`,
-  //           `color 180ms ease`,
-  //           `box-shadow 180ms ease`,
-  //           `padding ${TRANSITION}`,
-  //           `gap ${TRANSITION}`,
-  //         ].join(", "),
-  //         "&::before": {
-  //           content: '""',
-  //           position: "absolute",
-  //           top: 11,
-  //           bottom: 11,
-  //           left: iconOnly ? "50%" : 8,
-  //           transform: iconOnly ? "translateX(-50%)" : "none",
-  //           width: 3,
-  //           borderRadius: 999,
-  //           backgroundColor: headerHighlighted ? theme.palette.primary.main : "transparent",
-  //           transition: "background-color 180ms ease",
-  //         },
-  //         "&:hover": {
-  //           background: headerHighlighted ? activeBg : hoverBg,
-  //           color: "text.primary",
-  //           borderColor: headerHighlighted
-  //             ? alpha(theme.palette.primary.main, 0.24)
-  //             : alpha(theme.palette.divider, 0.72),
-  //         },
-  //         "&:focus-visible": {
-  //           outline: "none",
-  //           boxShadow: focusRing,
-  //         },
-  //       }}
-  //     >
-  //       <Box
-  //         sx={{
-  //           width: 38, height: 38, borderRadius: "14px",
-  //           display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-  //           color: anyChildActive ? "primary.main" : "text.secondary",
-  //           backgroundColor: anyChildActive
-  //             ? alpha(theme.palette.primary.light, 0.8)
-  //             : alpha(theme.palette.background.paper, 0.76),
-  //           border: "1px solid",
-  //           borderColor: anyChildActive
-  //             ? alpha(theme.palette.primary.main, 0.18)
-  //             : alpha(theme.palette.divider, 0.65),
-  //         }}
-  //       >
-  //         <Icon className="h-4.5 w-4.5" />
-  //       </Box>
-
-  //       <Box
-  //         sx={{
-  //           minWidth: 0,
-  //           overflow: "hidden",
-  //           maxWidth: iconOnly ? 0 : 300,
-  //           opacity: iconOnly ? 0 : 1,
-  //           display: "flex",
-  //           alignItems: "center",
-  //           justifyContent: "space-between",
-  //           flex: 1,
-  //           whiteSpace: "nowrap",
-  //           transition: `max-width ${TRANSITION}, opacity 180ms ease`,
-  //         }}
-  //       >
-  //         <Typography sx={{ fontSize: 14, fontWeight: 700, lineHeight: 1.2, color: "inherit" }}>
-  //           {item.label}
-  //         </Typography>
-  //         <Stack direction="row" spacing={1} alignItems="center">
-  //           <ChevronDown
-  //             className="h-4 w-4"
-  //             style={{
-  //               flexShrink: 0,
-  //               transition: "transform 220ms ease",
-  //               transform: open ? "rotate(180deg)" : "rotate(0deg)",
-  //             }}
-  //           />
-  //         </Stack>
-  //       </Box>
-  //     </Box>
-
-  //     {!iconOnly && (
-  //       <Collapse in={open} timeout={220} id={collapseId}>
-  //         <Stack
-  //           spacing={0.5}
-  //           sx={{
-  //             mt: 0.75,
-  //             ml: 2.75,
-  //             pl: 1.25,
-  //             borderLeft: `1px solid ${alpha(theme.palette.divider, 0.72)}`,
-  //           }}
-  //         >
-  //           {children.map((subItem) => (
-  //             <NavSubItem
-  //               key={subItem.id}
-  //               item={subItem}
-  //               active={isPathActive(pathname, subItem.href)}
-  //             />
-  //           ))}
-  //         </Stack>
-  //       </Collapse>
-  //     )}
-  //   </Box>
-  // );
 }
 
 export function MvpDashboardNav({

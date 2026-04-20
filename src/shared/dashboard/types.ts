@@ -46,13 +46,24 @@ export type SriInvoice = {
   externalInvoiceId?: string | null;
   secuencial?: string | null;
   documentFullNumber?: string | null;
+  customerName?: string;
+  customerIdentification?: string;
   createdAt?: string;
+  updatedAt?: string;
   authorizedAt?: string | null;
   saleStatus?: "COMPLETED" | "CANCELLED";
   saleNumber: string;
   status: "DRAFT" | "AUTHORIZED" | "PENDING_SRI" | "ERROR";
+  sriReceptionStatus?: string | null;
+  sriAuthorizationStatus?: string | null;
+  authorizationNumber?: string | null;
+  claveAcceso?: string | null;
   retryCount: number;
+  total?: number;
   lastError?: string | null;
+  hasSignedXml?: boolean;
+  hasAuthorizedXml?: boolean;
+  hasRidePdf?: boolean;
 };
 
 export type LineItem = {
