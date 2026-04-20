@@ -665,13 +665,13 @@ export function CompanySettingsPage({ canEdit }: CompanySettingsPageProps) {
     {
       title: "Configurar menu",
       caption: "Ajustar productos, categorias y datos operativos del menu.",
-      href: "/products",
+      href: "/inventory/products",
       icon: PackageSearch,
     },
     {
       title: "Revisar inventario",
       caption: "Validar stock, recetas y preproduccion sobre inventario real.",
-      href: "/inventory",
+      href: "/inventory/inventory-adjustment",
       icon: PackageSearch,
     },
     {

@@ -1,19 +1,16 @@
-import IconButton from "@mui/material/IconButton";
+import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
+import { Button, Grid, Input } from "@mui/material";
+import IconButton from "@mui/material/IconButton";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import { PackagePlus, Pencil, Search, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import type { Product } from "@/shared/dashboard/types";
-import Box from "@mui/material/Box";
-import Stack from "@mui/material/Stack";
-import Typography from "@mui/material/Typography";
-
 import { matchesScaleBarcodePrefix } from "@/lib/utils";
-import { Grid } from "@mui/material";
+import type { Product } from "@/shared/dashboard/types";
 
 type ProductsSectionProps = {
   products: Product[];
@@ -35,6 +32,7 @@ export function ProductsSection({
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return products;
+
     return products.filter(
       (product) =>
         product.nombre.toLowerCase().includes(q) ||
@@ -48,10 +46,6 @@ export function ProductsSection({
         product.tipoProducto.toLowerCase().includes(q),
     );
   }, [products, search]);
-
-  function handleSearch(value: string) {
-    setSearch(value);
-  }
 
   const columns = useMemo<GridColDef<Product>[]>(
     () => [
@@ -229,13 +223,29 @@ export function ProductsSection({
                   justifyContent="space-between"
                 >
                   <Grid size={{ xs: 12, md: "grow" }}>
-                    <Box sx={{ position: "relative", width: "100%", maxWidth: 320 }}>
-                      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#b1a1c6]" />
+                    <Box
+                      sx={{
+                        position: "relative",
+                        width: "100%",
+                        maxWidth: 320,
+                      }}
+                    >
+                      {/* <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" /> */}
                       <Input
                         placeholder="Buscar por nombre, SKU, codigo o barras..."
                         value={search}
-                        onChange={(e) => handleSearch(e.target.value)}
-                        className="border-[#e8d5e5]/70 bg-[#fdfcf5]/75 pl-9"
+                        onChange={(e) => setSearch(e.target.value)}
+                        startAdornment={<Search className="h-4 w-4" />}
+                        fullWidth
+                        sx={{
+                          // borderRadius: "999px",
+                          backgroundColor: "rgba(241, 245, 249, 0.8)",
+                          "& .MuiInputBase-input": {
+                            fontSize: 13,
+                            py: 1.25,
+                            pl: 1.25,
+                          },
+                        }}
                       />
                     </Box>
                   </Grid>
@@ -249,10 +259,9 @@ export function ProductsSection({
                       {search ? (
                         <Grid size={{ xs: 12, sm: "auto" }}>
                           <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => handleSearch("")}
-                            className="border-[#e8d5e5]/80 text-[#4a3c58] hover:bg-[#fdfcf5]"
+                            onClick={() => setSearch("")}
+                            startIcon={<Trash2 className="h-4 w-4" />}
+                            fullWidth
                           >
                             Limpiar
                           </Button>
@@ -260,11 +269,11 @@ export function ProductsSection({
                       ) : null}
                       <Grid size={{ xs: 12, sm: "auto" }}>
                         <Button
-                          type="button"
+                          fullWidth
+                          variant="contained"
                           onClick={onOpenProductModal}
-                          className="bg-[#4a3c58] text-white hover:bg-[#3d3249]"
+                          startIcon={<PackagePlus className="h-4 w-4" />}
                         >
-                          <PackagePlus className="h-4 w-4" />
                           Nuevo producto
                         </Button>
                       </Grid>
@@ -283,7 +292,10 @@ export function ProductsSection({
                   pageSizeOptions={[PRODUCTS_PAGE_SIZE, 15, 25]}
                   initialState={{
                     pagination: {
-                      paginationModel: { page: 0, pageSize: PRODUCTS_PAGE_SIZE },
+                      paginationModel: {
+                        page: 0,
+                        pageSize: PRODUCTS_PAGE_SIZE,
+                      },
                     },
                   }}
                   localeText={{

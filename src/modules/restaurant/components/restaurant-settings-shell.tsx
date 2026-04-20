@@ -79,7 +79,7 @@ export function RestaurantSettingsShell({
                 </Button>
                 <Button
                   component={Link}
-                  href="/products"
+                  href="/inventory/products"
                   variant="outlined"
                   size="small"
                   startIcon={<PackageSearch size={16} />}

@@ -13,12 +13,9 @@ import { Loader2, Save, X } from "lucide-react";
 import type { Dispatch, FormEvent, SetStateAction } from "react";
 
 import { matchesScaleBarcodePrefix } from "@/lib/utils";
-import type {
-  Product,
-  StockAdjustmentForm,
-} from "@/shared/dashboard/types";
+import type { Product, StockAdjustmentForm } from "@/shared/dashboard/types";
 
-type InventoryAdjustmentModalProps = {
+type InventoryAdjustmentDialogProps = {
   isOpen: boolean;
   products: Product[];
   adjustment: StockAdjustmentForm;
@@ -37,7 +34,7 @@ const movementTypeOptions: Array<{
   { value: "ADJUSTMENT", label: "Ajuste" },
 ];
 
-export function InventoryAdjustmentModal({
+export function InventoryAdjustmentDialog({
   isOpen,
   products,
   adjustment,
@@ -45,7 +42,7 @@ export function InventoryAdjustmentModal({
   saving,
   onClose,
   onSubmit,
-}: InventoryAdjustmentModalProps) {
+}: InventoryAdjustmentDialogProps) {
   const selectedProduct =
     products.find((product) => product.id === adjustment.productId) ?? null;
 

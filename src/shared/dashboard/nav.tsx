@@ -169,7 +169,7 @@ const BUSINESS_NAV_ITEMS: NavItem[] = [
     children: [
       {
         id: "inventory-products",
-        href: "/products",
+        href: "/inventory/products",
         label: "Productos",
         icon: PackageSearch,
       },
@@ -181,7 +181,7 @@ const BUSINESS_NAV_ITEMS: NavItem[] = [
       },
       {
         id: "inventory-adjustments",
-        href: "/inventory",
+        href: "/inventory/inventory-adjustment",
         label: "Ajustes de Inventario",
         icon: PackageSearch,
       },

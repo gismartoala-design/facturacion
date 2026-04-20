@@ -103,7 +103,7 @@ export function OverviewOperationalDashboard({
 
   const attentionItems: ActionItem[] = [
     {
-      href: "/inventory",
+      href: "/inventory/inventory-adjustment",
       label: "Stock bajo",
       meta: `${lowStockItems.length} producto${lowStockItems.length === 1 ? "" : "s"} requieren revisión`,
       tone: lowStockItems.length > 0 ? "amber" : "emerald",
@@ -142,7 +142,7 @@ export function OverviewOperationalDashboard({
       icon: FileText,
     },
     {
-      href: "/inventory",
+      href: "/inventory/inventory-adjustment",
       label: "Ajustar stock",
       caption: "Corregir entradas, salidas o ajustes",
       icon: Boxes,

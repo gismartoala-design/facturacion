@@ -12,16 +12,17 @@ import { useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import type { StockItem } from "@/shared/dashboard/types";
 
-type InventorySectionProps = {
+type InventoryAdjustmentSectionProps = {
   stock: StockItem[];
   onOpenStockModal: () => void;
 };
 
-export function InventorySection({
+export function InventoryAdjustmentSection({
   stock,
   onOpenStockModal,
-}: InventorySectionProps) {
+}: InventoryAdjustmentSectionProps) {
   const [search, setSearch] = useState("");
+
   const filteredStock = useMemo(() => {
     const normalized = search.trim().toLowerCase();
     if (!normalized) {
@@ -116,7 +117,7 @@ export function InventorySection({
               variant="h5"
               sx={{ color: "#4a3c58", fontWeight: 700, lineHeight: 1.15 }}
             >
-              Inventario
+              Ajustes de Inventario
             </Typography>
             <Typography
               sx={{
@@ -125,8 +126,8 @@ export function InventorySection({
                 fontSize: 14,
               }}
             >
-              Entradas, salidas y ajustes manuales con trazabilidad en tiempo
-              real.
+              Entradas, salidas y ajustes manuales con trazabilidad sobre el stock
+              actual.
             </Typography>
           </Stack>
         </Box>

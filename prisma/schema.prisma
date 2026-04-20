@@ -30,6 +30,11 @@ enum ReferenceType {
   MANUAL
 }
 
+enum StockTakingStatus {
+  DRAFT
+  APPLIED
+}
+
 enum SaleStatus {
   COMPLETED
   CANCELLED
@@ -231,6 +236,7 @@ model Business {
   kitchenTickets     KitchenTicket[]
   recipes            Recipe[]
   prepBatches        PrepBatch[]
+  stockTakings       StockTaking[]
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
 }
@@ -321,6 +327,8 @@ model User {
   openedRestaurantTableSessions TableSession[]          @relation("RestaurantTableSessionOpenedBy")
   closedRestaurantTableSessions TableSession[]          @relation("RestaurantTableSessionClosedBy")
   createdRestaurantOrders       RestaurantOrder[]       @relation("RestaurantOrderCreatedBy")
+  createdStockTakings           StockTaking[]           @relation("StockTakingCreatedBy")
+  appliedStockTakings           StockTaking[]           @relation("StockTakingAppliedBy")
   createdAt                     DateTime                @default(now())
   updatedAt                     DateTime                @updatedAt
 
@@ -405,6 +413,7 @@ model Product {
   saleItems             SaleItem[]
   quoteItems            QuoteItem[]
   stockMovements        StockMovement[]
+  stockTakingItems      StockTakingItem[]
   restaurantOrderItems  RestaurantOrderItem[]
   recipeMenuItems       Recipe[]              @relation("RecipeMenuProduct")
   recipeIngredientItems RecipeIngredient[]    @relation("RecipeIngredientProduct")
@@ -439,6 +448,41 @@ model StockMovement {
   createdAt     DateTime      @default(now())
 
   @@index([productId, createdAt])
+}
+
+model StockTaking {
+  id          String            @id @default(uuid()) @db.Uuid
+  takingNumber BigInt           @unique @default(autoincrement())
+  businessId  String            @db.Uuid
+  business    Business          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  status      StockTakingStatus @default(DRAFT)
+  notes       String?
+  createdById String            @db.Uuid
+  createdBy   User              @relation("StockTakingCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  appliedById String?           @db.Uuid
+  appliedBy   User?             @relation("StockTakingAppliedBy", fields: [appliedById], references: [id], onDelete: SetNull)
+  appliedAt   DateTime?
+  items       StockTakingItem[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([businessId, status, createdAt])
+}
+
+model StockTakingItem {
+  id                 String      @id @default(uuid()) @db.Uuid
+  stockTakingId      String      @db.Uuid
+  stockTaking        StockTaking @relation(fields: [stockTakingId], references: [id], onDelete: Cascade)
+  productId          String      @db.Uuid
+  product            Product     @relation(fields: [productId], references: [id], onDelete: Restrict)
+  systemQuantity     Decimal     @db.Decimal(14, 3)
+  countedQuantity    Decimal     @db.Decimal(14, 3)
+  differenceQuantity Decimal     @db.Decimal(14, 3)
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  @@index([stockTakingId])
+  @@index([productId])
 }
 
 model Sale {
