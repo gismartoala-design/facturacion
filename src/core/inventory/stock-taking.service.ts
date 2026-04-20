@@ -318,7 +318,7 @@ export async function applyStockTaking(session: SessionPayload, id: string) {
           movementType: MovementType.ADJUSTMENT,
           referenceType: ReferenceType.MANUAL,
           referenceId: record.id,
-          quantity: item.countedQuantity,
+          quantity: item.differenceQuantity,
           createdById: session.sub,
           notes:
             `Toma #${record.takingNumber.toString()} | sistema ${Number(item.systemQuantity).toFixed(3)} | fisico ${Number(item.countedQuantity).toFixed(3)} | diferencia ${Number(item.differenceQuantity).toFixed(3)}`,

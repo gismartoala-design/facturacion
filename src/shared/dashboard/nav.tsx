@@ -185,6 +185,12 @@ const BUSINESS_NAV_ITEMS: NavItem[] = [
         label: "Ajustes de Inventario",
         icon: PackageSearch,
       },
+      {
+        id: "inventory-kardex",
+        href: "/inventory/kardex",
+        label: "Kardex",
+        icon: PackageSearch,
+      },
     ],
   },
   {

@@ -310,6 +310,11 @@ export async function adjustStock(rawInput: unknown) {
       nextQty = input.quantity;
     }
 
+    const movementQuantity =
+      input.movementType === MovementType.ADJUSTMENT
+        ? nextQty - currentQty
+        : input.quantity;
+
     const updated = await tx.stockLevel.update({
       where: { productId: input.productId },
       data: {
@@ -329,15 +334,21 @@ export async function adjustStock(rawInput: unknown) {
       },
     });
 
-    await tx.stockMovement.create({
-      data: {
-        productId: input.productId,
-        movementType: input.movementType,
-        referenceType: ReferenceType.MANUAL,
-        quantity: new Prisma.Decimal(input.quantity),
-        notes: input.notes || "Ajuste manual",
-      },
-    });
+    if (Math.abs(movementQuantity) > 0.000_001) {
+      await tx.stockMovement.create({
+        data: {
+          productId: input.productId,
+          movementType: input.movementType,
+          referenceType: ReferenceType.MANUAL,
+          quantity: new Prisma.Decimal(movementQuantity),
+          notes:
+            input.notes ||
+            (input.movementType === MovementType.ADJUSTMENT
+              ? `Ajuste manual | stock anterior ${currentQty.toFixed(3)} | stock nuevo ${nextQty.toFixed(3)}`
+              : "Ajuste manual"),
+        },
+      });
+    }
 
     return {
       productId: updated.productId,
