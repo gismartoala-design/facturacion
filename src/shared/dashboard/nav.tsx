@@ -220,9 +220,21 @@ const BUSINESS_NAV_ITEMS: NavItem[] = [
     icon: BarChart3,
     children: [
       {
-        id: "reports-sales",
-        href: "/reports/sales",
-        label: "Ventas",
+        id: "reports-sales-period",
+        href: "/reports/sales-period",
+        label: "Ventas por periodo",
+        icon: BarChart3,
+      },
+      {
+        id: "reports-sales-by-customer",
+        href: "/reports/sales-by-customer",
+        label: "Ventas por cliente",
+        icon: BarChart3,
+      },
+      {
+        id: "reports-sales-by-product",
+        href: "/reports/sales-by-product",
+        label: "Ventas por producto",
         icon: BarChart3,
       },
     ],

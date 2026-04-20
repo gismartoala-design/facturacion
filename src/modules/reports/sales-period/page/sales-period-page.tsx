@@ -1,8 +1,5 @@
 "use client";
 
-import type { FormEvent } from "react";
-import { startTransition, useEffect, useMemo, useState, useTransition } from "react";
-
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -30,80 +27,18 @@ import {
   RefreshCcw,
   Search,
 } from "lucide-react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
-import { fetchJson } from "@/shared/dashboard/api";
-import { PAYMENT_METHODS } from "@/shared/dashboard/types";
+import { useSalesPeriodReport } from "@/modules/reports/sales-period/hooks/use-sales-period-report";
 
-type SalesReportResponse = {
-  filters: {
-    from: string;
-    to: string;
-    sellerId: string | null;
-    sellerLocked: boolean;
-  };
-  sellerOptions: Array<{
-    id: string;
-    name: string;
-    role: "ADMIN" | "SELLER";
-  }>;
-  summary: {
-    salesCount: number;
-    grossTotal: number;
-    averageTicket: number;
-    taxTotal: number;
-    discountTotal: number;
-    itemsSold: number;
-  };
-  salesRows: Array<{
-    saleId: string;
-    saleNumber: string;
-    customerName: string;
-    sellerName: string;
-    subtotal: number;
-    discountTotal: number;
-    taxTotal: number;
-    total: number;
-    itemCount: number;
-    createdAt: string;
-    paymentMethods: string[];
-    documentKey: string;
-    documentLabel: string;
-  }>;
+import type {
+  SalesPeriodReportResponse,
+  SalesPeriodRow,
+} from "./sales-period-view-model";
+
+type SalesPeriodPageProps = {
+  initialReport: SalesPeriodReportResponse | null;
+  initialError?: string | null;
 };
-
-type FiltersForm = {
-  from: string;
-  to: string;
-  sellerId: string;
-};
-
-type SaleReportDetailResponse = {
-  businessName: string;
-  saleId: string;
-  saleNumber: string;
-  customerName: string;
-  sellerName: string;
-  subtotal: number;
-  discountTotal: number;
-  taxTotal: number;
-  total: number;
-  createdAt: string;
-  documentKey: string;
-  documentLabel: string;
-  documentNumber: string | null;
-  paymentMethods: string[];
-  lines: Array<{
-    productId: string;
-    productCode: string;
-    productName: string;
-    quantity: number;
-    unitPrice: number;
-    total: number;
-  }>;
-};
-
-type SalesRow = SalesReportResponse["salesRows"][number];
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("es-EC", {
@@ -126,10 +61,6 @@ function formatDateTime(value: string) {
   }).format(new Date(value));
 }
 
-function paymentMethodLabel(code: string) {
-  return PAYMENT_METHODS.find((method) => method.code === code)?.label ?? code;
-}
-
 function documentTone(key: string) {
   if (key === "INVOICE_ISSUED") return "success";
   if (key === "INVOICE_ERROR") return "error";
@@ -137,265 +68,17 @@ function documentTone(key: string) {
   return "default";
 }
 
-function escapeCsvCell(value: string | number) {
-  const serialized = String(value ?? "");
-  if (!serialized.includes(",") && !serialized.includes("\"") && !serialized.includes("\n")) {
-    return serialized;
-  }
-
-  return `"${serialized.replaceAll("\"", "\"\"")}"`;
-}
-
-function buildSalesCsv(rows: SalesRow[]) {
-  const header = [
-    "Venta",
-    "Fecha",
-    "Cliente",
-    "Vendedor",
-    "Documento",
-    "Pagos",
-    "Lineas",
-    "Subtotal",
-    "IVA",
-    "Descuento",
-    "Total",
-  ];
-
-  const body = rows.map((row) =>
-    [
-      row.saleNumber,
-      formatDateTime(row.createdAt),
-      row.customerName,
-      row.sellerName,
-      row.documentLabel,
-      row.paymentMethods.map(paymentMethodLabel).join(" | "),
-      row.itemCount,
-      row.subtotal.toFixed(2),
-      row.taxTotal.toFixed(2),
-      row.discountTotal.toFixed(2),
-      row.total.toFixed(2),
-    ]
-      .map(escapeCsvCell)
-      .join(","),
-  );
-
-  return [header.join(","), ...body].join("\n");
-}
-
-export function SalesReportsPage() {
+export function SalesPeriodPage({
+  initialReport,
+  initialError = null,
+}: SalesPeriodPageProps) {
   const theme = useTheme();
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const [report, setReport] = useState<SalesReportResponse | null>(null);
-  const [filters, setFilters] = useState<FiltersForm>({
-    from: "",
-    to: "",
-    sellerId: "",
+  const salesPeriod = useSalesPeriodReport({
+    initialReport,
+    initialError,
   });
-  const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [detailOpen, setDetailOpen] = useState(false);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [detailError, setDetailError] = useState<string | null>(null);
-  const [selectedSaleDetail, setSelectedSaleDetail] =
-    useState<SaleReportDetailResponse | null>(null);
-  const [isPending, startRoutingTransition] = useTransition();
 
-  useEffect(() => {
-    let mounted = true;
-    const query = searchParams.toString();
-
-    async function loadReport() {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const nextReport = await fetchJson<SalesReportResponse>(
-          `/api/v1/reports/sales${query ? `?${query}` : ""}`,
-        );
-        if (!mounted) return;
-
-        startTransition(() => {
-          setReport(nextReport);
-          setFilters({
-            from: nextReport.filters.from,
-            to: nextReport.filters.to,
-            sellerId: nextReport.filters.sellerId ?? "",
-          });
-        });
-      } catch (loadError) {
-        if (!mounted) return;
-        setError(
-          loadError instanceof Error
-            ? loadError.message
-            : "No se pudo cargar el reporte de ventas",
-        );
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
-      }
-    }
-
-    void loadReport();
-
-    return () => {
-      mounted = false;
-    };
-  }, [searchParams]);
-
-  const filteredRows = useMemo(() => {
-    if (!report) return [];
-    const normalized = search.trim().toLowerCase();
-    if (!normalized) return report.salesRows;
-
-    return report.salesRows.filter((row) => {
-      const payments = row.paymentMethods.map(paymentMethodLabel).join(" ");
-      return (
-        row.saleNumber.toLowerCase().includes(normalized) ||
-        row.customerName.toLowerCase().includes(normalized) ||
-        row.sellerName.toLowerCase().includes(normalized) ||
-        row.documentLabel.toLowerCase().includes(normalized) ||
-        payments.toLowerCase().includes(normalized)
-      );
-    });
-  }, [report, search]);
-
-  const visibleTotals = useMemo(
-    () =>
-      filteredRows.reduce(
-        (acc, row) => {
-          acc.subtotal += row.subtotal;
-          acc.taxTotal += row.taxTotal;
-          acc.discountTotal += row.discountTotal;
-          acc.total += row.total;
-          acc.salesCount += 1;
-          acc.lineCount += row.itemCount;
-          return acc;
-        },
-        {
-          subtotal: 0,
-          taxTotal: 0,
-          discountTotal: 0,
-          total: 0,
-          salesCount: 0,
-          lineCount: 0,
-        },
-      ),
-    [filteredRows],
-  );
-
-  const selectedSellerName = useMemo(() => {
-    if (!report?.filters.sellerId) return "Todos los vendedores";
-    return (
-      report.sellerOptions.find((seller) => seller.id === report.filters.sellerId)?.name ??
-      "Vendedor filtrado"
-    );
-  }, [report]);
-
-  async function fetchSaleDetail(saleId: string) {
-    return fetchJson<SaleReportDetailResponse>(`/api/v1/reports/sales/${saleId}`);
-  }
-
-  async function openSaleDetail(saleId: string) {
-    setDetailOpen(true);
-    setDetailLoading(true);
-    setDetailError(null);
-
-    try {
-      const detail = await fetchSaleDetail(saleId);
-      setSelectedSaleDetail(detail);
-    } catch (loadError) {
-      setDetailError(
-        loadError instanceof Error
-          ? loadError.message
-          : "No se pudo cargar el detalle de la venta",
-      );
-      setSelectedSaleDetail(null);
-    } finally {
-      setDetailLoading(false);
-    }
-  }
-
-  async function printSaleById(saleId: string) {
-    try {
-      const printWindow = window.open(
-        `/api/v1/sales/${saleId}/print`,
-        "_blank",
-        "noopener,noreferrer",
-      );
-
-      if (!printWindow) {
-        throw new Error("El navegador bloqueo la ventana de impresion");
-      }
-    } catch (printError) {
-      setError(
-        printError instanceof Error
-          ? printError.message
-          : "No se pudo imprimir la venta",
-      );
-    }
-  }
-
-  function exportVisibleRows() {
-    if (!filteredRows.length) {
-      setError("No hay filas visibles para exportar");
-      return;
-    }
-
-    const csv = buildSalesCsv(filteredRows);
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    const filename = `reporte-ventas-${filters.from || "desde"}-${filters.to || "hasta"}.csv`;
-
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  }
-
-  function applyFilters(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    const params = new URLSearchParams(searchParams.toString());
-
-    if (filters.from) {
-      params.set("from", filters.from);
-    } else {
-      params.delete("from");
-    }
-
-    if (filters.to) {
-      params.set("to", filters.to);
-    } else {
-      params.delete("to");
-    }
-
-    if (filters.sellerId) {
-      params.set("sellerId", filters.sellerId);
-    } else {
-      params.delete("sellerId");
-    }
-
-    const newUrl = params.toString() ? `${pathname}?${params.toString()}` : pathname;
-
-    startRoutingTransition(() => {
-      router.replace(newUrl);
-    });
-  }
-
-  function resetFilters() {
-    startRoutingTransition(() => {
-      router.replace(pathname);
-    });
-  }
-
-  const dataGridColumns: GridColDef<SalesRow>[] = [
+  const dataGridColumns: GridColDef<SalesPeriodRow>[] = [
     {
       field: "saleNumber",
       headerName: "Venta",
@@ -458,7 +141,7 @@ export function SalesReportsPage() {
           {params.row.paymentMethods.map((code) => (
             <Chip
               key={`${params.row.saleId}-${code}`}
-              label={paymentMethodLabel(code)}
+              label={salesPeriod.paymentMethodLabel(code)}
               size="small"
               variant="outlined"
             />
@@ -468,7 +151,7 @@ export function SalesReportsPage() {
     },
     {
       field: "itemCount",
-      headerName: "Líneas",
+      headerName: "Lineas",
       minWidth: 88,
       flex: 0.5,
       align: "right",
@@ -531,7 +214,7 @@ export function SalesReportsPage() {
             size="small"
             color="primary"
             onClick={() => {
-              void openSaleDetail(params.row.saleId);
+              void salesPeriod.openSaleDetail(params.row.saleId);
             }}
           >
             <Eye className="h-4 w-4" />
@@ -540,7 +223,7 @@ export function SalesReportsPage() {
             size="small"
             color="secondary"
             onClick={() => {
-              void printSaleById(params.row.saleId);
+              void salesPeriod.printSaleById(params.row.saleId);
             }}
           >
             <Printer className="h-4 w-4" />
@@ -551,7 +234,8 @@ export function SalesReportsPage() {
   ];
 
   const shellBorder = alpha(theme.palette.divider, 0.76);
-  const busy = loading || isPending;
+  const busy = salesPeriod.loading || salesPeriod.isPending;
+  const saleDetail = salesPeriod.selectedSaleDetail;
 
   return (
     <Stack spacing={2.5} sx={{ px: { xs: 1, sm: 2 }, py: { xs: 1, sm: 2 } }}>
@@ -561,7 +245,7 @@ export function SalesReportsPage() {
             variant="h5"
             sx={{ color: "#4a3c58", fontWeight: 700, lineHeight: 1.15 }}
           >
-            Reporte de ventas
+            Ventas por periodo
           </Typography>
           <Typography
             sx={{
@@ -570,38 +254,15 @@ export function SalesReportsPage() {
               fontSize: 14,
             }}
           >
-            Libro transaccional para revisar ventas emitidas dentro de un corte
-            específico. Esta vista responde qué se vendió, a quién, cuándo,
-            quién lo registró y con qué documento quedó respaldado.
+            Reporte transaccional para revisar las ventas emitidas dentro de un rango
+            de fechas.
           </Typography>
-          {report ? (
-            <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
-              <Chip
-                size="small"
-                variant="outlined"
-                label={`Corte: ${report.filters.from} a ${report.filters.to}`}
-              />
-              <Chip
-                size="small"
-                variant="outlined"
-                label={`Vendedor: ${selectedSellerName}`}
-              />
-              {search ? (
-                <Chip
-                  size="small"
-                  color="secondary"
-                  variant="outlined"
-                  label={`Búsqueda local: ${filteredRows.length} resultado${filteredRows.length === 1 ? "" : "s"}`}
-                />
-              ) : null}
-            </Stack>
-          ) : null}
         </Stack>
       </Box>
 
       <Paper
         component="form"
-        onSubmit={applyFilters}
+        onSubmit={salesPeriod.applyFilters}
         sx={{
           borderRadius: "24px",
           borderColor: shellBorder,
@@ -616,14 +277,14 @@ export function SalesReportsPage() {
                 Criterio del reporte
               </Typography>
               <Typography sx={{ color: "text.secondary", fontSize: 13 }}>
-                Define el período y, si aplica, el vendedor sobre el que quieres auditar.
+                Define el periodo y, si aplica, el vendedor sobre el que quieres auditar.
               </Typography>
             </Box>
             <Button
               type="button"
               variant="outlined"
-              onClick={exportVisibleRows}
-              disabled={busy || !filteredRows.length}
+              onClick={salesPeriod.exportVisibleRows}
+              disabled={busy || !salesPeriod.filteredRows.length}
               startIcon={<Download className="h-4 w-4" />}
             >
               Exportar CSV
@@ -636,9 +297,12 @@ export function SalesReportsPage() {
                 fullWidth
                 label="Desde"
                 type="date"
-                value={filters.from}
+                value={salesPeriod.filters.from}
                 onChange={(event) =>
-                  setFilters((current) => ({ ...current, from: event.target.value }))
+                  salesPeriod.setFilters((current) => ({
+                    ...current,
+                    from: event.target.value,
+                  }))
                 }
                 InputLabelProps={{ shrink: true }}
               />
@@ -648,9 +312,12 @@ export function SalesReportsPage() {
                 fullWidth
                 label="Hasta"
                 type="date"
-                value={filters.to}
+                value={salesPeriod.filters.to}
                 onChange={(event) =>
-                  setFilters((current) => ({ ...current, to: event.target.value }))
+                  salesPeriod.setFilters((current) => ({
+                    ...current,
+                    to: event.target.value,
+                  }))
                 }
                 InputLabelProps={{ shrink: true }}
               />
@@ -660,19 +327,22 @@ export function SalesReportsPage() {
                 select
                 fullWidth
                 label="Vendedor"
-                value={filters.sellerId}
+                value={salesPeriod.filters.sellerId}
                 onChange={(event) =>
-                  setFilters((current) => ({ ...current, sellerId: event.target.value }))
+                  salesPeriod.setFilters((current) => ({
+                    ...current,
+                    sellerId: event.target.value,
+                  }))
                 }
-                disabled={busy || Boolean(report?.filters.sellerLocked)}
+                disabled={busy || Boolean(salesPeriod.report?.filters.sellerLocked)}
                 helperText={
-                  report?.filters.sellerLocked
-                    ? "Tu sesión solo puede consultar tus ventas."
-                    : "Opcional. Déjalo vacío para incluir todos."
+                  salesPeriod.report?.filters.sellerLocked
+                    ? "Tu sesion solo puede consultar tus ventas."
+                    : "Opcional. Dejalo vacio para incluir todos."
                 }
               >
                 <MenuItem value="">Todos los vendedores</MenuItem>
-                {report?.sellerOptions.map((seller) => (
+                {salesPeriod.report?.sellerOptions.map((seller) => (
                   <MenuItem key={seller.id} value={seller.id}>
                     {seller.name}
                   </MenuItem>
@@ -693,7 +363,7 @@ export function SalesReportsPage() {
                 <Button
                   type="button"
                   variant="outlined"
-                  onClick={resetFilters}
+                  onClick={salesPeriod.resetFilters}
                   disabled={busy}
                   startIcon={<RefreshCcw className="h-4 w-4" />}
                 >
@@ -705,8 +375,8 @@ export function SalesReportsPage() {
               <TextField
                 fullWidth
                 label="Buscar en el resultado"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
+                value={salesPeriod.search}
+                onChange={(event) => salesPeriod.setSearch(event.target.value)}
                 placeholder="Venta, cliente, vendedor, documento o medio de pago"
                 InputProps={{
                   startAdornment: (
@@ -715,20 +385,14 @@ export function SalesReportsPage() {
                     </InputAdornment>
                   ),
                 }}
-                helperText="La búsqueda reduce solo las filas visibles del reporte actual."
+                helperText="La busqueda reduce solo las filas visibles del reporte actual."
               />
             </Grid>
           </Grid>
         </Stack>
       </Paper>
 
-      {error ? (
-        <Alert severity="error" variant="outlined" sx={{ borderRadius: "18px" }}>
-          {error}
-        </Alert>
-      ) : null}
-
-      {loading && !report ? (
+      {salesPeriod.loading && !salesPeriod.report ? (
         <Paper
           sx={{
             borderRadius: "24px",
@@ -741,13 +405,13 @@ export function SalesReportsPage() {
           <Stack spacing={1.5} alignItems="center">
             <CircularProgress size={30} />
             <Typography color="text.secondary">
-              Cargando reporte de ventas...
+              Cargando reporte de ventas por periodo...
             </Typography>
           </Stack>
         </Paper>
       ) : null}
 
-      {loading && report ? (
+      {salesPeriod.loading && salesPeriod.report ? (
         <Paper
           sx={{
             borderRadius: "20px",
@@ -759,35 +423,33 @@ export function SalesReportsPage() {
           }}
         >
           <CircularProgress size={18} />
-          <Typography color="text.secondary">
-            Actualizando reporte...
-          </Typography>
+          <Typography color="text.secondary">Actualizando reporte...</Typography>
         </Paper>
       ) : null}
 
-      {report ? (
+      {salesPeriod.report ? (
         <>
           <Grid container spacing={1.25}>
             {[
               {
                 label: "Ventas en el corte",
-                value: `${report.summary.salesCount}`,
-                meta: `${formatCompactNumber(report.summary.itemsSold)} unidades vendidas`,
+                value: `${salesPeriod.report.summary.salesCount}`,
+                meta: `${formatCompactNumber(salesPeriod.report.summary.itemsSold)} unidades vendidas`,
               },
               {
                 label: "Total facturado",
-                value: formatCurrency(report.summary.grossTotal),
-                meta: `Subtotal ${formatCurrency(report.summary.grossTotal - report.summary.taxTotal)}`,
+                value: formatCurrency(salesPeriod.report.summary.grossTotal),
+                meta: `Subtotal ${formatCurrency(salesPeriod.report.summary.grossTotal - salesPeriod.report.summary.taxTotal)}`,
               },
               {
                 label: "Ticket promedio",
-                value: formatCurrency(report.summary.averageTicket),
-                meta: `Descuento ${formatCurrency(report.summary.discountTotal)}`,
+                value: formatCurrency(salesPeriod.report.summary.averageTicket),
+                meta: `Descuento ${formatCurrency(salesPeriod.report.summary.discountTotal)}`,
               },
               {
                 label: "IVA del corte",
-                value: formatCurrency(report.summary.taxTotal),
-                meta: `${filteredRows.length} fila${filteredRows.length === 1 ? "" : "s"} visibles`,
+                value: formatCurrency(salesPeriod.report.summary.taxTotal),
+                meta: `${salesPeriod.filteredRows.length} fila${salesPeriod.filteredRows.length === 1 ? "" : "s"} visibles`,
               },
             ].map((card) => (
               <Grid key={card.label} size={{ xs: 12, md: 6, xl: 3 }}>
@@ -820,39 +482,39 @@ export function SalesReportsPage() {
                   Registro de ventas
                 </Typography>
                 <Typography sx={{ color: "text.secondary", fontSize: 13 }}>
-                  Una fila por venta registrada dentro del corte consultado.
+                  Una fila por venta registrada dentro del rango consultado.
                 </Typography>
               </Box>
               <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
                 <Chip
                   size="small"
                   variant="outlined"
-                  label={`${visibleTotals.salesCount} visible${visibleTotals.salesCount === 1 ? "" : "s"}`}
+                  label={`${salesPeriod.visibleTotals.salesCount} visible${salesPeriod.visibleTotals.salesCount === 1 ? "" : "s"}`}
                 />
                 <Chip
                   size="small"
                   variant="outlined"
-                  label={`Subtotal ${formatCurrency(visibleTotals.subtotal)}`}
+                  label={`Subtotal ${formatCurrency(salesPeriod.visibleTotals.subtotal)}`}
                 />
                 <Chip
                   size="small"
                   variant="outlined"
-                  label={`IVA ${formatCurrency(visibleTotals.taxTotal)}`}
+                  label={`IVA ${formatCurrency(salesPeriod.visibleTotals.taxTotal)}`}
                 />
                 <Chip
                   size="small"
                   variant="outlined"
-                  label={`Total ${formatCurrency(visibleTotals.total)}`}
+                  label={`Total ${formatCurrency(salesPeriod.visibleTotals.total)}`}
                 />
               </Stack>
             </Stack>
 
             <Box sx={{ height: 680 }}>
               <DataGrid
-                rows={filteredRows}
+                rows={salesPeriod.filteredRows}
                 columns={dataGridColumns}
                 getRowId={(row) => row.saleId}
-                loading={loading}
+                loading={salesPeriod.loading}
                 disableRowSelectionOnClick
                 density="compact"
                 pageSizeOptions={[10, 25, 50, 100]}
@@ -879,7 +541,7 @@ export function SalesReportsPage() {
                         No hay registros para mostrar
                       </Typography>
                       <Typography sx={{ color: "text.secondary", fontSize: 13 }}>
-                        Ajusta el corte, el vendedor o la búsqueda local.
+                        Ajusta el corte, el vendedor o la busqueda local.
                       </Typography>
                     </Stack>
                   ),
@@ -891,27 +553,27 @@ export function SalesReportsPage() {
       ) : null}
 
       <Dialog
-        open={detailOpen}
+        open={salesPeriod.detailOpen}
         onClose={() => {
-          if (detailLoading) return;
-          setDetailOpen(false);
-          setDetailError(null);
+          if (salesPeriod.detailLoading) return;
+          salesPeriod.setDetailOpen(false);
+          salesPeriod.setDetailError(null);
         }}
         fullWidth
         maxWidth="md"
       >
         <DialogTitle>Detalle de venta</DialogTitle>
         <DialogContent dividers>
-          {detailLoading ? (
+          {salesPeriod.detailLoading ? (
             <Stack spacing={1.5} alignItems="center" sx={{ py: 4 }}>
               <CircularProgress size={28} />
               <Typography color="text.secondary">Cargando detalle...</Typography>
             </Stack>
-          ) : detailError ? (
+          ) : salesPeriod.detailError ? (
             <Alert severity="error" variant="outlined">
-              {detailError}
+              {salesPeriod.detailError}
             </Alert>
-          ) : selectedSaleDetail ? (
+          ) : saleDetail ? (
             <Stack spacing={2}>
               <Grid container spacing={1.25}>
                 <Grid size={{ xs: 12, md: 4 }}>
@@ -920,10 +582,10 @@ export function SalesReportsPage() {
                       Venta
                     </Typography>
                     <Typography sx={{ fontWeight: 800 }}>
-                      #{selectedSaleDetail.saleNumber}
+                      #{saleDetail.saleNumber}
                     </Typography>
                     <Typography sx={{ color: "text.secondary", fontSize: 12.5 }}>
-                      {formatDateTime(selectedSaleDetail.createdAt)}
+                      {formatDateTime(saleDetail.createdAt)}
                     </Typography>
                   </Paper>
                 </Grid>
@@ -933,10 +595,10 @@ export function SalesReportsPage() {
                       Cliente
                     </Typography>
                     <Typography sx={{ fontWeight: 800 }}>
-                      {selectedSaleDetail.customerName}
+                      {saleDetail.customerName}
                     </Typography>
                     <Typography sx={{ color: "text.secondary", fontSize: 12.5 }}>
-                      Vendedor: {selectedSaleDetail.sellerName}
+                      Vendedor: {saleDetail.sellerName}
                     </Typography>
                   </Paper>
                 </Grid>
@@ -946,10 +608,10 @@ export function SalesReportsPage() {
                       Documento
                     </Typography>
                     <Typography sx={{ fontWeight: 800 }}>
-                      {selectedSaleDetail.documentLabel}
+                      {saleDetail.documentLabel}
                     </Typography>
                     <Typography sx={{ color: "text.secondary", fontSize: 12.5 }}>
-                      {selectedSaleDetail.documentNumber ?? "Sin numeración"}
+                      {saleDetail.documentNumber ?? "Sin numeracion"}
                     </Typography>
                   </Paper>
                 </Grid>
@@ -979,9 +641,9 @@ export function SalesReportsPage() {
                   </Typography>
                 </Box>
                 <Stack divider={<Box sx={{ borderTop: `1px solid ${alpha(theme.palette.divider, 0.72)}` }} />}>
-                  {selectedSaleDetail.lines.map((line) => (
+                  {saleDetail.lines.map((line) => (
                     <Box
-                      key={`${selectedSaleDetail.saleId}-${line.productId}-${line.productCode}`}
+                      key={`${saleDetail.saleId}-${line.productId}-${line.productCode}`}
                       sx={{
                         display: "grid",
                         gridTemplateColumns: "minmax(0, 1.6fr) 110px 120px 120px",
@@ -1020,10 +682,10 @@ export function SalesReportsPage() {
                       Pagos declarados
                     </Typography>
                     <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap">
-                      {selectedSaleDetail.paymentMethods.map((code) => (
+                      {saleDetail.paymentMethods.map((code) => (
                         <Chip
-                          key={`${selectedSaleDetail.saleId}-${code}`}
-                          label={paymentMethodLabel(code)}
+                          key={`${saleDetail.saleId}-${code}`}
+                          label={salesPeriod.paymentMethodLabel(code)}
                           size="small"
                           variant="outlined"
                         />
@@ -1039,7 +701,7 @@ export function SalesReportsPage() {
                           Subtotal
                         </Typography>
                         <Typography sx={{ fontWeight: 700 }}>
-                          {formatCurrency(selectedSaleDetail.subtotal)}
+                          {formatCurrency(saleDetail.subtotal)}
                         </Typography>
                       </Stack>
                       <Stack direction="row" justifyContent="space-between">
@@ -1047,7 +709,7 @@ export function SalesReportsPage() {
                           IVA
                         </Typography>
                         <Typography sx={{ fontWeight: 700 }}>
-                          {formatCurrency(selectedSaleDetail.taxTotal)}
+                          {formatCurrency(saleDetail.taxTotal)}
                         </Typography>
                       </Stack>
                       <Stack direction="row" justifyContent="space-between">
@@ -1055,15 +717,13 @@ export function SalesReportsPage() {
                           Descuento
                         </Typography>
                         <Typography sx={{ fontWeight: 700 }}>
-                          {formatCurrency(selectedSaleDetail.discountTotal)}
+                          {formatCurrency(saleDetail.discountTotal)}
                         </Typography>
                       </Stack>
                       <Stack direction="row" justifyContent="space-between">
+                        <Typography sx={{ fontWeight: 800 }}>Total</Typography>
                         <Typography sx={{ fontWeight: 800 }}>
-                          Total
-                        </Typography>
-                        <Typography sx={{ fontWeight: 800 }}>
-                          {formatCurrency(selectedSaleDetail.total)}
+                          {formatCurrency(saleDetail.total)}
                         </Typography>
                       </Stack>
                     </Stack>
@@ -1074,10 +734,10 @@ export function SalesReportsPage() {
           ) : null}
         </DialogContent>
         <DialogActions>
-          {selectedSaleDetail ? (
+          {saleDetail ? (
             <Button
               onClick={() => {
-                void printSaleById(selectedSaleDetail.saleId);
+                void salesPeriod.printSaleById(saleDetail.saleId);
               }}
               startIcon={<Printer className="h-4 w-4" />}
             >
@@ -1086,8 +746,8 @@ export function SalesReportsPage() {
           ) : null}
           <Button
             onClick={() => {
-              setDetailOpen(false);
-              setDetailError(null);
+              salesPeriod.setDetailOpen(false);
+              salesPeriod.setDetailError(null);
             }}
           >
             Cerrar
