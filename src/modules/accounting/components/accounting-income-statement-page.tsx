@@ -24,6 +24,7 @@ import type {
   IncomeStatementSection,
 } from "@/modules/accounting/lib/accounting-income-statement-view-model";
 import { fetchJson } from "@/shared/dashboard/api";
+import { DashboardPageHeader } from "@/shared/dashboard/page-header";
 
 type FiltersForm = {
   from: string;
@@ -270,38 +271,18 @@ export function AccountingIncomeStatementPage({
   }
 
   return (
-    <Stack spacing={2.5}>
-      <Stack
-        direction={{ xs: "column", lg: "row" }}
-        spacing={1.5}
-        justifyContent="space-between"
-        alignItems={{ xs: "flex-start", lg: "center" }}
-      >
-        <Stack spacing={0.5}>
-          <Stack direction="row" spacing={1} alignItems="center">
-            <BarChart3 size={18} color="#475569" />
-            <Typography variant="h5" sx={{ color: "#0f172a", fontWeight: 700 }}>
-              Estado de resultados
-            </Typography>
-          </Stack>
-          <Typography sx={{ color: "#64748b", fontSize: 14 }}>
-            Resultado del periodo a partir de ingresos, costos y gastos.
-          </Typography>
-        </Stack>
+    <Grid container spacing={2.5}>
+      <Grid size={12}>
+        <DashboardPageHeader
+          icon={<BarChart3 size={18} color="#475569" />}
+          title="Estado de resultados"
+          description="Resultado del periodo a partir de ingresos, costos y gastos."
+          sx={{ px: { xs: 1, sm: 2 }, pt: { xs: 1, sm: 2 } }}
+        />
+      </Grid>
 
-        <Button
-          type="button"
-          variant="outlined"
-          startIcon={<RefreshCcw size={16} />}
-          onClick={handleReload}
-          disabled={loading}
-          sx={{ borderRadius: "999px", fontWeight: 700 }}
-        >
-          Recargar
-        </Button>
-      </Stack>
-
-      <Paper
+      <Grid size={12}>
+        <Paper
         elevation={0}
         sx={{
           borderRadius: "24px",
@@ -311,6 +292,33 @@ export function AccountingIncomeStatementPage({
         }}
       >
         <Stack spacing={2}>
+          <Grid
+            container
+            spacing={1.5}
+            justifyContent="space-between"
+            alignItems={{ xs: "flex-start", lg: "center" }}
+          >
+            <Grid size={{ xs: 12, lg: "grow" }}>
+              <Typography variant="h6" sx={{ fontWeight: 700, color: "#0f172a" }}>
+                Filtros del estado de resultados
+              </Typography>
+            </Grid>
+
+            <Grid size={{ xs: 12, lg: "auto" }}>
+              <Button
+                type="button"
+                variant="outlined"
+                startIcon={<RefreshCcw size={16} />}
+                onClick={handleReload}
+                disabled={loading}
+                fullWidth
+                sx={{ borderRadius: "999px", fontWeight: 700, minHeight: 40 }}
+              >
+                Recargar
+              </Button>
+            </Grid>
+          </Grid>
+
           <Grid container spacing={1.25}>
             <Grid size={{ xs: 12, md: 3 }}>
               <TextField
@@ -451,15 +459,18 @@ export function AccountingIncomeStatementPage({
           ) : null}
         </Stack>
       </Paper>
+      </Grid>
 
       {error ? (
-        <Alert severity="error" variant="outlined" sx={{ borderRadius: "18px" }}>
-          {error}
-        </Alert>
+        <Grid size={12}>
+          <Alert severity="error" variant="outlined" sx={{ borderRadius: "18px" }}>
+            {error}
+          </Alert>
+        </Grid>
       ) : null}
 
       {report ? (
-        <Grid container spacing={2}>
+        <Grid size={12} container spacing={2}>
           <Grid size={{ xs: 12 }}>
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, md: 4 }}>
@@ -523,7 +534,8 @@ export function AccountingIncomeStatementPage({
           ))}
         </Grid>
       ) : loading ? (
-        <Paper
+        <Grid size={12}>
+          <Paper
           elevation={0}
           sx={{
             borderRadius: "28px",
@@ -531,15 +543,16 @@ export function AccountingIncomeStatementPage({
             backgroundColor: "#fff",
             py: 12,
           }}
-        >
-          <Stack alignItems="center" justifyContent="center" spacing={1.5}>
-            <CircularProgress size={28} />
+          >
+            <Stack alignItems="center" justifyContent="center" spacing={1.5}>
+              <CircularProgress size={28} />
             <Typography sx={{ color: "#64748b", fontSize: 14 }}>
               Cargando estado de resultados...
             </Typography>
-          </Stack>
-        </Paper>
+            </Stack>
+          </Paper>
+        </Grid>
       ) : null}
-    </Stack>
+    </Grid>
   );
 }

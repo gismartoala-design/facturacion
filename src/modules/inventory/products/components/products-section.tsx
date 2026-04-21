@@ -10,6 +10,7 @@ import { useMemo, useState } from "react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { matchesScaleBarcodePrefix } from "@/lib/utils";
+import { DashboardPageHeader } from "@/shared/dashboard/page-header";
 import type { Product } from "@/shared/dashboard/types";
 
 type ProductsSectionProps = {
@@ -189,26 +190,14 @@ export function ProductsSection({
   return (
     <Grid container spacing={3}>
       <Grid size={12}>
-        <Box sx={{ px: { xs: 1, sm: 2 }, pt: { xs: 1, sm: 2 } }}>
-          <Stack spacing={0.75}>
-            <Typography
-              variant="h5"
-              sx={{ color: "#4a3c58", fontWeight: 700, lineHeight: 1.15 }}
-            >
-              Productos
-            </Typography>
-            <Typography
-              sx={{
-                maxWidth: 720,
-                color: "rgba(74, 60, 88, 0.68)",
-                fontSize: 14,
-              }}
-            >
-              Administra catalogo, precios y referencias de venta desde un solo
-              lugar.
-            </Typography>
-          </Stack>
-        </Box>
+        <DashboardPageHeader
+          icon={<PackagePlus className="h-4.5 w-4.5" />}
+          title="Productos"
+          description="Administra catalogo, precios y referencias de venta desde un solo lugar."
+          // titleColor="#4a3c58"
+          // descriptionColor="rgba(74, 60, 88, 0.68)"
+          sx={{ px: { xs: 1, sm: 2 }, pt: { xs: 1, sm: 2 } }}
+        />
       </Grid>
 
       <Grid size={12}>

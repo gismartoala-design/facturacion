@@ -30,6 +30,7 @@ import type {
   LedgerAccountOption,
 } from "@/modules/accounting/accounting-ledger/components/accounting-ledger-view-model";
 import { fetchJson } from "@/shared/dashboard/api";
+import { DashboardPageHeader } from "@/shared/dashboard/page-header";
 
 type LedgerFilters = {
   accountCode: string;
@@ -85,14 +86,16 @@ export function AccountingLedgerPage({
   initialError = null,
 }: AccountingLedgerPageProps) {
   const [filters, setFilters] = useState<LedgerFilters>(createInitialFilters);
-  const [submittedFilters, setSubmittedFilters] = useState<LedgerFilters | null>(null);
+  const [submittedFilters, setSubmittedFilters] =
+    useState<LedgerFilters | null>(null);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(initialError);
   const [report, setReport] = useState<AccountingLedgerResponse | null>(null);
 
   const selectedAccount =
-    initialAccounts.find((account) => account.code === filters.accountCode) ?? null;
+    initialAccounts.find((account) => account.code === filters.accountCode) ??
+    null;
 
   const columns = useMemo<GridColDef<AccountingLedgerGridRow>[]>(
     () => [
@@ -129,14 +132,14 @@ export function AccountingLedgerPage({
 
           return (
             <Stack spacing={0.2} sx={{ py: 0.5, minWidth: 0 }}>
-              <Typography noWrap sx={{ fontSize: 13, fontWeight: 700, color: "#0f172a" }}>
+              <Typography
+                noWrap
+                sx={{ fontSize: 13, fontWeight: 700, color: "#0f172a" }}
+              >
                 {row.source.title}
               </Typography>
               <Typography noWrap sx={{ fontSize: 12, color: "#64748b" }}>
                 {row.source.subtitle ?? row.sourceId}
-              </Typography>
-              <Typography noWrap sx={{ fontSize: 12, color: "#475569" }}>
-                {row.memo?.trim() || "Sin detalle"}
               </Typography>
             </Stack>
           );
@@ -271,330 +274,342 @@ export function AccountingLedgerPage({
   }
 
   return (
-    <Stack spacing={2.5}>
-      <Stack
-        direction={{ xs: "column", lg: "row" }}
-        spacing={1.5}
-        justifyContent="space-between"
-        alignItems={{ xs: "flex-start", lg: "center" }}
-      >
-        <Stack spacing={0.5}>
-          <Stack direction="row" spacing={1} alignItems="center">
-            <BookCopy size={18} color="#475569" />
-            <Typography variant="h5" sx={{ color: "#0f172a", fontWeight: 700 }}>
-              Libro mayor
-            </Typography>
-          </Stack>
-          <Typography sx={{ color: "#64748b", fontSize: 14 }}>
-            Movimientos por cuenta con saldo inicial, cargos, abonos y saldo
-            acumulado.
-          </Typography>
-        </Stack>
+    <Grid container spacing={3}>
+      <Grid size={12}>
+        <DashboardPageHeader
+          icon={<BookCopy className="h-4.5 w-4.5" />}
+          title="Libro mayor"
+          description="Movimientos por cuenta con saldo inicial, cargos, abonos y saldo acumulado."
+          sx={{ px: { xs: 1, sm: 2 }, pt: { xs: 1, sm: 2 } }}
+        />
+      </Grid>
 
-        <Button
-          type="button"
-          variant="outlined"
-          startIcon={<RefreshCcw size={16} />}
-          onClick={handleReload}
-          disabled={!submittedFilters?.accountCode || loading}
-          sx={{ borderRadius: "999px", fontWeight: 700 }}
-        >
-          Recargar
-        </Button>
-      </Stack>
+      <Grid container spacing={2}>
+        <Grid size={12}>
+          <Paper
+            elevation={0}
+            sx={{
+              borderRadius: "24px",
+              border: "1px solid rgba(226, 232, 240, 0.95)",
+              backgroundColor: "#fff",
+              p: 2,
+            }}
+          >
+            <Stack spacing={2}>
+              <Grid
+                container
+                spacing={1.5}
+                justifyContent="space-between"
+                alignItems={{ xs: "flex-start", lg: "center" }}
+              >
+                <Grid size={{ xs: 12, lg: "grow" }}>
+                  <Typography
+                    variant="h6"
+                    sx={{ fontWeight: 700, color: "#0f172a" }}
+                  >
+                    Filtros del libro mayor
+                  </Typography>
+                </Grid>
 
-      <Paper
-        elevation={0}
-        sx={{
-          borderRadius: "24px",
-          border: "1px solid rgba(226, 232, 240, 0.95)",
-          backgroundColor: "#fff",
-          p: 2,
-        }}
-      >
-        <Stack spacing={2}>
-          <Grid container spacing={1.25}>
-            <Grid size={{ xs: 12, lg: 5 }}>
-              <Autocomplete
-                options={initialAccounts}
-                value={selectedAccount}
-                onChange={(_, value) =>
-                  handleFilterChange("accountCode", value?.code ?? "")
-                }
-                getOptionLabel={(option) => `${option.code} · ${option.name}`}
-                isOptionEqualToValue={(option, value) => option.id === value.id}
-                filterOptions={(options, state) => {
-                  const normalized = state.inputValue.trim().toLowerCase();
-                  if (!normalized) {
-                    return options;
-                  }
+                <Grid size={{ xs: 12, lg: "auto" }}>
+                  <Button
+                    type="button"
+                    variant="outlined"
+                    startIcon={<RefreshCcw size={16} />}
+                    onClick={handleReload}
+                    disabled={!submittedFilters?.accountCode || loading}
+                    fullWidth
+                    sx={{
+                      borderRadius: "999px",
+                      fontWeight: 700,
+                      minHeight: 40,
+                    }}
+                  >
+                    Recargar
+                  </Button>
+                </Grid>
+              </Grid>
 
-                  return options.filter(
-                    (option) =>
-                      option.code.toLowerCase().includes(normalized) ||
-                      option.name.toLowerCase().includes(normalized) ||
-                      option.groupLabel.toLowerCase().includes(normalized),
-                  );
-                }}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Cuenta contable"
-                    placeholder="Buscar por codigo o nombre"
-                    InputProps={{
-                      ...params.InputProps,
-                      startAdornment: (
-                        <>
-                          <InputAdornment position="start">
-                            <Search size={16} color="#64748b" />
-                          </InputAdornment>
-                          {params.InputProps.startAdornment}
-                        </>
-                      ),
+              <Grid container spacing={1.25}>
+                <Grid size={{ xs: 12, lg: 5 }}>
+                  <Autocomplete
+                    options={initialAccounts}
+                    value={selectedAccount}
+                    onChange={(_, value) =>
+                      handleFilterChange("accountCode", value?.code ?? "")
+                    }
+                    getOptionLabel={(option) =>
+                      `${option.code} · ${option.name}`
+                    }
+                    isOptionEqualToValue={(option, value) =>
+                      option.id === value.id
+                    }
+                    filterOptions={(options, state) => {
+                      const normalized = state.inputValue.trim().toLowerCase();
+                      if (!normalized) {
+                        return options;
+                      }
+
+                      return options.filter(
+                        (option) =>
+                          option.code.toLowerCase().includes(normalized) ||
+                          option.name.toLowerCase().includes(normalized) ||
+                          option.groupLabel.toLowerCase().includes(normalized),
+                      );
+                    }}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Cuenta contable"
+                        placeholder="Buscar por codigo o nombre"
+                        InputProps={{
+                          ...params.InputProps,
+                          startAdornment: (
+                            <>
+                              <InputAdornment position="start">
+                                <Search size={16} color="#64748b" />
+                              </InputAdornment>
+                              {params.InputProps.startAdornment}
+                            </>
+                          ),
+                        }}
+                      />
+                    )}
+                    renderOption={(props, option) => {
+                      const { key, ...optionProps } = props;
+
+                      return (
+                        <Box component="li" key={key} {...optionProps}>
+                          <Stack spacing={0.15} sx={{ width: "100%" }}>
+                            <Typography
+                              variant="body2"
+                              sx={{ fontWeight: 700 }}
+                            >
+                              {option.name}
+                            </Typography>
+                            <Typography
+                              variant="caption"
+                              sx={{ color: "text.secondary" }}
+                            >
+                              {option.code} · {option.groupLabel} · Naturaleza{" "}
+                              {option.defaultNature === "DEBIT"
+                                ? "debito"
+                                : "credito"}
+                            </Typography>
+                          </Stack>
+                        </Box>
+                      );
                     }}
                   />
-                )}
-                renderOption={(props, option) => {
-                  const { key, ...optionProps } = props;
+                </Grid>
+                <Grid size={{ xs: 12, md: 4, lg: 2 }}>
+                  <TextField
+                    label="Desde"
+                    type="date"
+                    value={filters.from}
+                    onChange={(event) =>
+                      handleFilterChange("from", event.target.value)
+                    }
+                    InputLabelProps={{ shrink: true }}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <CalendarRange size={16} color="#64748b" />
+                        </InputAdornment>
+                      ),
+                    }}
+                    fullWidth
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, md: 4, lg: 2 }}>
+                  <TextField
+                    label="Hasta"
+                    type="date"
+                    value={filters.to}
+                    onChange={(event) =>
+                      handleFilterChange("to", event.target.value)
+                    }
+                    InputLabelProps={{ shrink: true }}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <CalendarRange size={16} color="#64748b" />
+                        </InputAdornment>
+                      ),
+                    }}
+                    fullWidth
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, md: 4, lg: 1 }}>
+                  <TextField
+                    select
+                    label="Registros"
+                    value={filters.limit}
+                    onChange={(event) =>
+                      handleFilterChange("limit", event.target.value)
+                    }
+                    fullWidth
+                  >
+                    {[100, 200, 300, 500].map((option) => (
+                      <MenuItem key={option} value={String(option)}>
+                        {option}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                </Grid>
+                <Grid size={{ xs: 12, lg: 2 }}>
+                  <Stack
+                    direction={{ xs: "column", sm: "row", lg: "column" }}
+                    spacing={1}
+                    justifyContent="flex-end"
+                    sx={{ height: "100%" }}
+                  >
+                    <Button
+                      type="button"
+                      variant="contained"
+                      onClick={handleApplyFilters}
+                      disabled={loading || initialAccounts.length === 0}
+                      sx={{ borderRadius: "999px", fontWeight: 700 }}
+                    >
+                      Consultar
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outlined"
+                      onClick={handleResetFilters}
+                      disabled={loading}
+                      sx={{ borderRadius: "999px", fontWeight: 700 }}
+                    >
+                      Limpiar
+                    </Button>
+                  </Stack>
+                </Grid>
+              </Grid>
 
-                  return (
-                    <Box component="li" key={key} {...optionProps}>
-                      <Stack spacing={0.15} sx={{ width: "100%" }}>
-                        <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                          {option.name}
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                          {option.code} · {option.groupLabel} · Naturaleza{" "}
-                          {option.defaultNature === "DEBIT" ? "debito" : "credito"}
-                        </Typography>
-                      </Stack>
-                    </Box>
-                  );
-                }}
-              />
-            </Grid>
-            <Grid size={{ xs: 12, md: 4, lg: 2 }}>
-              <TextField
-                label="Desde"
-                type="date"
-                value={filters.from}
-                onChange={(event) => handleFilterChange("from", event.target.value)}
-                InputLabelProps={{ shrink: true }}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <CalendarRange size={16} color="#64748b" />
-                    </InputAdornment>
-                  ),
-                }}
-                fullWidth
-              />
-            </Grid>
-            <Grid size={{ xs: 12, md: 4, lg: 2 }}>
-              <TextField
-                label="Hasta"
-                type="date"
-                value={filters.to}
-                onChange={(event) => handleFilterChange("to", event.target.value)}
-                InputLabelProps={{ shrink: true }}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <CalendarRange size={16} color="#64748b" />
-                    </InputAdornment>
-                  ),
-                }}
-                fullWidth
-              />
-            </Grid>
-            <Grid size={{ xs: 12, md: 4, lg: 1 }}>
-              <TextField
-                select
-                label="Registros"
-                value={filters.limit}
-                onChange={(event) => handleFilterChange("limit", event.target.value)}
-                fullWidth
-              >
-                {[100, 200, 300, 500].map((option) => (
-                  <MenuItem key={option} value={String(option)}>
-                    {option}
-                  </MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-            <Grid size={{ xs: 12, lg: 2 }}>
-              <Stack
-                direction={{ xs: "column", sm: "row", lg: "column" }}
-                spacing={1}
-                justifyContent="flex-end"
-                sx={{ height: "100%" }}
-              >
-                <Button
-                  type="button"
-                  variant="contained"
-                  onClick={handleApplyFilters}
-                  disabled={loading || initialAccounts.length === 0}
-                  sx={{ borderRadius: "999px", fontWeight: 700 }}
-                >
-                  Consultar
-                </Button>
-                <Button
-                  type="button"
-                  variant="outlined"
-                  onClick={handleResetFilters}
-                  disabled={loading}
-                  sx={{ borderRadius: "999px", fontWeight: 700 }}
-                >
-                  Limpiar
-                </Button>
-              </Stack>
-            </Grid>
-          </Grid>
-
-          {selectedAccount ? (
-            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-              <Chip
-                label={`${selectedAccount.code} · ${selectedAccount.name}`}
-                sx={{ borderRadius: "999px", fontWeight: 700 }}
-              />
-              <Chip
-                label={selectedAccount.groupLabel}
-                color={ACCOUNTING_GROUP_TONES[selectedAccount.groupKey] ?? "default"}
-                variant="outlined"
-                sx={{ borderRadius: "999px", fontWeight: 700 }}
-              />
-              <Chip
-                label={`Naturaleza ${selectedAccount.defaultNature === "DEBIT" ? "debito" : "credito"}`}
-                variant="outlined"
-                sx={{ borderRadius: "999px", fontWeight: 700 }}
-              />
-              {selectedAccount.parentCode ? (
-                <Chip
-                  label={`Padre ${selectedAccount.parentCode}`}
-                  variant="outlined"
-                  sx={{ borderRadius: "999px", fontWeight: 700 }}
-                />
+              {selectedAccount ? (
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                  <Chip
+                    label={`${selectedAccount.code} · ${selectedAccount.name}`}
+                    sx={{ borderRadius: "999px", fontWeight: 700 }}
+                  />
+                  <Chip
+                    label={selectedAccount.groupLabel}
+                    color={
+                      ACCOUNTING_GROUP_TONES[selectedAccount.groupKey] ??
+                      "default"
+                    }
+                    variant="outlined"
+                    sx={{ borderRadius: "999px", fontWeight: 700 }}
+                  />
+                  <Chip
+                    label={`Naturaleza ${selectedAccount.defaultNature === "DEBIT" ? "debito" : "credito"}`}
+                    variant="outlined"
+                    sx={{ borderRadius: "999px", fontWeight: 700 }}
+                  />
+                  {selectedAccount.parentCode ? (
+                    <Chip
+                      label={`Padre ${selectedAccount.parentCode}`}
+                      variant="outlined"
+                      sx={{ borderRadius: "999px", fontWeight: 700 }}
+                    />
+                  ) : null}
+                </Stack>
               ) : null}
-            </Stack>
-          ) : null}
 
-          <TextField
-            label="Buscar en movimientos"
-            placeholder="Origen, referencia o detalle"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            fullWidth
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Search size={16} color="#64748b" />
-                </InputAdornment>
-              ),
+              <TextField
+                label="Buscar en movimientos"
+                placeholder="Origen, referencia o detalle"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                fullWidth
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Search size={16} color="#64748b" />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </Stack>
+          </Paper>
+        </Grid>
+
+        {report ? (
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            <Chip
+              label={`Saldo inicial ${formatCurrency(report.summary.openingBalance)}`}
+              sx={{ borderRadius: "999px", fontWeight: 700 }}
+            />
+            <Chip
+              label={`Debito ${formatCurrency(report.summary.debitTotal)}`}
+              variant="outlined"
+              sx={{ borderRadius: "999px", fontWeight: 700 }}
+            />
+            <Chip
+              label={`Credito ${formatCurrency(report.summary.creditTotal)}`}
+              variant="outlined"
+              sx={{ borderRadius: "999px", fontWeight: 700 }}
+            />
+            <Chip
+              label={`Saldo final ${formatCurrency(report.summary.closingBalance)}`}
+              variant="outlined"
+              sx={{ borderRadius: "999px", fontWeight: 700 }}
+            />
+            <Chip
+              label={`${formatCompactNumber(report.summary.movementCount)} movimientos`}
+              variant="outlined"
+              sx={{ borderRadius: "999px", fontWeight: 700 }}
+            />
+          </Stack>
+        ) : null}
+
+        <Paper
+          elevation={0}
+          sx={{
+            borderRadius: "28px",
+            border: "1px solid rgba(226, 232, 240, 0.95)",
+            backgroundColor: "#fff",
+            overflow: "hidden",
+          }}
+        >
+          <DataGrid
+            rows={gridRows}
+            columns={columns}
+            getRowId={(row) => row.lineId}
+            disableColumnMenu
+            disableRowSelectionOnClick
+            hideFooterSelectedRowCount
+            pageSizeOptions={[25, 50, 100]}
+            initialState={{
+              pagination: {
+                paginationModel: {
+                  pageSize: 25,
+                  page: 0,
+                },
+              },
+            }}
+            localeText={{
+              noRowsLabel:
+                "No hay movimientos para la cuenta y periodo seleccionados.",
+            }}
+            sx={{
+              height: 640,
+              border: "none",
+              "& .MuiDataGrid-cell": {
+                fontSize: 13,
+                alignItems: "center",
+              },
+              "& .MuiDataGrid-columnHeaderTitle": {
+                fontSize: 13,
+                fontWeight: 700,
+              },
+              "& .MuiDataGrid-cell:focus, & .MuiDataGrid-columnHeader:focus": {
+                outline: "none",
+              },
             }}
           />
-        </Stack>
-      </Paper>
-
-      {error ? (
-        <Alert severity="error" variant="outlined" sx={{ borderRadius: "18px" }}>
-          {error}
-        </Alert>
-      ) : null}
-
-      {report ? (
-        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-          <Chip
-            label={`Saldo inicial ${formatCurrency(report.summary.openingBalance)}`}
-            sx={{ borderRadius: "999px", fontWeight: 700 }}
-          />
-          <Chip
-            label={`Debito ${formatCurrency(report.summary.debitTotal)}`}
-            variant="outlined"
-            sx={{ borderRadius: "999px", fontWeight: 700 }}
-          />
-          <Chip
-            label={`Credito ${formatCurrency(report.summary.creditTotal)}`}
-            variant="outlined"
-            sx={{ borderRadius: "999px", fontWeight: 700 }}
-          />
-          <Chip
-            label={`Saldo final ${formatCurrency(report.summary.closingBalance)}`}
-            variant="outlined"
-            sx={{ borderRadius: "999px", fontWeight: 700 }}
-          />
-          <Chip
-            label={`${formatCompactNumber(report.summary.movementCount)} movimientos`}
-            variant="outlined"
-            sx={{ borderRadius: "999px", fontWeight: 700 }}
-          />
-        </Stack>
-      ) : null}
-
-      <Paper
-        elevation={0}
-        sx={{
-          borderRadius: "28px",
-          border: "1px solid rgba(226, 232, 240, 0.95)",
-          backgroundColor: "#fff",
-          overflow: "hidden",
-        }}
-      >
-        {loading ? (
-          <Stack alignItems="center" justifyContent="center" sx={{ py: 12 }} spacing={1.5}>
-            <CircularProgress size={28} />
-            <Typography sx={{ color: "#64748b", fontSize: 14 }}>
-              Cargando libro mayor...
-            </Typography>
-          </Stack>
-        ) : report ? (
-          <Box sx={{ minHeight: 640 }}>
-            <DataGrid
-              rows={gridRows}
-              columns={columns}
-              getRowId={(row) => row.lineId}
-              disableColumnMenu
-              disableRowSelectionOnClick
-              hideFooterSelectedRowCount
-              pageSizeOptions={[25, 50, 100]}
-              initialState={{
-                pagination: {
-                  paginationModel: {
-                    pageSize: 25,
-                    page: 0,
-                  },
-                },
-              }}
-              localeText={{
-                noRowsLabel: "No hay movimientos para la cuenta y periodo seleccionados.",
-              }}
-              sx={{
-                border: "none",
-                "& .MuiDataGrid-cell": {
-                  fontSize: 13,
-                  alignItems: "center",
-                },
-                "& .MuiDataGrid-columnHeaderTitle": {
-                  fontSize: 13,
-                  fontWeight: 700,
-                },
-                "& .MuiDataGrid-cell:focus, & .MuiDataGrid-columnHeader:focus": {
-                  outline: "none",
-                },
-              }}
-            />
-          </Box>
-        ) : (
-          <Stack alignItems="center" justifyContent="center" spacing={1} sx={{ py: 14 }}>
-            <Typography sx={{ color: "#0f172a", fontWeight: 700 }}>
-              Selecciona una cuenta para consultar el libro mayor
-            </Typography>
-            <Typography sx={{ color: "#64748b", fontSize: 14 }}>
-              El saldo inicial y el saldo acumulado se calculan segun el periodo
-              indicado.
-            </Typography>
-          </Stack>
-        )}
-      </Paper>
-    </Stack>
+        </Paper>
+      </Grid>
+    </Grid>
   );
 }

@@ -102,6 +102,14 @@ export function DashboardShell({
             lg: collapsed ? "212px" : "304px",
             xl: collapsed ? "228px" : "328px",
           },
+          // pr: {
+          //   lg: userName && roleLabel ? "96px" : 0,
+          //   xl: userName && roleLabel ? "108px" : 0,
+          // },
+          // pt: {
+          //   lg: userName && roleLabel ? "72px" : 0,
+          //   xl: userName && roleLabel ? "80px" : 0,
+          // },
           transition: "margin-left 320ms cubic-bezier(0.2, 0, 0, 1)",
         }}
       >

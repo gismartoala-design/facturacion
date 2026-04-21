@@ -3,9 +3,9 @@
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
+import Grid from "@mui/material/Grid";
 import Paper from "@mui/material/Paper";
 import Snackbar from "@mui/material/Snackbar";
-import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import {
   FilePlus2,
@@ -27,6 +27,7 @@ import type {
   AccountRow,
 } from "@/modules/accounting/accounting-ledger/components/account-plan-view-model";
 import { fetchJson } from "@/shared/dashboard/api";
+import { DashboardPageHeader } from "@/shared/dashboard/page-header";
 import { AccountFormDialog } from "../components/account-form-dialog";
 import { AccountImportDialog } from "../components/account-import-dialog";
 import { AccountPlanGrid } from "../components/account-plan-grid";
@@ -64,7 +65,9 @@ function getCompatibleParentId(
   currentParentId: string | null,
   groupKey: AccountGroupKey,
 ) {
-  const parentAccount = accounts?.find((account) => account.id === currentParentId);
+  const parentAccount = accounts?.find(
+    (account) => account.id === currentParentId,
+  );
   return parentAccount?.groupKey === groupKey ? currentParentId : null;
 }
 
@@ -76,9 +79,15 @@ export function AccountPlanPage({
   initialData,
   initialError = null,
 }: AccountPlanPageProps) {
-  const [data, setData] = useState<AccountPlanResponse | null>(() => initialData);
-  const [editForm, setEditForm] = useState<AccountFormState>(() => createEmptyForm());
-  const [createForm, setCreateForm] = useState<AccountFormState>(() => createEmptyForm());
+  const [data, setData] = useState<AccountPlanResponse | null>(
+    () => initialData,
+  );
+  const [editForm, setEditForm] = useState<AccountFormState>(() =>
+    createEmptyForm(),
+  );
+  const [createForm, setCreateForm] = useState<AccountFormState>(() =>
+    createEmptyForm(),
+  );
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -89,7 +98,9 @@ export function AccountPlanPage({
   const [savingCreate, setSavingCreate] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [error, setError] = useState<string | null>(initialError);
-  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(
+    null,
+  );
   const [snackbar, setSnackbar] = useState<SnackbarState>(null);
 
   const importState = useAccountPlanImport({
@@ -143,7 +154,9 @@ export function AccountPlanPage({
   }, [refreshKey]);
 
   const selectedAccount = useMemo(
-    () => data?.accounts.find((account) => account.id === selectedAccountId) ?? null,
+    () =>
+      data?.accounts.find((account) => account.id === selectedAccountId) ??
+      null,
     [data, selectedAccountId],
   );
 
@@ -218,13 +231,17 @@ export function AccountPlanPage({
   }, [createForm.groupKey, data]);
 
   const selectedEditParent = useMemo(
-    () => editParentOptions.find((account) => account.id === editForm.parentId) ?? null,
+    () =>
+      editParentOptions.find((account) => account.id === editForm.parentId) ??
+      null,
     [editForm.parentId, editParentOptions],
   );
 
   const selectedCreateParent = useMemo(
     () =>
-      createParentOptions.find((account) => account.id === createForm.parentId) ?? null,
+      createParentOptions.find(
+        (account) => account.id === createForm.parentId,
+      ) ?? null,
     [createForm.parentId, createParentOptions],
   );
 
@@ -284,7 +301,11 @@ export function AccountPlanPage({
       ...current,
       groupKey,
       defaultNature: DEFAULT_NATURE_BY_GROUP[groupKey],
-      parentId: getCompatibleParentId(data?.accounts, current.parentId, groupKey),
+      parentId: getCompatibleParentId(
+        data?.accounts,
+        current.parentId,
+        groupKey,
+      ),
     }));
   }
 
@@ -293,7 +314,11 @@ export function AccountPlanPage({
       ...current,
       groupKey,
       defaultNature: DEFAULT_NATURE_BY_GROUP[groupKey],
-      parentId: getCompatibleParentId(data?.accounts, current.parentId, groupKey),
+      parentId: getCompatibleParentId(
+        data?.accounts,
+        current.parentId,
+        groupKey,
+      ),
     }));
   }
 
@@ -348,10 +373,13 @@ export function AccountPlanPage({
     setSavingCreate(true);
 
     try {
-      const saved = await fetchJson<AccountRow>("/api/v1/accounting/account-plan", {
-        method: "POST",
-        body: JSON.stringify(buildAccountPayload(createForm)),
-      });
+      const saved = await fetchJson<AccountRow>(
+        "/api/v1/accounting/account-plan",
+        {
+          method: "POST",
+          body: JSON.stringify(buildAccountPayload(createForm)),
+        },
+      );
 
       setCreateDialogOpen(false);
       setCreateForm(createEmptyForm());
@@ -396,97 +424,129 @@ export function AccountPlanPage({
 
   return (
     <>
-      <Stack spacing={3}>
-        <Stack
-          direction={{ xs: "column", lg: "row" }}
-          spacing={2}
-          justifyContent="space-between"
-          alignItems={{ xs: "flex-start", lg: "center" }}
-        >
-          <Stack direction="row" spacing={1.1} alignItems="center">
-            <FolderTree size={18} color="#475569" />
-            <Typography
-              variant="h5"
-              sx={{ color: "#0f172a", fontWeight: 700, lineHeight: 1.15 }}
-            >
-              Plan de cuentas
-            </Typography>
-          </Stack>
-
-          <Stack direction="row" spacing={1.2} flexWrap="wrap" useFlexGap>
-            <Button
-              type="button"
-              variant="outlined"
-              startIcon={<RefreshCcw size={16} />}
-              onClick={() => setRefreshKey((current) => current + 1)}
-              sx={{ borderRadius: "999px", fontWeight: 700 }}
-            >
-              Recargar
-            </Button>
-            <Button
-              type="button"
-              variant="outlined"
-              startIcon={<Upload size={16} />}
-              onClick={importState.openImportDialog}
-              sx={{ borderRadius: "999px", fontWeight: 700 }}
-            >
-              Importar
-            </Button>
-            <Button
-              type="button"
-              variant="outlined"
-              startIcon={<PencilLine size={16} />}
-              onClick={openEditDialog}
-              disabled={!selectedAccountId}
-              sx={{ borderRadius: "999px", fontWeight: 700 }}
-            >
-              Editar
-            </Button>
-            <Button
-              type="button"
-              variant="outlined"
-              startIcon={<FilePlus2 size={16} />}
-              onClick={openCreateDialog}
-              sx={{ borderRadius: "999px", fontWeight: 700 }}
-            >
-              Nueva cuenta
-            </Button>
-          </Stack>
-        </Stack>
-
-        {error ? (
-          <Alert severity="error" variant="outlined" sx={{ borderRadius: "18px" }}>
-            {error}
-          </Alert>
-        ) : null}
-
-        <Paper
-          elevation={0}
-          sx={{
-            borderRadius: "28px",
-            border: "1px solid rgba(226, 232, 240, 0.95)",
-            backgroundColor: "#fff",
-            p: 2,
-          }}
-        >
-          <AccountPlanGrid
-            rows={rows}
-            loading={loading}
-            search={search}
-            onlyPostable={onlyPostable}
-            includeInactive={includeInactive}
-            selectedAccountId={selectedAccountId}
-            onSearchChange={setSearch}
-            onOnlyPostableChange={setOnlyPostable}
-            onIncludeInactiveChange={setIncludeInactive}
-            onRowClick={setSelectedAccountId}
-            onRowDoubleClick={openEditDialog}
-            formatCompactNumber={formatCompactNumber}
-            formatCurrency={formatCurrency}
-            formatDateTime={formatLastPostedAt}
+      <Grid container spacing={3}>
+        <Grid size={12}>
+          <DashboardPageHeader
+            icon={<FolderTree className="h-4.5 w-4.5" />}
+            title="Plan de cuentas"
+            description="Registro y mantenimiento del catalogo contable con soporte para importacion y edicion estructurada."
+            sx={{ px: { xs: 1, sm: 2 }, pt: { xs: 1, sm: 2 } }}
           />
-        </Paper>
-      </Stack>
+        </Grid>
+
+        <Grid size={12}>
+          <Paper
+            elevation={0}
+            sx={{
+              borderRadius: "28px",
+              border: "1px solid rgba(226, 232, 240, 0.95)",
+              backgroundColor: "#fff",
+              p: 2,
+            }}
+          >
+            <Grid container spacing={2}>
+              <Grid size={12}>
+                <Grid
+                  container
+                  spacing={1.5}
+                  justifyContent="space-between"
+                  alignItems={{ xs: "flex-start", lg: "center" }}
+                >
+                  <Grid size={{ xs: 12, lg: "grow" }}>
+                    <Typography
+                      variant="h6"
+                      sx={{ fontWeight: 700, color: "#0f172a" }}
+                    >
+                      Catalogo contable
+                    </Typography>
+                  </Grid>
+
+                  <Grid size={{ xs: 12, lg: "auto" }}>
+                    <Grid
+                      container
+                      spacing={1.2}
+                      justifyContent={{ xs: "flex-start", lg: "flex-end" }}
+                      sx={{
+                        "& .MuiButton-root": {
+                          borderRadius: "999px",
+                          fontWeight: 700,
+                          minHeight: 40,
+                          whiteSpace: "nowrap",
+                        },
+                      }}
+                    >
+                      <Grid size={{ xs: 12, sm: "auto" }}>
+                        <Button
+                          type="button"
+                          variant="outlined"
+                          startIcon={<RefreshCcw size={16} />}
+                          onClick={() => setRefreshKey((current) => current + 1)}
+                          fullWidth
+                        >
+                          Recargar
+                        </Button>
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: "auto" }}>
+                        <Button
+                          type="button"
+                          variant="outlined"
+                          startIcon={<Upload size={16} />}
+                          onClick={importState.openImportDialog}
+                          fullWidth
+                        >
+                          Importar
+                        </Button>
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: "auto" }}>
+                        <Button
+                          type="button"
+                          variant="outlined"
+                          startIcon={<PencilLine size={16} />}
+                          onClick={openEditDialog}
+                          disabled={!selectedAccountId}
+                          fullWidth
+                        >
+                          Editar
+                        </Button>
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: "auto" }}>
+                        <Button
+                          type="button"
+                          variant="contained"
+                          startIcon={<FilePlus2 size={16} />}
+                          onClick={openCreateDialog}
+                          fullWidth
+                        >
+                          Nueva cuenta
+                        </Button>
+                      </Grid>
+                    </Grid>
+                  </Grid>
+                </Grid>
+              </Grid>
+
+              <Grid size={12}>
+                <AccountPlanGrid
+                  rows={rows}
+                  loading={loading}
+                  search={search}
+                  onlyPostable={onlyPostable}
+                  includeInactive={includeInactive}
+                  selectedAccountId={selectedAccountId}
+                  onSearchChange={setSearch}
+                  onOnlyPostableChange={setOnlyPostable}
+                  onIncludeInactiveChange={setIncludeInactive}
+                  onRowClick={setSelectedAccountId}
+                  onRowDoubleClick={openEditDialog}
+                  formatCompactNumber={formatCompactNumber}
+                  formatCurrency={formatCurrency}
+                  formatDateTime={formatLastPostedAt}
+                />
+              </Grid>
+            </Grid>
+          </Paper>
+        </Grid>
+      </Grid>
 
       <AccountFormDialog
         mode="create"

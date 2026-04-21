@@ -18,6 +18,7 @@ import {
 import { Eye, RefreshCcw, RotateCcw, Search } from "lucide-react";
 import { useMemo } from "react";
 
+import { DashboardPageHeader } from "@/shared/dashboard/page-header";
 import type { PaginationMeta, SriInvoice } from "@/shared/dashboard/types";
 
 const SRI_STATUS_LABELS: Record<string, string> = {
@@ -357,26 +358,13 @@ export function BillingSection({
 
   return (
     <Stack spacing={3}>
-      <Box sx={{ px: { xs: 1, sm: 2 }, pt: { xs: 1, sm: 2 } }}>
-        <Stack spacing={0.75}>
-          <Typography
-            variant="h5"
-            sx={{ color: "#4a3c58", fontWeight: 700, lineHeight: 1.15 }}
-          >
-            Facturas SRI
-          </Typography>
-          <Typography
-            sx={{
-              maxWidth: 720,
-              color: "rgba(74, 60, 88, 0.68)",
-              fontSize: 14,
-            }}
-          >
-            Seguimiento de documentos, errores y reintentos de facturacion
-            electronica.
-          </Typography>
-        </Stack>
-      </Box>
+      <DashboardPageHeader
+        title="Facturas SRI"
+        description="Seguimiento de documentos, errores y reintentos de facturacion electronica."
+        titleColor="#4a3c58"
+        descriptionColor="rgba(74, 60, 88, 0.68)"
+        sx={{ px: { xs: 1, sm: 2 }, pt: { xs: 1, sm: 2 } }}
+      />
 
       <Paper
         sx={{

@@ -34,6 +34,7 @@ import type {
   AccountingJournalRow,
 } from "@/modules/accounting/lib/accounting-journal-view-model";
 import { fetchJson } from "@/shared/dashboard/api";
+import { DashboardPageHeader } from "@/shared/dashboard/page-header";
 
 type FiltersForm = {
   from: string;
@@ -332,40 +333,18 @@ export function AccountingJournalPage({
 
   return (
     <>
-      <Stack spacing={2.5}>
-        <Stack
-          direction={{ xs: "column", lg: "row" }}
-          spacing={1.5}
-          justifyContent="space-between"
-          alignItems={{ xs: "flex-start", lg: "center" }}
-        >
-          <Stack spacing={0.5}>
-            <Stack direction="row" spacing={1} alignItems="center">
-              <BookText size={18} color="#475569" />
-              <Typography variant="h5" sx={{ color: "#0f172a", fontWeight: 700 }}>
-                Libro diario
-              </Typography>
-            </Stack>
-            <Typography sx={{ color: "#64748b", fontSize: 14 }}>
-              Consulta cronologica de asientos posteados con detalle de lineas y origen.
-            </Typography>
-          </Stack>
+      <Grid container spacing={2.5}>
+        <Grid size={12}>
+          <DashboardPageHeader
+            icon={<BookText size={18} color="#475569" />}
+            title="Libro diario"
+            description="Consulta cronologica de asientos posteados con detalle de lineas, origen y trazabilidad."
+            sx={{ px: { xs: 1, sm: 2 }, pt: { xs: 1, sm: 2 } }}
+          />
+        </Grid>
 
-          <Stack direction="row" spacing={1.1} flexWrap="wrap" useFlexGap>
-            <Button
-              type="button"
-              variant="outlined"
-              startIcon={<RefreshCcw size={16} />}
-              onClick={handleReload}
-              disabled={loading}
-              sx={{ borderRadius: "999px", fontWeight: 700 }}
-            >
-              Recargar
-            </Button>
-          </Stack>
-        </Stack>
-
-        <Paper
+        <Grid size={12}>
+          <Paper
           elevation={0}
           sx={{
             borderRadius: "24px",
@@ -375,6 +354,33 @@ export function AccountingJournalPage({
           }}
         >
           <Stack spacing={2}>
+            <Grid
+              container
+              spacing={1.5}
+              justifyContent="space-between"
+              alignItems={{ xs: "flex-start", lg: "center" }}
+            >
+              <Grid size={{ xs: 12, lg: "grow" }}>
+                <Typography variant="h6" sx={{ fontWeight: 700, color: "#0f172a" }}>
+                  Filtros del libro diario
+                </Typography>
+              </Grid>
+
+              <Grid size={{ xs: 12, lg: "auto" }}>
+                <Button
+                  type="button"
+                  variant="outlined"
+                  startIcon={<RefreshCcw size={16} />}
+                  onClick={handleReload}
+                  disabled={loading}
+                  fullWidth
+                  sx={{ borderRadius: "999px", fontWeight: 700, minHeight: 40 }}
+                >
+                  Recargar
+                </Button>
+              </Grid>
+            </Grid>
+
             <Grid container spacing={1.25}>
               <Grid size={{ xs: 12, md: 3 }}>
                 <TextField
@@ -574,7 +580,8 @@ export function AccountingJournalPage({
             </Box>
           )}
         </Paper>
-      </Stack>
+        </Grid>
+      </Grid>
 
       <Dialog
         open={detailOpen}

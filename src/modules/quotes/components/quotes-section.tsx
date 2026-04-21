@@ -11,6 +11,7 @@ import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import { FilePenLine, FilePlus2, Printer, ReceiptText, RefreshCcw, XCircle } from "lucide-react";
 import { useMemo } from "react";
 
+import { DashboardPageHeader } from "@/shared/dashboard/page-header";
 import type { Quote, QuoteStatus } from "@/shared/dashboard/types";
 
 export type QuoteFilter = "ALL" | QuoteStatus;
@@ -189,26 +190,14 @@ export function QuotesSection({
 
   return (
     <Stack spacing={3}>
-      <Box sx={{ px: { xs: 1, sm: 2 }, pt: { xs: 1, sm: 2 } }}>
-        <Stack spacing={0.75}>
-          <Typography
-            variant="h5"
-            sx={{ color: "#4a3c58", fontWeight: 700, lineHeight: 1.15 }}
-          >
-            Cotizaciones
-          </Typography>
-          <Typography
-            sx={{
-              maxWidth: 720,
-              color: "rgba(74, 60, 88, 0.68)",
-              fontSize: 14,
-            }}
-          >
-            Guarda propuestas sin afectar inventario y conviertelas cuando el
-            cliente confirme.
-          </Typography>
-        </Stack>
-      </Box>
+      <DashboardPageHeader
+        icon={<ReceiptText className="h-[18px] w-[18px]" />}
+        title="Cotizaciones"
+        description="Guarda propuestas sin afectar inventario y conviertelas cuando el cliente confirme."
+        titleColor="#4a3c58"
+        descriptionColor="rgba(74, 60, 88, 0.68)"
+        sx={{ px: { xs: 1, sm: 2 }, pt: { xs: 1, sm: 2 } }}
+      />
 
       <Paper sx={{ borderRadius: "28px", px: { xs: 2, sm: 3 }, py: { xs: 2, sm: 3 } }}>
         <Stack spacing={2.5}>

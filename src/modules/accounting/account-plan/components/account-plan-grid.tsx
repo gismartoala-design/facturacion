@@ -17,6 +17,7 @@ import type {
   AccountNature,
   AccountRow,
 } from "@/modules/accounting/accounting-ledger/components/account-plan-view-model";
+import { Grid } from "@mui/material";
 
 type AccountPlanGridProps = {
   rows: AccountRow[];
@@ -188,26 +189,23 @@ export function AccountPlanGrid({
 
   return (
     <Stack spacing={2}>
-      <Stack
-        direction={{ xs: "column", lg: "row" }}
-        spacing={1.5}
-        justifyContent="space-between"
-        alignItems={{ xs: "stretch", lg: "center" }}
-      >
-        <TextField
-          size="small"
-          placeholder="Buscar por codigo, nombre, padre o descripcion"
-          value={search}
-          onChange={(event) => onSearchChange(event.target.value)}
-          sx={{ minWidth: { lg: 380 } }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <Search size={16} color="#64748b" />
-              </InputAdornment>
-            ),
-          }}
-        />
+      <Grid container spacing={2}>
+        <Grid size={{ xs: 12, lg: 6 }}>
+          <TextField
+            size="small"
+            placeholder="Buscar por codigo, nombre, padre o descripcion"
+            value={search}
+            onChange={(event) => onSearchChange(event.target.value)}
+            sx={{ minWidth: { lg: 380 } }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Search size={16} color="#64748b" />
+                </InputAdornment>
+              ),
+            }}
+          />
+        </Grid>
         <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>
           <FormControlLabel
             control={
@@ -222,13 +220,15 @@ export function AccountPlanGrid({
             control={
               <Switch
                 checked={includeInactive}
-                onChange={(event) => onIncludeInactiveChange(event.target.checked)}
+                onChange={(event) =>
+                  onIncludeInactiveChange(event.target.checked)
+                }
               />
             }
             label="Ver inactivas"
           />
         </Stack>
-      </Stack>
+      </Grid>
 
       <Box
         sx={{
@@ -248,7 +248,9 @@ export function AccountPlanGrid({
           onRowClick={(params) => onRowClick(params.row.id)}
           onRowDoubleClick={() => onRowDoubleClick()}
           getRowClassName={(params) =>
-            params.row.id === selectedAccountId ? "account-plan-row-selected" : ""
+            params.row.id === selectedAccountId
+              ? "account-plan-row-selected"
+              : ""
           }
           pageSizeOptions={[10, 25, 50, 100]}
           initialState={{

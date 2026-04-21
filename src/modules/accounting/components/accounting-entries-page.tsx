@@ -37,6 +37,7 @@ import { useMemo, useRef, useState, type RefObject } from "react";
 import { formatCurrency } from "@/modules/accounting/lib/format";
 import type { EntryAccountOption } from "@/modules/accounting/lib/accounting-entries-view-model";
 import { fetchJson } from "@/shared/dashboard/api";
+import { DashboardPageHeader } from "@/shared/dashboard/page-header";
 
 type AccountingEntriesPageProps = {
   initialAccounts: EntryAccountOption[];
@@ -609,70 +610,34 @@ export function AccountingEntriesPage({
   }
 
   return (
-    <Stack spacing={3}>
-      <Stack
-        direction={{ xs: "column", lg: "row" }}
-        spacing={2}
-        justifyContent="space-between"
-        alignItems={{ xs: "flex-start", lg: "center" }}
-      >
-        <Stack direction="row" spacing={1.1} alignItems="center">
-          <ReceiptText size={18} color="#475569" />
-          <Typography
-            variant="h5"
-            sx={{ color: "#0f172a", fontWeight: 700, lineHeight: 1.15 }}
-          >
-            Asientos contables
-          </Typography>
-        </Stack>
-
-        <Stack direction="row" spacing={1.2} flexWrap="wrap" useFlexGap>
-          <Button
-            type="button"
-            variant="outlined"
-            startIcon={<FilePlus2 size={16} />}
-            onClick={() => resetForm()}
-            sx={{ borderRadius: "999px", fontWeight: 700 }}
-          >
-            Nuevo
-          </Button>
-
-          <Button
-            type="button"
-            variant="outlined"
-            startIcon={<Save size={16} />}
-            disabled={saving || entryLines.length === 0}
-            onClick={() => void submitEntry("DRAFT")}
-            sx={{ borderRadius: "999px", fontWeight: 700 }}
-          >
-            Grabar
-          </Button>
-          <Button
-            type="button"
-            variant="contained"
-            startIcon={<CheckCircle size={16} />}
-            disabled={saving || entryLines.length === 0}
-            onClick={() => void submitEntry("POSTED")}
-            sx={{ borderRadius: "999px", fontWeight: 700 }}
-          >
-            Procesar
-          </Button>
-        </Stack>
-      </Stack>
+    <Grid container spacing={3}>
+      <Grid size={12}>
+        <DashboardPageHeader
+          icon={<ReceiptText size={18} color="#475569" />}
+          title="Asientos contables"
+          description="Registro manual de comprobantes con validacion por plan de cuentas y control de debitos y creditos."
+          sx={{ px: { xs: 1, sm: 2 }, pt: { xs: 1, sm: 2 } }}
+        />
+      </Grid>
 
       {error ? (
-        <Alert severity="error" variant="outlined" sx={{ borderRadius: "18px" }}>
-          {error}
-        </Alert>
+        <Grid size={12}>
+          <Alert severity="error" variant="outlined" sx={{ borderRadius: "18px" }}>
+            {error}
+          </Alert>
+        </Grid>
       ) : null}
 
       {message ? (
-        <Alert severity="success" variant="outlined" sx={{ borderRadius: "18px" }}>
-          {message}
-        </Alert>
+        <Grid size={12}>
+          <Alert severity="success" variant="outlined" sx={{ borderRadius: "18px" }}>
+            {message}
+          </Alert>
+        </Grid>
       ) : null}
 
-      <Paper
+      <Grid size={12}>
+        <Paper
         elevation={0}
         sx={{
           borderRadius: "28px",
@@ -681,12 +646,76 @@ export function AccountingEntriesPage({
           p: 2.2,
         }}
       >
-        <Stack spacing={2}>
-          <Typography variant="h6" sx={{ fontWeight: 700, color: "#0f172a" }}>
-            Cabecera del asiento
-          </Typography>
+        <Grid container spacing={2.25}>
+          <Grid size={12}>
+            <Grid
+              container
+              spacing={1.5}
+              justifyContent="space-between"
+              alignItems={{ xs: "flex-start", lg: "center" }}
+            >
+              <Grid size={{ xs: 12, lg: "grow" }}>
+                <Typography variant="h6" sx={{ fontWeight: 700, color: "#0f172a" }}>
+                  Cabecera del asiento
+                </Typography>
+              </Grid>
 
-          <Grid container spacing={1.5}>
+              <Grid size={{ xs: 12, lg: "auto" }}>
+                <Grid
+                  container
+                  spacing={1.2}
+                  justifyContent={{ xs: "flex-start", lg: "flex-end" }}
+                  sx={{
+                    "& .MuiButton-root": {
+                      borderRadius: "999px",
+                      fontWeight: 700,
+                      minHeight: 40,
+                      whiteSpace: "nowrap",
+                    },
+                  }}
+                >
+                  <Grid size={{ xs: 12, sm: "auto" }}>
+                    <Button
+                      type="button"
+                      variant="outlined"
+                      startIcon={<FilePlus2 size={16} />}
+                      onClick={() => resetForm()}
+                      fullWidth
+                    >
+                      Nuevo
+                    </Button>
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: "auto" }}>
+                    <Button
+                      type="button"
+                      variant="outlined"
+                      startIcon={<Save size={16} />}
+                      disabled={saving || entryLines.length === 0}
+                      onClick={() => void submitEntry("DRAFT")}
+                      fullWidth
+                    >
+                      Grabar
+                    </Button>
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: "auto" }}>
+                    <Button
+                      type="button"
+                      variant="contained"
+                      startIcon={<CheckCircle size={16} />}
+                      disabled={saving || entryLines.length === 0}
+                      onClick={() => void submitEntry("POSTED")}
+                      fullWidth
+                    >
+                      Procesar
+                    </Button>
+                  </Grid>
+                </Grid>
+              </Grid>
+            </Grid>
+          </Grid>
+
+          <Grid size={12}>
+            <Grid container spacing={1.5}>
             <Grid size={{ xs: 12, md: 3 }}>
               <TextField
                 label="Fecha"
@@ -760,10 +789,13 @@ export function AccountingEntriesPage({
               />
             </Grid>
           </Grid>
-        </Stack>
+          </Grid>
+        </Grid>
       </Paper>
+      </Grid>
 
-      <Paper
+      <Grid size={12}>
+        <Paper
         elevation={0}
         sx={{
           borderRadius: "28px",
@@ -839,8 +871,10 @@ export function AccountingEntriesPage({
           </Stack>
         </Stack>
       </Paper>
+      </Grid>
 
-      <Paper
+      <Grid size={12}>
+        <Paper
         elevation={0}
         sx={{
           borderRadius: "28px",
@@ -897,6 +931,7 @@ export function AccountingEntriesPage({
           </Box>
         </Stack>
       </Paper>
+      </Grid>
 
       <Dialog
         open={Boolean(editingLineId)}
@@ -953,6 +988,6 @@ export function AccountingEntriesPage({
           </Button>
         </DialogActions>
       </Dialog>
-    </Stack>
+    </Grid>
   );
 }

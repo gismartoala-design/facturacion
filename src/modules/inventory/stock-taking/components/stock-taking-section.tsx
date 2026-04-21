@@ -29,6 +29,7 @@ import { useMemo, useState } from "react";
 
 import { Input } from "@/components/ui/input";
 import type { StockTakingSummary } from "@/modules/inventory/stock-taking/types";
+import { DashboardPageHeader } from "@/shared/dashboard/page-header";
 
 import type {
   StockTakingFilter,
@@ -304,26 +305,14 @@ export function StockTakingSection({
   return (
     <Grid container spacing={3}>
       <Grid size={12}>
-        <Box sx={{ px: { xs: 1, sm: 2 }, pt: { xs: 1, sm: 2 } }}>
-          <Stack spacing={0.75}>
-            <Typography
-              variant="h5"
-              sx={{ color: "#4a3c58", fontWeight: 700, lineHeight: 1.15 }}
-            >
-              Toma de Inventario
-            </Typography>
-            <Typography
-              sx={{
-                maxWidth: 760,
-                color: "rgba(74, 60, 88, 0.68)",
-                fontSize: 14,
-              }}
-            >
-              Captura el conteo fisico de cada producto y aplica solo las
-              diferencias contra el stock del sistema.
-            </Typography>
-          </Stack>
-        </Box>
+        <DashboardPageHeader
+          icon={<ClipboardList className="h-[18px] w-[18px]" />}
+          title="Toma de Inventario"
+          description="Captura el conteo fisico de cada producto y aplica solo las diferencias contra el stock del sistema."
+          titleColor="#4a3c58"
+          descriptionColor="rgba(74, 60, 88, 0.68)"
+          sx={{ px: { xs: 1, sm: 2 }, pt: { xs: 1, sm: 2 } }}
+        />
       </Grid>
 
       <Grid size={12}>

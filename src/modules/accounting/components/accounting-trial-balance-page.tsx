@@ -27,6 +27,7 @@ import type {
   AccountingTrialBalanceRow,
 } from "@/modules/accounting/lib/accounting-trial-balance-view-model";
 import { fetchJson } from "@/shared/dashboard/api";
+import { DashboardPageHeader } from "@/shared/dashboard/page-header";
 
 type FiltersForm = {
   from: string;
@@ -255,38 +256,18 @@ export function AccountingTrialBalancePage({
   }
 
   return (
-    <Stack spacing={2.5}>
-      <Stack
-        direction={{ xs: "column", lg: "row" }}
-        spacing={1.5}
-        justifyContent="space-between"
-        alignItems={{ xs: "flex-start", lg: "center" }}
-      >
-        <Stack spacing={0.5}>
-          <Stack direction="row" spacing={1} alignItems="center">
-            <Scale size={18} color="#475569" />
-            <Typography variant="h5" sx={{ color: "#0f172a", fontWeight: 700 }}>
-              Balance de comprobacion
-            </Typography>
-          </Stack>
-          <Typography sx={{ color: "#64748b", fontSize: 14 }}>
-            Saldos por cuenta para validar el equilibrio contable del periodo.
-          </Typography>
-        </Stack>
+    <Grid container spacing={2.5}>
+      <Grid size={12}>
+        <DashboardPageHeader
+          icon={<Scale size={18} color="#475569" />}
+          title="Balance de comprobacion"
+          description="Saldos por cuenta para validar el equilibrio contable del periodo."
+          sx={{ px: { xs: 1, sm: 2 }, pt: { xs: 1, sm: 2 } }}
+        />
+      </Grid>
 
-        <Button
-          type="button"
-          variant="outlined"
-          startIcon={<RefreshCcw size={16} />}
-          onClick={handleReload}
-          disabled={loading}
-          sx={{ borderRadius: "999px", fontWeight: 700 }}
-        >
-          Recargar
-        </Button>
-      </Stack>
-
-      <Paper
+      <Grid size={12}>
+        <Paper
         elevation={0}
         sx={{
           borderRadius: "24px",
@@ -296,6 +277,33 @@ export function AccountingTrialBalancePage({
         }}
       >
         <Stack spacing={2}>
+          <Grid
+            container
+            spacing={1.5}
+            justifyContent="space-between"
+            alignItems={{ xs: "flex-start", lg: "center" }}
+          >
+            <Grid size={{ xs: 12, lg: "grow" }}>
+              <Typography variant="h6" sx={{ fontWeight: 700, color: "#0f172a" }}>
+                Filtros del balance de comprobacion
+              </Typography>
+            </Grid>
+
+            <Grid size={{ xs: 12, lg: "auto" }}>
+              <Button
+                type="button"
+                variant="outlined"
+                startIcon={<RefreshCcw size={16} />}
+                onClick={handleReload}
+                disabled={loading}
+                fullWidth
+                sx={{ borderRadius: "999px", fontWeight: 700, minHeight: 40 }}
+              >
+                Recargar
+              </Button>
+            </Grid>
+          </Grid>
+
           <Grid container spacing={1.25}>
             <Grid size={{ xs: 12, md: 3 }}>
               <TextField
@@ -446,14 +454,18 @@ export function AccountingTrialBalancePage({
           ) : null}
         </Stack>
       </Paper>
+      </Grid>
 
       {error ? (
-        <Alert severity="error" variant="outlined" sx={{ borderRadius: "18px" }}>
-          {error}
-        </Alert>
+        <Grid size={12}>
+          <Alert severity="error" variant="outlined" sx={{ borderRadius: "18px" }}>
+            {error}
+          </Alert>
+        </Grid>
       ) : null}
 
-      <Paper
+      <Grid size={12}>
+        <Paper
         elevation={0}
         sx={{
           borderRadius: "28px",
@@ -508,6 +520,7 @@ export function AccountingTrialBalancePage({
           </Box>
         )}
       </Paper>
-    </Stack>
+      </Grid>
+    </Grid>
   );
 }
