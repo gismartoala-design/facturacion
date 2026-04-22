@@ -696,11 +696,9 @@ export function PosCashSessionDialog({
   const showHistoryTab = true;
 
   const [activeTab, setActiveTab] = useState(0);
-
-  // Reset to first tab when dialog opens/closes
-  useEffect(() => {
-    if (open) setActiveTab(0);
-  }, [open]);
+  const handleDialogEnter = useCallback(() => {
+    setActiveTab(0);
+  }, []);
 
   return (
     <Dialog
@@ -714,6 +712,9 @@ export function PosCashSessionDialog({
             backgroundColor: "rgba(58, 46, 35, 0.30)",
             backdropFilter: "blur(3px)",
           },
+        },
+        transition: {
+          onEnter: handleDialogEnter,
         },
       }}
     >

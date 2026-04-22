@@ -56,6 +56,7 @@ export async function POST(request: Request) {
         saleSource: "POS",
         collectionRegisteredById: session.sub,
         createImmediateCollections: true,
+        createReceivableForPendingBalance: true,
       },
       {
         scheduleDocumentAuthorization(task) {

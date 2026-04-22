@@ -257,7 +257,7 @@ export async function getBalanceSheetByBusiness(
 
   await ensureAccountingAccountsSeeded(businessId);
 
-  const [accounts, entries] = await Promise.all([
+  const [accounts, allAccounts, entries] = await Promise.all([
     prisma.accountingAccount.findMany({
       where: {
         businessId,
@@ -272,6 +272,16 @@ export async function getBalanceSheetByBusiness(
         },
       },
       orderBy: [{ code: "asc" }],
+    }),
+    prisma.accountingAccount.findMany({
+      where: {
+        businessId,
+      },
+      select: {
+        code: true,
+        groupKey: true,
+        defaultNature: true,
+      },
     }),
     prisma.accountingEntry.findMany({
       where: {
@@ -310,15 +320,47 @@ export async function getBalanceSheetByBusiness(
     });
   }
 
+  const accountByCode = new Map(allAccounts.map((account) => [account.code, account]));
+  let currentPeriodResult = 0;
+
   for (const entry of entries) {
     for (const line of entry.lines) {
+      const lineAccount = accountByCode.get(line.accountCode);
       const current = stats.get(line.accountCode);
-      if (!current) continue;
 
-      current.ownDebit += Number(line.debit);
-      current.ownCredit += Number(line.credit);
-      current.rollupDebit += Number(line.debit);
-      current.rollupCredit += Number(line.credit);
+      if (current) {
+        current.ownDebit += Number(line.debit);
+        current.ownCredit += Number(line.credit);
+        current.rollupDebit += Number(line.debit);
+        current.rollupCredit += Number(line.credit);
+      }
+
+      if (lineAccount?.groupKey === "INCOME") {
+        currentPeriodResult += buildBalance({
+          defaultNature: lineAccount.defaultNature,
+          debit: Number(line.debit),
+          credit: Number(line.credit),
+        });
+      }
+
+      if (lineAccount?.groupKey === "EXPENSE") {
+        currentPeriodResult -= buildBalance({
+          defaultNature: lineAccount.defaultNature,
+          debit: Number(line.debit),
+          credit: Number(line.credit),
+        });
+      }
+    }
+  }
+
+  const currentResultStats = stats.get("340101");
+  if (currentResultStats && hasMeaningfulAmount(currentPeriodResult)) {
+    if (currentPeriodResult >= 0) {
+      currentResultStats.ownCredit += currentPeriodResult;
+      currentResultStats.rollupCredit += currentPeriodResult;
+    } else {
+      currentResultStats.ownDebit += Math.abs(currentPeriodResult);
+      currentResultStats.rollupDebit += Math.abs(currentPeriodResult);
     }
   }
 

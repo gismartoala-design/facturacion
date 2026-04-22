@@ -595,30 +595,35 @@ export async function postSaleEntryInTransaction(
     total: number;
   },
 ): Promise<AccountingEntrySummary> {
+  const lines: CreateDraftEntryInput["lines"] = [
+    {
+      accountCode: ACCOUNT_CODES.accountsReceivable,
+      debit: input.total,
+      credit: 0,
+      memo: "Devengo de venta",
+    },
+    {
+      accountCode: ACCOUNT_CODES.revenue,
+      debit: 0,
+      credit: input.subtotal,
+      memo: "Ingreso por ventas",
+    },
+  ];
+
+  if (input.taxTotal > 0) {
+    lines.push({
+      accountCode: ACCOUNT_CODES.vatPayable,
+      debit: 0,
+      credit: input.taxTotal,
+      memo: "IVA por pagar",
+    });
+  }
+
   return ensurePostedEntryInTransaction(tx, {
     businessId: input.businessId,
     sourceType: AccountingSourceType.SALE,
     sourceId: input.saleId,
-    lines: [
-      {
-        accountCode: ACCOUNT_CODES.accountsReceivable,
-        debit: input.total,
-        credit: 0,
-        memo: "Devengo de venta",
-      },
-      {
-        accountCode: ACCOUNT_CODES.revenue,
-        debit: 0,
-        credit: input.subtotal,
-        memo: "Ingreso por ventas",
-      },
-      {
-        accountCode: ACCOUNT_CODES.vatPayable,
-        debit: 0,
-        credit: input.taxTotal,
-        memo: "IVA por pagar",
-      },
-    ],
+    lines,
   });
 }
 

@@ -9,9 +9,9 @@ import { fail, ok } from "@/lib/http";
 export async function POST(request: Request) {
   try {
     const total = await countUsers();
-    if (total > 0) {
-      return fail("Ya existe al menos un usuario registrado", 409);
-    }
+    // if (total > 0) {
+    //   return fail("Ya existe al menos un usuario registrado", 409);
+    // }
 
     const payload = await request.json();
     const admin = await createUser({ ...payload, role: "ADMIN" });
