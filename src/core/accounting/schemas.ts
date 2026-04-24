@@ -16,7 +16,15 @@ export const accountingEntryLineSchema = z.object({
 
 export const createDraftEntrySchema = z.object({
   businessId: dbUuidSchema,
-  sourceType: z.enum(["SALE", "COLLECTION", "CASH_MOVEMENT", "REFUND", "ADJUSTMENT"]),
+  sourceType: z.enum([
+    "SALE",
+    "COLLECTION",
+    "PURCHASE",
+    "SUPPLIER_PAYMENT",
+    "CASH_MOVEMENT",
+    "REFUND",
+    "ADJUSTMENT",
+  ]),
   sourceId: z.string().uuid(),
   lines: z.array(accountingEntryLineSchema).min(1),
 });
@@ -34,7 +42,15 @@ export const listAccountingEntriesFiltersSchema = z.object({
     .enum(["DRAFT", "POSTED", "REVERSED"])
     .optional(),
   sourceType: z
-    .enum(["SALE", "COLLECTION", "CASH_MOVEMENT", "REFUND", "ADJUSTMENT"])
+    .enum([
+      "SALE",
+      "COLLECTION",
+      "PURCHASE",
+      "SUPPLIER_PAYMENT",
+      "CASH_MOVEMENT",
+      "REFUND",
+      "ADJUSTMENT",
+    ])
     .optional(),
   from: z.string().trim().min(1).optional(),
   to: z.string().trim().min(1).optional(),

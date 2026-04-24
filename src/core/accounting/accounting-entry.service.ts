@@ -335,6 +335,12 @@ async function resolveEntrySources(
   const collectionIds = entries
     .filter((entry) => entry.sourceType === AccountingSourceType.COLLECTION)
     .map((entry) => entry.sourceId);
+  const purchaseIds = entries
+    .filter((entry) => entry.sourceType === AccountingSourceType.PURCHASE)
+    .map((entry) => entry.sourceId);
+  const supplierPaymentIds = entries
+    .filter((entry) => entry.sourceType === AccountingSourceType.SUPPLIER_PAYMENT)
+    .map((entry) => entry.sourceId);
   const movementIds = entries
     .filter(
       (entry) =>
@@ -343,7 +349,8 @@ async function resolveEntrySources(
     )
     .map((entry) => entry.sourceId);
 
-  const [sales, collections, movements] = await Promise.all([
+  const [sales, collections, purchases, supplierPayments, movements] =
+    await Promise.all([
     saleIds.length
       ? prisma.sale.findMany({
           where: { id: { in: saleIds } },
@@ -374,6 +381,39 @@ async function resolveEntrySources(
           },
         })
       : Promise.resolve([]),
+    purchaseIds.length
+      ? prisma.purchase.findMany({
+          where: { id: { in: purchaseIds } },
+          select: {
+            id: true,
+            purchaseNumber: true,
+            total: true,
+            supplier: {
+              select: {
+                razonSocial: true,
+                nombreComercial: true,
+              },
+            },
+          },
+        })
+      : Promise.resolve([]),
+    supplierPaymentIds.length
+      ? prisma.supplierPayment.findMany({
+          where: { id: { in: supplierPaymentIds } },
+          select: {
+            id: true,
+            supplierPaymentNumber: true,
+            amount: true,
+            paymentMethod: true,
+            supplier: {
+              select: {
+                razonSocial: true,
+                nombreComercial: true,
+              },
+            },
+          },
+        })
+      : Promise.resolve([]),
     movementIds.length
       ? prisma.cashMovement.findMany({
           where: { id: { in: movementIds } },
@@ -390,6 +430,10 @@ async function resolveEntrySources(
   const salesMap = new Map(sales.map((sale) => [sale.id, sale]));
   const collectionsMap = new Map(
     collections.map((collection) => [collection.id, collection]),
+  );
+  const purchasesMap = new Map(purchases.map((purchase) => [purchase.id, purchase]));
+  const supplierPaymentsMap = new Map(
+    supplierPayments.map((payment) => [payment.id, payment]),
   );
   const movementsMap = new Map(movements.map((movement) => [movement.id, movement]));
   const resolved = new Map<string, AccountingEntryListItem["source"]>();
@@ -416,6 +460,32 @@ async function resolveEntrySources(
           : "Cobro registrado",
         subtitle: collection
           ? `${collection.customer.razonSocial} · ${formatCurrency(Number(collection.amount))}`
+          : entry.sourceId,
+      });
+      continue;
+    }
+
+    if (entry.sourceType === AccountingSourceType.PURCHASE) {
+      const purchase = purchasesMap.get(entry.sourceId);
+      resolved.set(entry.id, {
+        title: purchase
+          ? `Compra #${purchase.purchaseNumber.toString()}`
+          : "Compra registrada",
+        subtitle: purchase
+          ? `${purchase.supplier.nombreComercial || purchase.supplier.razonSocial} · ${formatCurrency(Number(purchase.total))}`
+          : entry.sourceId,
+      });
+      continue;
+    }
+
+    if (entry.sourceType === AccountingSourceType.SUPPLIER_PAYMENT) {
+      const payment = supplierPaymentsMap.get(entry.sourceId);
+      resolved.set(entry.id, {
+        title: payment
+          ? `Pago proveedor #${payment.supplierPaymentNumber.toString()}`
+          : "Pago a proveedor",
+        subtitle: payment
+          ? `${payment.supplier.nombreComercial || payment.supplier.razonSocial} · ${paymentMethodLabel(payment.paymentMethod)} · ${formatCurrency(Number(payment.amount))}`
           : entry.sourceId,
       });
       continue;
@@ -658,6 +728,115 @@ export async function postCollectionEntryInTransaction(
         memo: "Aplicacion de cobro",
       },
     ],
+  });
+}
+
+export async function postPurchaseEntryInTransaction(
+  tx: Prisma.TransactionClient | Prisma.DefaultPrismaClient,
+  input: {
+    businessId: string;
+    purchaseId: string;
+    inventorySubtotal: number;
+    serviceSubtotal: number;
+    taxTotal: number;
+    total: number;
+  },
+): Promise<AccountingEntrySummary> {
+  const lines: CreateDraftEntryInput["lines"] = [];
+
+  if (input.inventorySubtotal > 0) {
+    lines.push({
+      accountCode: ACCOUNT_CODES.inventoryMerchandise,
+      debit: input.inventorySubtotal,
+      credit: 0,
+      memo: "Ingreso de inventario por compra",
+    });
+  }
+
+  if (input.serviceSubtotal > 0) {
+    lines.push({
+      accountCode: ACCOUNT_CODES.professionalServicesExpense,
+      debit: input.serviceSubtotal,
+      credit: 0,
+      memo: "Servicio recibido de proveedor",
+    });
+  }
+
+  if (input.taxTotal > 0) {
+    lines.push({
+      accountCode: ACCOUNT_CODES.vatCredit,
+      debit: input.taxTotal,
+      credit: 0,
+      memo: "IVA credito tributario en compra",
+    });
+  }
+
+  lines.push({
+    accountCode: ACCOUNT_CODES.accountsPayable,
+    debit: 0,
+    credit: input.total,
+    memo: "Cuenta por pagar a proveedor",
+  });
+
+  return ensurePostedEntryInTransaction(tx, {
+    businessId: input.businessId,
+    sourceType: AccountingSourceType.PURCHASE,
+    sourceId: input.purchaseId,
+    lines,
+  });
+}
+
+export async function postSupplierPaymentEntryInTransaction(
+  tx: Prisma.TransactionClient | Prisma.DefaultPrismaClient,
+  input: {
+    businessId: string;
+    supplierPaymentId: string;
+    amount: number;
+    paymentMethod: string;
+  },
+): Promise<AccountingEntrySummary> {
+  return ensurePostedEntryInTransaction(tx, {
+    businessId: input.businessId,
+    sourceType: AccountingSourceType.SUPPLIER_PAYMENT,
+    sourceId: input.supplierPaymentId,
+    lines: [
+      {
+        accountCode: ACCOUNT_CODES.accountsPayable,
+        debit: input.amount,
+        credit: 0,
+        memo: "Pago aplicado a proveedor",
+      },
+      {
+        accountCode:
+          input.paymentMethod === "01"
+            ? ACCOUNT_CODES.cashDrawer
+            : ACCOUNT_CODES.bankClearing,
+        debit: 0,
+        credit: input.amount,
+        memo: "Salida de fondos por pago a proveedor",
+      },
+    ],
+  });
+}
+
+export async function reversePostedEntryBySourceInTransaction(
+  tx: Prisma.TransactionClient | Prisma.DefaultPrismaClient,
+  input: {
+    businessId: string;
+    sourceType: AccountingSourceType;
+    sourceId: string;
+  },
+) {
+  await tx.accountingEntry.updateMany({
+    where: {
+      businessId: input.businessId,
+      sourceType: input.sourceType,
+      sourceId: input.sourceId,
+      status: AccountingEntryStatus.POSTED,
+    },
+    data: {
+      status: AccountingEntryStatus.REVERSED,
+    },
   });
 }
 

@@ -24,10 +24,14 @@ export const ACCOUNT_CODES = {
   accountsReceivable: "110101",
   cashDrawer: "110201",
   bankClearing: "110301",
+  inventoryMerchandise: "110401",
+  vatCredit: "110501",
+  accountsPayable: "210101",
   vatPayable: "210201",
   cashManualBridge: "230101",
   revenue: "410101",
   refundExpense: "510101",
+  professionalServicesExpense: "510205",
 } as const;
 
 export const ACCOUNTING_CHART: AccountingAccountCatalogItem[] = [
