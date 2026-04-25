@@ -236,7 +236,6 @@ type PosPaymentLine = {
 };
 
 const EMPTY_PRODUCTS: Product[] = [];
-const EMPTY_CUSTOMERS: Customer[] = [];
 const EMPTY_HELD_SALES: PosHeldSale[] = [];
 
 const WALK_IN_CUSTOMER = {
@@ -468,6 +467,7 @@ export function PosApp({
   );
   const [initialized, setInitialized] = useState(false);
   const [message, setMessage] = useState<MessageState>(null);
+  const [customerLookupLoading, setCustomerLookupLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [cashSubmitting, setCashSubmitting] = useState(false);
   const [holding, setHolding] = useState(false);
@@ -512,7 +512,6 @@ export function PosApp({
   const [manualProduct, setManualProduct] = useState<Product | null>(null);
 
   const products = bootstrap?.products ?? EMPTY_PRODUCTS;
-  const customers = bootstrap?.customers ?? EMPTY_CUSTOMERS;
   const heldSales = bootstrap?.heldSales ?? EMPTY_HELD_SALES;
   const cashSession = bootstrap?.cashSession ?? null;
   const desktopContentHeight = message
@@ -886,6 +885,22 @@ export function PosApp({
     patchBootstrap((current) => ({
       ...current,
       heldSales: current.heldSales.filter((item) => item.id !== heldSaleId),
+    }));
+  }
+
+  function upsertCustomerInBootstrap(nextCustomer: Customer) {
+    patchBootstrap((current) => ({
+      ...current,
+      customers: [
+        nextCustomer,
+        ...current.customers.filter(
+          (item) =>
+            !(
+              item.tipoIdentificacion === nextCustomer.tipoIdentificacion &&
+              item.identificacion === nextCustomer.identificacion
+            ),
+        ),
+      ].slice(0, 40),
     }));
   }
 
@@ -1441,8 +1456,8 @@ export function PosApp({
     });
   }
 
-  function searchCustomerByIdentification() {
-    const query = customer.identificacion.trim().toLowerCase();
+  async function searchCustomerByIdentification() {
+    const query = customer.identificacion.trim();
 
     if (!query) {
       setMessage({
@@ -1452,27 +1467,60 @@ export function PosApp({
       return;
     }
 
-    const existingCustomer =
-      customers.find((item) => item.identificacion.toLowerCase() === query) ??
-      customers.find((item) =>
-        item.identificacion.toLowerCase().includes(query),
+    setCustomerLookupLoading(true);
+
+    try {
+      const params = new URLSearchParams({
+        identification: query,
+      });
+
+      const matches = await fetchJson<Customer[]>(
+        `/api/v1/customers?${params.toString()}`,
       );
 
-    if (!existingCustomer) {
+      console.log("Customer search results:", matches);
+
+      const normalizedQuery = query.toLowerCase();
+      const existingCustomer =
+        matches.find(
+          (item) =>
+            item.tipoIdentificacion === customer.tipoIdentificacion &&
+            item.identificacion.toLowerCase() === normalizedQuery,
+        ) ??
+        matches.find(
+          (item) => item.identificacion.toLowerCase() === normalizedQuery,
+        ) ??
+        matches[0] ??
+        null;
+
+      if (!existingCustomer) {
+        setMessage({
+          tone: "info",
+          text: "No se encontro cliente con esa identificacion. Puedes completar los datos manualmente.",
+        });
+        focusCustomerNameField();
+        return;
+      }
+
+      applyExistingCustomer(existingCustomer);
+      upsertCustomerInBootstrap(existingCustomer);
       setMessage({
-        tone: "info",
-        text: "No se encontro cliente con esa identificacion. Puedes completar los datos manualmente.",
+        tone: "success",
+        text: `Cliente ${existingCustomer.razonSocial} cargado`,
+      });
+      focusBarcodeField(true);
+    } catch (error) {
+      setMessage({
+        tone: "error",
+        text:
+          error instanceof Error
+            ? error.message
+            : "No se pudo buscar el cliente en linea",
       });
       focusCustomerNameField();
-      return;
+    } finally {
+      setCustomerLookupLoading(false);
     }
-
-    applyExistingCustomer(existingCustomer);
-    setMessage({
-      tone: "success",
-      text: `Cliente ${existingCustomer.razonSocial} cargado`,
-    });
-    focusBarcodeField(true);
   }
 
   function applyWalkInCustomer() {
@@ -2947,7 +2995,7 @@ export function PosApp({
                                 onKeyDown={(e) => {
                                   if (e.key === "Enter") {
                                     e.preventDefault();
-                                    searchCustomerByIdentification();
+                                    void searchCustomerByIdentification();
                                   }
                                 }}
                                 InputProps={{
@@ -2956,9 +3004,16 @@ export function PosApp({
                                       <IconButton
                                         size="small"
                                         edge="end"
-                                        onClick={searchCustomerByIdentification}
+                                        onClick={() => {
+                                          void searchCustomerByIdentification();
+                                        }}
+                                        disabled={customerLookupLoading}
                                       >
-                                        <Search className="h-4 w-4" />
+                                        {customerLookupLoading ? (
+                                          <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                          <Search className="h-4 w-4" />
+                                        )}
                                       </IconButton>
                                     </InputAdornment>
                                   ),
