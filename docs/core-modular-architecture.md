@@ -209,8 +209,8 @@ src/
     feature-flags/
 ```
 
-### 7.1 Convencion sugerida por dominio
-Cada dominio puede organizarse con esta estructura:
+### 7.1 Convencion por dominio en core
+Cada dominio de `core` se organiza con esta estructura:
 
 ```text
 src/core/sales/
@@ -219,10 +219,81 @@ src/core/sales/
   presenters/
   repositories/
   policies/
-  components/
 ```
 
-### 7.2 Regla de dependencias
+### 7.2 Patrones de estructura para modulos
+
+Un modulo puede ser de tres tipos. El tipo se elige segun la naturaleza del modulo, no se mezclan patrones dentro del mismo modulo.
+
+#### Tipo A — Modulo simple (feature directa)
+Aplica cuando el modulo tiene una sola pantalla o flujo principal.
+Los archivos van directo en carpetas planas dentro del modulo.
+
+```text
+src/modules/billing/
+  components/     <- componentes UI del modulo
+  hooks/          <- hooks propios
+  pages/          <- pagina(s) principal(es)
+  services/       <- cliente API / logica de servicio
+  policies/       <- runtime y activacion (si aplica)
+  types.ts        <- tipos del modulo
+```
+
+Ejemplos actuales: `billing/`, `sales/`, `overview/`, `quotes/`
+
+#### Tipo B — Modulo con sub-features
+Aplica cuando el modulo agrupa dos o mas features distintas, cada una con su propia pagina o flujo.
+
+```text
+src/modules/inventory/
+  products/
+    components/
+    hooks/
+    pages/
+    services/
+    types.ts
+  kardex/
+    components/
+    hooks/
+    pages/
+    services/
+    types.ts
+  inventory-adjustment/
+    ...
+  shared/         <- solo si dos o mas sub-features comparten logica
+  policies/       <- runtime del modulo completo (si aplica)
+```
+
+Reglas del Tipo B:
+
+1. No hay archivos ni carpetas sueltas en la raiz del modulo. Todo vive dentro de una sub-feature o en `shared/`.
+2. El nombre de la sub-feature no repite el nombre del modulo padre.
+3. `shared/` dentro del modulo solo aparece cuando dos o mas sub-features necesitan la misma logica.
+4. `policies/` puede existir a nivel de raiz del modulo para controlar su activacion.
+5. Un modulo empieza como Tipo A y evoluciona a Tipo B cuando tiene dos o mas features con pagina propia.
+
+Ejemplos actuales: `inventory/`, `purchases/`, `accounting/`
+
+#### Tipo App — Modulo aplicacion (caso especial)
+Aplica cuando el modulo es una aplicacion de pantalla completa independiente del dashboard.
+Tiene estructura plana con una carpeta `verticals/` para variantes por tipo de negocio.
+
+```text
+src/modules/pos/
+  components/     <- app principal del POS
+  hooks/
+  services/
+  policies/
+  verticals/      <- variantes por tipo de negocio
+    restaurant/
+      components/
+      schemas.ts
+      service.ts
+```
+
+Ejemplo actual: `pos/`
+
+### 7.3 Regla de dependencias
 
 1. `core` no depende de `modules`
 2. `modules` si pueden depender de `core`

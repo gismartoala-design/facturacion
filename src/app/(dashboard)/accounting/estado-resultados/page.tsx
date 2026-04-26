@@ -7,9 +7,9 @@ import {
   getBusinessContextById,
 } from "@/core/business/business.service";
 import { getSession } from "@/lib/auth";
-import { AccountingIncomeStatementPage } from "@/modules/accounting/components/accounting-income-statement-page";
-import type { AccountingIncomeStatementResponse } from "@/modules/accounting/lib/accounting-income-statement-view-model";
-import { serializeForClient } from "@/modules/accounting/lib/serialize-for-client";
+import { AccountingIncomeStatementPage } from "@/modules/accounting/income-statement/components/accounting-income-statement-page";
+import type { AccountingIncomeStatementResponse } from "@/modules/accounting/income-statement/types";
+import { serializeForClient } from "@/modules/accounting/shared/serialize-for-client";
 
 export const metadata: Metadata = {
   title: "Estado de Resultados",

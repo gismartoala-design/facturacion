@@ -1,6 +1,6 @@
 import type { AccountingEntriesOverview } from "@/core/accounting/types";
 
-import type { SerializeForClient } from "./serialize-for-client";
+import type { SerializeForClient } from "@/modules/accounting/shared/serialize-for-client";
 
 export type AccountingJournalResponse = SerializeForClient<AccountingEntriesOverview>;
 export type AccountingJournalRow = AccountingJournalResponse["rows"][number];

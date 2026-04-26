@@ -14,27 +14,30 @@ import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
-import { BarChart3, CalendarRange, RefreshCcw, Search } from "lucide-react";
+import { CalendarRange, Landmark, RefreshCcw, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import { formatCompactNumber, formatCurrency } from "@/modules/accounting/lib/format";
+import {
+  ACCOUNTING_GROUP_TONES,
+  formatCompactNumber,
+  formatCurrency,
+} from "@/modules/accounting/shared/format";
 import type {
-  AccountingIncomeStatementResponse,
-  IncomeStatementRow,
-  IncomeStatementSection,
-} from "@/modules/accounting/lib/accounting-income-statement-view-model";
+  AccountingBalanceSheetResponse,
+  BalanceSheetRow,
+  BalanceSheetSection,
+} from "../types";
 import { fetchJson } from "@/shared/dashboard/api";
 import { DashboardPageHeader } from "@/shared/dashboard/page-header";
 
 type FiltersForm = {
-  from: string;
   to: string;
   includeZeroBalances: boolean;
   includeInactive: boolean;
 };
 
-type AccountingIncomeStatementPageProps = {
-  initialReport: AccountingIncomeStatementResponse | null;
+type AccountingBalanceSheetPageProps = {
+  initialReport: AccountingBalanceSheetResponse | null;
   initialError?: string | null;
 };
 
@@ -50,14 +53,8 @@ function todayInputValue() {
   return formatInputDate(new Date());
 }
 
-function monthStartInputValue() {
-  const now = new Date();
-  return formatInputDate(new Date(now.getFullYear(), now.getMonth(), 1));
-}
-
 function createInitialFilters(): FiltersForm {
   return {
-    from: monthStartInputValue(),
     to: todayInputValue(),
     includeZeroBalances: false,
     includeInactive: false,
@@ -66,7 +63,6 @@ function createInitialFilters(): FiltersForm {
 
 function buildQuery(filters: FiltersForm) {
   const params = new URLSearchParams();
-  if (filters.from) params.set("from", filters.from);
   if (filters.to) params.set("to", filters.to);
   params.set("includeZeroBalances", String(filters.includeZeroBalances));
   params.set("includeInactive", String(filters.includeInactive));
@@ -74,11 +70,11 @@ function buildQuery(filters: FiltersForm) {
 }
 
 type SectionGridProps = {
-  section: IncomeStatementSection;
+  section: BalanceSheetSection;
   search: string;
 };
 
-function IncomeSectionGrid({ section, search }: SectionGridProps) {
+function SectionGrid({ section, search }: SectionGridProps) {
   const rows = useMemo(() => {
     const normalized = search.trim().toLowerCase();
     if (!normalized) {
@@ -93,7 +89,7 @@ function IncomeSectionGrid({ section, search }: SectionGridProps) {
     );
   }, [search, section.rows]);
 
-  const columns: GridColDef<IncomeStatementRow>[] = [
+  const columns: GridColDef<BalanceSheetRow>[] = [
     {
       field: "code",
       headerName: "Codigo",
@@ -104,7 +100,7 @@ function IncomeSectionGrid({ section, search }: SectionGridProps) {
     {
       field: "name",
       headerName: "Cuenta",
-      minWidth: 250,
+      minWidth: 260,
       flex: 1.8,
       sortable: false,
       renderCell: (params) => (
@@ -121,9 +117,9 @@ function IncomeSectionGrid({ section, search }: SectionGridProps) {
     },
     {
       field: "balance",
-      headerName: "Valor",
+      headerName: "Saldo",
       minWidth: 140,
-      flex: 0.85,
+      flex: 0.9,
       align: "right",
       headerAlign: "right",
       sortable: false,
@@ -154,7 +150,8 @@ function IncomeSectionGrid({ section, search }: SectionGridProps) {
         >
           <Stack direction="row" spacing={1} alignItems="center">
             <Chip
-              label={section.label}
+              label={section.groupLabel}
+              color={ACCOUNTING_GROUP_TONES[section.groupKey] ?? "default"}
               variant="outlined"
               sx={{ borderRadius: "999px", fontWeight: 700 }}
             />
@@ -168,7 +165,7 @@ function IncomeSectionGrid({ section, search }: SectionGridProps) {
         </Stack>
       </Stack>
 
-      <Box sx={{ minHeight: 320 }}>
+      <Box sx={{ minHeight: 360 }}>
         <DataGrid
           rows={rows}
           columns={columns}
@@ -208,11 +205,11 @@ function IncomeSectionGrid({ section, search }: SectionGridProps) {
   );
 }
 
-export function AccountingIncomeStatementPage({
+export function AccountingBalanceSheetPage({
   initialReport,
   initialError = null,
-}: AccountingIncomeStatementPageProps) {
-  const [report, setReport] = useState<AccountingIncomeStatementResponse | null>(
+}: AccountingBalanceSheetPageProps) {
+  const [report, setReport] = useState<AccountingBalanceSheetResponse | null>(
     initialReport,
   );
   const [filters, setFilters] = useState<FiltersForm>(createInitialFilters);
@@ -232,14 +229,14 @@ export function AccountingIncomeStatementPage({
     }));
   }
 
-  async function loadIncomeStatement(nextFilters: FiltersForm) {
+  async function loadBalanceSheet(nextFilters: FiltersForm) {
     setLoading(true);
     setError(null);
 
     try {
       const query = buildQuery(nextFilters);
-      const nextReport = await fetchJson<AccountingIncomeStatementResponse>(
-        `/api/v1/accounting/income-statement?${query}`,
+      const nextReport = await fetchJson<AccountingBalanceSheetResponse>(
+        `/api/v1/accounting/balance-sheet?${query}`,
       );
 
       setReport(nextReport);
@@ -248,7 +245,7 @@ export function AccountingIncomeStatementPage({
       setError(
         loadError instanceof Error
           ? loadError.message
-          : "No se pudo cargar el estado de resultados",
+          : "No se pudo cargar el balance general",
       );
     } finally {
       setLoading(false);
@@ -256,27 +253,33 @@ export function AccountingIncomeStatementPage({
   }
 
   function handleApplyFilters() {
-    void loadIncomeStatement(filters);
+    void loadBalanceSheet(filters);
   }
 
   function handleReload() {
-    void loadIncomeStatement(submittedFilters);
+    void loadBalanceSheet(submittedFilters);
   }
 
   function handleResetFilters() {
     const initial = createInitialFilters();
     setFilters(initial);
     setSearch("");
-    void loadIncomeStatement(initial);
+    void loadBalanceSheet(initial);
   }
 
+  const assetSection = report?.sections.find((section) => section.groupKey === "ASSET");
+  const liabilitySection = report?.sections.find(
+    (section) => section.groupKey === "LIABILITY",
+  );
+  const equitySection = report?.sections.find((section) => section.groupKey === "EQUITY");
+
   return (
-    <Grid container spacing={2.5}>
+    <Grid container spacing={3}>
       <Grid size={12}>
         <DashboardPageHeader
-          icon={<BarChart3 size={18} color="#475569" />}
-          title="Estado de resultados"
-          description="Resultado del periodo a partir de ingresos, costos y gastos."
+          icon={<Landmark className="h-4.5 w-4.5" />}
+          title="Balance general"
+          description="Posicion financiera acumulada a una fecha de corte."
           sx={{ px: { xs: 1, sm: 2 }, pt: { xs: 1, sm: 2 } }}
         />
       </Grid>
@@ -300,7 +303,7 @@ export function AccountingIncomeStatementPage({
           >
             <Grid size={{ xs: 12, lg: "grow" }}>
               <Typography variant="h6" sx={{ fontWeight: 700, color: "#0f172a" }}>
-                Filtros del estado de resultados
+                Filtros del balance general
               </Typography>
             </Grid>
 
@@ -322,24 +325,7 @@ export function AccountingIncomeStatementPage({
           <Grid container spacing={1.25}>
             <Grid size={{ xs: 12, md: 3 }}>
               <TextField
-                label="Desde"
-                type="date"
-                value={filters.from}
-                onChange={(event) => handleFilterChange("from", event.target.value)}
-                InputLabelProps={{ shrink: true }}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <CalendarRange size={16} color="#64748b" />
-                    </InputAdornment>
-                  ),
-                }}
-                fullWidth
-              />
-            </Grid>
-            <Grid size={{ xs: 12, md: 3 }}>
-              <TextField
-                label="Hasta"
+                label="Fecha de corte"
                 type="date"
                 value={filters.to}
                 onChange={(event) => handleFilterChange("to", event.target.value)}
@@ -354,7 +340,7 @@ export function AccountingIncomeStatementPage({
                 fullWidth
               />
             </Grid>
-            <Grid size={{ xs: 12, md: 4 }}>
+            <Grid size={{ xs: 12, md: 5 }}>
               <TextField
                 label="Buscar cuenta"
                 placeholder="Codigo, nombre o padre"
@@ -370,20 +356,7 @@ export function AccountingIncomeStatementPage({
                 }}
               />
             </Grid>
-            <Grid size={{ xs: 12, md: 2 }}>
-              <Stack direction="row" spacing={1} justifyContent="flex-end">
-                <Button
-                  type="button"
-                  variant="contained"
-                  onClick={handleApplyFilters}
-                  disabled={loading}
-                  sx={{ borderRadius: "999px", fontWeight: 700, minWidth: 120 }}
-                >
-                  Consultar
-                </Button>
-              </Stack>
-            </Grid>
-            <Grid size={{ xs: 12, md: 8 }}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>
                 <FormControlLabel
                   control={
@@ -409,12 +382,17 @@ export function AccountingIncomeStatementPage({
                 />
               </Stack>
             </Grid>
-            <Grid size={{ xs: 12, md: 4 }}>
-              <Stack
-                direction="row"
-                spacing={1}
-                justifyContent={{ xs: "flex-start", md: "flex-end" }}
-              >
+            <Grid size={{ xs: 12 }}>
+              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                <Button
+                  type="button"
+                  variant="contained"
+                  onClick={handleApplyFilters}
+                  disabled={loading}
+                  sx={{ borderRadius: "999px", fontWeight: 700, minWidth: 140 }}
+                >
+                  Consultar
+                </Button>
                 <Button
                   type="button"
                   variant="outlined"
@@ -431,27 +409,26 @@ export function AccountingIncomeStatementPage({
           {report ? (
             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
               <Chip
-                label={`Ingresos operacionales ${formatCurrency(report.summary.operatingIncomeTotal)}`}
+                label={`Activo ${formatCurrency(report.summary.assetsTotal)}`}
                 sx={{ borderRadius: "999px", fontWeight: 700 }}
               />
               <Chip
-                label={`Costo de ventas ${formatCurrency(report.summary.costOfSalesTotal)}`}
+                label={`Pasivo ${formatCurrency(report.summary.liabilitiesTotal)}`}
                 variant="outlined"
                 sx={{ borderRadius: "999px", fontWeight: 700 }}
               />
               <Chip
-                label={`Gastos operativos ${formatCurrency(report.summary.operatingExpensesTotal)}`}
+                label={`Patrimonio ${formatCurrency(report.summary.equityTotal)}`}
                 variant="outlined"
                 sx={{ borderRadius: "999px", fontWeight: 700 }}
               />
               <Chip
-                label={`Otros ingresos ${formatCurrency(report.summary.otherIncomeTotal)}`}
-                variant="outlined"
-                sx={{ borderRadius: "999px", fontWeight: 700 }}
-              />
-              <Chip
-                color={report.summary.netResult >= 0 ? "success" : "error"}
-                label={`Resultado neto ${formatCurrency(report.summary.netResult)}`}
+                color={
+                  Math.abs(report.summary.equationDifference) <= 0.0001
+                    ? "success"
+                    : "error"
+                }
+                label={`Diferencia ${formatCurrency(report.summary.equationDifference)}`}
                 variant="outlined"
                 sx={{ borderRadius: "999px", fontWeight: 700 }}
               />
@@ -469,71 +446,7 @@ export function AccountingIncomeStatementPage({
         </Grid>
       ) : null}
 
-      {report ? (
-        <Grid size={12} container spacing={2}>
-          <Grid size={{ xs: 12 }}>
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 12, md: 4 }}>
-                <Paper
-                  elevation={0}
-                  sx={{
-                    borderRadius: "22px",
-                    border: "1px solid rgba(226, 232, 240, 0.95)",
-                    p: 2,
-                  }}
-                >
-                  <Typography sx={{ color: "#64748b", fontSize: 13 }}>
-                    Utilidad bruta
-                  </Typography>
-                  <Typography sx={{ color: "#0f172a", fontSize: 26, fontWeight: 700 }}>
-                    {formatCurrency(report.summary.grossProfit)}
-                  </Typography>
-                </Paper>
-              </Grid>
-              <Grid size={{ xs: 12, md: 4 }}>
-                <Paper
-                  elevation={0}
-                  sx={{
-                    borderRadius: "22px",
-                    border: "1px solid rgba(226, 232, 240, 0.95)",
-                    p: 2,
-                  }}
-                >
-                  <Typography sx={{ color: "#64748b", fontSize: 13 }}>
-                    Resultado operativo
-                  </Typography>
-                  <Typography sx={{ color: "#0f172a", fontSize: 26, fontWeight: 700 }}>
-                    {formatCurrency(report.summary.operatingResult)}
-                  </Typography>
-                </Paper>
-              </Grid>
-              <Grid size={{ xs: 12, md: 4 }}>
-                <Paper
-                  elevation={0}
-                  sx={{
-                    borderRadius: "22px",
-                    border: "1px solid rgba(226, 232, 240, 0.95)",
-                    p: 2,
-                  }}
-                >
-                  <Typography sx={{ color: "#64748b", fontSize: 13 }}>
-                    Resultado neto
-                  </Typography>
-                  <Typography sx={{ color: "#0f172a", fontSize: 26, fontWeight: 700 }}>
-                    {formatCurrency(report.summary.netResult)}
-                  </Typography>
-                </Paper>
-              </Grid>
-            </Grid>
-          </Grid>
-
-          {report.sections.map((section) => (
-            <Grid key={section.key} size={{ xs: 12, xl: 6 }}>
-              <IncomeSectionGrid section={section} search={search} />
-            </Grid>
-          ))}
-        </Grid>
-      ) : loading ? (
+      {loading ? (
         <Grid size={12}>
           <Paper
           elevation={0}
@@ -547,10 +460,24 @@ export function AccountingIncomeStatementPage({
             <Stack alignItems="center" justifyContent="center" spacing={1.5}>
               <CircularProgress size={28} />
             <Typography sx={{ color: "#64748b", fontSize: 14 }}>
-              Cargando estado de resultados...
+              Cargando balance general...
             </Typography>
             </Stack>
           </Paper>
+        </Grid>
+      ) : report ? (
+        <Grid size={12} container spacing={2}>
+          <Grid size={{ xs: 12, xl: 6 }}>
+            {assetSection ? <SectionGrid section={assetSection} search={search} /> : null}
+          </Grid>
+          <Grid size={{ xs: 12, xl: 6 }}>
+            <Stack spacing={2}>
+              {liabilitySection ? (
+                <SectionGrid section={liabilitySection} search={search} />
+              ) : null}
+              {equitySection ? <SectionGrid section={equitySection} search={search} /> : null}
+            </Stack>
+          </Grid>
         </Grid>
       ) : null}
     </Grid>

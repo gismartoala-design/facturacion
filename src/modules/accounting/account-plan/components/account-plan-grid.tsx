@@ -12,7 +12,7 @@ import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import { Search } from "lucide-react";
 import { useMemo } from "react";
 
-import { ACCOUNTING_GROUP_TONES } from "@/modules/accounting/lib/format";
+import { ACCOUNTING_GROUP_TONES } from "@/modules/accounting/shared/format";
 import type {
   AccountNature,
   AccountRow,

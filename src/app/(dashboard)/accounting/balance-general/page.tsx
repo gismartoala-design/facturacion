@@ -7,9 +7,9 @@ import {
   getBusinessContextById,
 } from "@/core/business/business.service";
 import { getSession } from "@/lib/auth";
-import { AccountingBalanceSheetPage } from "@/modules/accounting/components/accounting-balance-sheet-page";
-import type { AccountingBalanceSheetResponse } from "@/modules/accounting/lib/accounting-balance-sheet-view-model";
-import { serializeForClient } from "@/modules/accounting/lib/serialize-for-client";
+import { AccountingBalanceSheetPage } from "@/modules/accounting/balance-sheet/components/accounting-balance-sheet-page";
+import type { AccountingBalanceSheetResponse } from "@/modules/accounting/balance-sheet/types";
+import { serializeForClient } from "@/modules/accounting/shared/serialize-for-client";
 
 export const metadata: Metadata = {
   title: "Balance General",

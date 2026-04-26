@@ -34,8 +34,8 @@ import {
 } from "lucide-react";
 import { useMemo, useRef, useState, type RefObject } from "react";
 
-import { formatCurrency } from "@/modules/accounting/lib/format";
-import type { EntryAccountOption } from "@/modules/accounting/lib/accounting-entries-view-model";
+import { formatCurrency } from "@/modules/accounting/shared/format";
+import type { EntryAccountOption } from "../types";
 import { useAccountingNotifier } from "@/shared/notifications/notifier-presets";
 import { fetchJson } from "@/shared/dashboard/api";
 import { DashboardPageHeader } from "@/shared/dashboard/page-header";

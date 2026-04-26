@@ -7,7 +7,7 @@ import {
   type ParsedAccountingImportResult,
   ACCOUNTING_IMPORT_TEMPLATE,
   parseAccountingAccountsImport,
-} from "@/modules/accounting/lib/accounting-account-import";
+} from "@/modules/accounting/account-plan/services/accounting-account-import";
 import { fetchJson } from "@/shared/dashboard/api";
 
 import type { SnackbarState } from "../shared";

@@ -9,7 +9,7 @@ import { getAccountingAccountPlan } from "@/core/accounting/account-plan.service
 import { getSession } from "@/lib/auth";
 import { AccountPlanPage } from "@/modules/accounting/account-plan/pages/account-plan-page";
 import type { AccountPlanResponse } from "@/modules/accounting/accounting-ledger/components/account-plan-view-model";
-import { serializeForClient } from "@/modules/accounting/lib/serialize-for-client";
+import { serializeForClient } from "@/modules/accounting/shared/serialize-for-client";
 
 export const metadata: Metadata = {
   title: "Plan de Cuentas",

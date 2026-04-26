@@ -21,11 +21,11 @@ import {
   ACCOUNTING_GROUP_TONES,
   formatCompactNumber,
   formatCurrency,
-} from "@/modules/accounting/lib/format";
+} from "@/modules/accounting/shared/format";
 import type {
   AccountingTrialBalanceResponse,
   AccountingTrialBalanceRow,
-} from "@/modules/accounting/lib/accounting-trial-balance-view-model";
+} from "../types";
 import { fetchJson } from "@/shared/dashboard/api";
 import { DashboardPageHeader } from "@/shared/dashboard/page-header";
 

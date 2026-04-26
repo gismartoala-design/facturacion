@@ -7,9 +7,9 @@ import {
   getBusinessContextById,
 } from "@/core/business/business.service";
 import { getSession } from "@/lib/auth";
-import { AccountingJournalPage } from "@/modules/accounting/components/accounting-journal-page";
-import type { AccountingJournalResponse } from "@/modules/accounting/lib/accounting-journal-view-model";
-import { serializeForClient } from "@/modules/accounting/lib/serialize-for-client";
+import { AccountingJournalPage } from "@/modules/accounting/journal/components/accounting-journal-page";
+import type { AccountingJournalResponse } from "@/modules/accounting/journal/types";
+import { serializeForClient } from "@/modules/accounting/shared/serialize-for-client";
 
 export const metadata: Metadata = {
   title: "Libro Diario",

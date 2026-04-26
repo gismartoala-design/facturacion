@@ -1,6 +1,6 @@
 import type { AccountingAccountPlanOverview } from "@/core/accounting/types";
 
-import type { SerializeForClient } from "./serialize-for-client";
+import type { SerializeForClient } from "@/modules/accounting/shared/serialize-for-client";
 
 export type AccountPlanResponse = SerializeForClient<AccountingAccountPlanOverview>;
 

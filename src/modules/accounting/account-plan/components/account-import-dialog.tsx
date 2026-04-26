@@ -20,7 +20,7 @@ import type { AccountImportResponse } from "@/modules/accounting/accounting-ledg
 import type {
   ParsedAccountingImportResult,
   ParsedAccountingImportRow,
-} from "@/modules/accounting/lib/accounting-account-import";
+} from "../services/accounting-account-import";
 
 type AccountImportDialogProps = {
   open: boolean;

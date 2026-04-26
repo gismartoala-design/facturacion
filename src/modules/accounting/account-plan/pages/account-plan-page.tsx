@@ -17,7 +17,7 @@ import {
   formatCompactNumber,
   formatCurrency,
   formatDateTime,
-} from "@/modules/accounting/lib/format";
+} from "@/modules/accounting/shared/format";
 import type {
   AccountGroupKey,
   AccountPlanResponse,

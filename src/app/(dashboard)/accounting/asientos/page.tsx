@@ -7,9 +7,9 @@ import {
   getBusinessContextById,
 } from "@/core/business/business.service";
 import { getSession } from "@/lib/auth";
-import { AccountingEntriesPage } from "@/modules/accounting/components/accounting-entries-page";
-import type { EntryAccountOption } from "@/modules/accounting/lib/accounting-entries-view-model";
-import { serializeForClient } from "@/modules/accounting/lib/serialize-for-client";
+import { AccountingEntriesPage } from "@/modules/accounting/entries/components/accounting-entries-page";
+import type { EntryAccountOption } from "@/modules/accounting/entries/types";
+import { serializeForClient } from "@/modules/accounting/shared/serialize-for-client";
 
 export const metadata: Metadata = {
   title: "Asientos Contables",

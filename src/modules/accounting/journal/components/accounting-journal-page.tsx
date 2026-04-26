@@ -26,13 +26,13 @@ import {
   formatCompactNumber,
   formatCurrency,
   formatDateTime,
-} from "@/modules/accounting/lib/format";
+} from "@/modules/accounting/shared/format";
 import type {
   AccountingEntryLine,
   AccountingJournalGridRow,
   AccountingJournalResponse,
   AccountingJournalRow,
-} from "@/modules/accounting/lib/accounting-journal-view-model";
+} from "../types";
 import { fetchJson } from "@/shared/dashboard/api";
 import { DashboardPageHeader } from "@/shared/dashboard/page-header";
 
