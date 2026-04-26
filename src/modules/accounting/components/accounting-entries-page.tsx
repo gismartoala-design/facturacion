@@ -36,8 +36,10 @@ import { useMemo, useRef, useState, type RefObject } from "react";
 
 import { formatCurrency } from "@/modules/accounting/lib/format";
 import type { EntryAccountOption } from "@/modules/accounting/lib/accounting-entries-view-model";
+import { useAccountingNotifier } from "@/shared/notifications/notifier-presets";
 import { fetchJson } from "@/shared/dashboard/api";
 import { DashboardPageHeader } from "@/shared/dashboard/page-header";
+import { PageErrorState } from "@/shared/states/page-error-state";
 
 type AccountingEntriesPageProps = {
   initialAccounts: EntryAccountOption[];
@@ -240,9 +242,9 @@ export function AccountingEntriesPage({
   initialAccounts,
   initialError = null,
 }: AccountingEntriesPageProps) {
+  const notifier = useAccountingNotifier();
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(initialError);
-  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [header, setHeader] = useState<EntryHeader>(createInitialHeader());
   const [draftLine, setDraftLine] = useState<DraftLine>(createInitialDraftLine());
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
@@ -415,8 +417,7 @@ export function AccountingEntriesPage({
     setEntryLines([]);
 
     if (clearFeedback) {
-      setError(initialError);
-      setMessage(null);
+      setError(null);
     }
   }
 
@@ -576,7 +577,6 @@ export function AccountingEntriesPage({
 
     setSaving(true);
     setError(null);
-    setMessage(null);
 
     try {
       await fetchJson("/api/v1/accounting/entries", {
@@ -592,21 +592,21 @@ export function AccountingEntriesPage({
         }),
       });
 
-      setMessage(
+      notifier.saved(
         mode === "POSTED"
           ? "Asiento manual registrado y posteado."
           : "Asiento manual guardado como borrador.",
       );
       resetForm(false);
     } catch (saveError) {
-      setError(
-        saveError instanceof Error
-          ? saveError.message
-          : "No se pudo registrar el asiento manual",
-      );
+      notifier.apiError(saveError, "No se pudo registrar el asiento manual");
     } finally {
       setSaving(false);
     }
+  }
+
+  if (initialError && initialAccounts.length === 0) {
+    return <PageErrorState message={initialError} />;
   }
 
   return (
@@ -624,14 +624,6 @@ export function AccountingEntriesPage({
         <Grid size={12}>
           <Alert severity="error" variant="outlined" sx={{ borderRadius: "18px" }}>
             {error}
-          </Alert>
-        </Grid>
-      ) : null}
-
-      {message ? (
-        <Grid size={12}>
-          <Alert severity="success" variant="outlined" sx={{ borderRadius: "18px" }}>
-            {message}
           </Alert>
         </Grid>
       ) : null}

@@ -1,9 +1,9 @@
 "use client";
 
-import Alert from "@mui/material/Alert";
 import Stack from "@mui/material/Stack";
 
 import type { Product, StockItem } from "@/shared/dashboard/types";
+import { PageErrorState } from "@/shared/states/page-error-state";
 
 import { InventoryAdjustmentDialog } from "../components/inventory-adjustment-dialog";
 import { InventoryAdjustmentSection } from "../components/inventory-adjustment-section";
@@ -23,17 +23,14 @@ export function InventoryAdjustmentPage({
   const page = useInventoryAdjustmentPage({
     initialProducts,
     initialStock,
-    initialError,
   });
+
+  if (initialError) {
+    return <PageErrorState message={initialError} />;
+  }
 
   return (
     <Stack spacing={2}>
-      {page.feedback ? (
-        <Alert severity={page.feedback.severity} variant="outlined">
-          {page.feedback.message}
-        </Alert>
-      ) : null}
-
       <InventoryAdjustmentSection
         stock={page.stock}
         onOpenStockModal={page.openDialog}

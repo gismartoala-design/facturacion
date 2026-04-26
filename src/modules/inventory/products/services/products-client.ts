@@ -14,6 +14,8 @@ function buildCreateProductPayload(form: NewProductForm) {
     precio: Number(form.precio),
     tarifaIva: Number(form.tarifaIva),
     stockInicial: form.tipoProducto === "BIEN" ? Number(form.stockInicial) : 0,
+    initialUnitCost:
+      form.tipoProducto === "BIEN" ? Number(form.initialUnitCost) : 0,
     minStock: form.tipoProducto === "BIEN" ? Number(form.minStock) : 0,
   };
 }

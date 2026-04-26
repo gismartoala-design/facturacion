@@ -1,20 +1,14 @@
 "use client";
 
 import {
-  Alert,
   Box,
   Button,
-  Chip,
-  CircularProgress,
   Paper,
-  Snackbar,
   Stack,
   Typography,
 } from "@mui/material";
-import { MoreHorizontal, RefreshCcw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
-  MouseEvent,
   startTransition,
   useCallback,
   useDeferredValue,
@@ -23,6 +17,7 @@ import {
   useState,
 } from "react";
 
+import { useAppNotifications } from "@/components/providers/app-notification-provider";
 import { fetchJson } from "@/shared/dashboard/api";
 import { RestaurantFloorScreen } from "@/modules/restaurant/components/restaurant-floor-screen";
 import { RestaurantKitchenScreen } from "@/modules/restaurant/components/restaurant-kitchen-screen";
@@ -44,13 +39,13 @@ export function RestaurantOperationsApp({
   initialSelectedTableId = null,
 }: RestaurantOperationsAppProps) {
   const router = useRouter();
+  const { notify } = useAppNotifications();
   const [bootstrap, setBootstrap] = useState<RestaurantBootstrap | null>(
     initialBootstrap,
   );
   const [bootError, setBootError] = useState<string | null>(
     initialBootstrapError,
   );
-  const [bootLoading, setBootLoading] = useState(false);
   const [floor, setFloor] = useState<RestaurantFloorTable[]>(
     initialBootstrap?.floor ?? [],
   );
@@ -65,15 +60,24 @@ export function RestaurantOperationsApp({
   const [orderLoading, setOrderLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [productQuery, setProductQuery] = useState("");
-  const [message, setMessage] = useState<{
-    tone: "success" | "error" | "info";
-    text: string;
-  } | null>(null);
   const [guestCountDraft, setGuestCountDraft] = useState("2");
   const [draftItems, setDraftItems] = useState<DraftItem[]>([]);
   const deferredProductQuery = useDeferredValue(productQuery);
-  const [toolbarMenuAnchor, setToolbarMenuAnchor] =
-      useState<null | HTMLElement>(null);
+
+  const showMessage = useCallback(
+    (message: { tone: "success" | "error" | "info"; text: string }) => {
+      notify({
+        message: message.text,
+        severity: message.tone,
+        anchorOrigin: {
+          vertical: "bottom",
+          horizontal: "center",
+        },
+        autoHideDuration: 3600,
+      });
+    },
+    [notify],
+  );
 
   const floorScreen = screen === "floor";
   const tableScreen = screen === "table";
@@ -258,7 +262,6 @@ export function RestaurantOperationsApp({
   }, []);
 
   const loadBootstrap = useCallback(async () => {
-    setBootLoading(true);
     setBootError(null);
 
     try {
@@ -282,11 +285,9 @@ export function RestaurantOperationsApp({
           ? error.message
           : "No se pudo cargar restaurante";
       setBootError(nextMessage);
-      setMessage({ tone: "error", text: nextMessage });
-    } finally {
-      setBootLoading(false);
+      showMessage({ tone: "error", text: nextMessage });
     }
-  }, [initialSelectedTableId]);
+  }, [initialSelectedTableId, showMessage]);
 
   const loadOrder = useCallback(async (orderId: string) => {
     setOrderLoading(true);
@@ -299,7 +300,7 @@ export function RestaurantOperationsApp({
       });
     } catch (error) {
       setSelectedOrder(null);
-      setMessage({
+      showMessage({
         tone: "error",
         text:
           error instanceof Error ? error.message : "No se pudo cargar la orden",
@@ -307,7 +308,7 @@ export function RestaurantOperationsApp({
     } finally {
       setOrderLoading(false);
     }
-  }, []);
+  }, [showMessage]);
 
   useEffect(() => {
     void refreshKds();
@@ -377,12 +378,12 @@ export function RestaurantOperationsApp({
       if (!waiterScreen) {
         router.push(`/restaurant/tables/${tableId}`);
       }
-      setMessage({
+      showMessage({
         tone: "success",
         text: "Mesa abierta y lista para comandar",
       });
     } catch (error) {
-      setMessage({
+      showMessage({
         tone: "error",
         text:
           error instanceof Error ? error.message : "No se pudo abrir la mesa",
@@ -394,12 +395,12 @@ export function RestaurantOperationsApp({
 
   async function handleCreateOrUpdateOrder() {
     if (!selectedTable) {
-      setMessage({ tone: "info", text: "Selecciona una mesa para continuar" });
+      showMessage({ tone: "info", text: "Selecciona una mesa para continuar" });
       return;
     }
 
     if (draftItems.length === 0) {
-      setMessage({ tone: "info", text: "Agrega productos antes de comandar" });
+      showMessage({ tone: "info", text: "Agrega productos antes de comandar" });
       return;
     }
 
@@ -456,14 +457,14 @@ export function RestaurantOperationsApp({
       }
 
       await refreshFloor();
-      setMessage({
+      showMessage({
         tone: "success",
         text: selectedOrder
           ? "Items agregados a la orden"
           : "Orden creada para la mesa",
       });
     } catch (error) {
-      setMessage({
+      showMessage({
         tone: "error",
         text:
           error instanceof Error
@@ -477,7 +478,7 @@ export function RestaurantOperationsApp({
 
   async function handleFireOrder() {
     if (!selectedOrder) {
-      setMessage({ tone: "info", text: "No hay orden activa para enviar" });
+      showMessage({ tone: "info", text: "No hay orden activa para enviar" });
       return;
     }
 
@@ -499,7 +500,7 @@ export function RestaurantOperationsApp({
       await refreshFloor();
       await refreshKds();
 
-      setMessage({
+      showMessage({
         tone: data.missingRecipeProductIds.length > 0 ? "info" : "success",
         text:
           data.missingRecipeProductIds.length > 0
@@ -507,7 +508,7 @@ export function RestaurantOperationsApp({
             : "Comanda enviada a cocina",
       });
     } catch (error) {
-      setMessage({
+      showMessage({
         tone: "error",
         text:
           error instanceof Error
@@ -517,14 +518,6 @@ export function RestaurantOperationsApp({
     } finally {
       setActionLoading(null);
     }
-  }
-
-  function openToolbarMenu(event: MouseEvent<HTMLButtonElement>) {
-    setToolbarMenuAnchor(event.currentTarget);
-  }
-
-  function closeToolbarMenu() {
-    setToolbarMenuAnchor(null);
   }
 
   if (!bootstrap && bootError) {
@@ -686,17 +679,6 @@ export function RestaurantOperationsApp({
                 >
                   Reimprimir · F9
                 </Button> */}
-                <Button
-                  size="small"
-                  variant="outlined"
-                  sx={{
-                    minWidth: 42,
-                    px: 1.1,
-                  }}
-                  onClick={openToolbarMenu}
-                >
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
               </Stack>
             </Stack>
           </Box>
@@ -772,26 +754,6 @@ export function RestaurantOperationsApp({
         ) : null}
       </Stack>
 
-      <Snackbar
-        open={Boolean(message)}
-        autoHideDuration={3600}
-        onClose={() => setMessage(null)}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-      >
-        <Alert
-          severity={
-            message?.tone === "error"
-              ? "error"
-              : message?.tone === "success"
-                ? "success"
-                : "info"
-          }
-          variant="filled"
-          onClose={() => setMessage(null)}
-        >
-          {message?.text ?? ""}
-        </Alert>
-      </Snackbar>
     </Box>
   );
 }

@@ -2,7 +2,7 @@
 
 import { format } from "date-fns";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 
 import {
   extractScaleBarcodeWeight,
@@ -10,6 +10,7 @@ import {
   matchesScaleBarcodePrefix,
   resolveScaleBarcodeReference,
 } from "@/lib/utils";
+import { useSalesNotifier } from "@/shared/notifications/notifier-presets";
 import {
   IDENTIFICATION_TYPES,
   PAYMENT_METHODS,
@@ -22,7 +23,6 @@ import {
   type QuoteDetail,
 } from "@/shared/dashboard/types";
 import { fetchJson } from "@/shared/dashboard/api";
-import type { SalesMessage } from "@/modules/sales/components/sales-message-popover";
 
 type CheckoutResponse = {
   saleId: string;
@@ -71,7 +71,6 @@ const WALK_IN_CUSTOMER = {
 
 function buildInitialCheckoutForm(
   defaultIssuerId = "",
-  options?: { isQuoteMode?: boolean },
 ): CheckoutForm {
   return {
     issuerId: defaultIssuerId,
@@ -147,6 +146,7 @@ function formatDecimalInput(
 }
 
 export function useSalesCheckoutPage() {
+  const notifier = useSalesNotifier();
   const searchParams = useSearchParams();
   const mode: "sale" | "quote" =
     searchParams.get("mode") === "quote" ? "quote" : "sale";
@@ -164,7 +164,6 @@ export function useSalesCheckoutPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savingQuote, setSavingQuote] = useState(false);
-  const [message, setMessage] = useState<SalesMessage | null>(null);
   const [printableSaleId, setPrintableSaleId] = useState<string | null>(null);
   const [authorizedSriInvoiceId, setAuthorizedSriInvoiceId] = useState<string | null>(null);
   const [quotes, setQuotes] = useState<Quote[]>([]);
@@ -177,8 +176,29 @@ export function useSalesCheckoutPage() {
   const [entryQuantity, setEntryQuantity] = useState("1");
   const [manualProduct, setManualProduct] = useState<Product | null>(null);
   const [checkout, setCheckout] = useState<CheckoutForm>(() =>
-    buildInitialCheckoutForm("", { isQuoteMode }),
+    buildInitialCheckoutForm(""),
   );
+
+  const setMessage = useCallback((nextMessage: {
+    text: string;
+    tone: "success" | "error" | "info";
+  } | null) => {
+    if (!nextMessage) {
+      return;
+    }
+
+    if (nextMessage.tone === "success") {
+      notifier.success(nextMessage.text);
+      return;
+    }
+
+    if (nextMessage.tone === "error") {
+      notifier.error(nextMessage.text);
+      return;
+    }
+
+    notifier.info(nextMessage.text);
+  }, [notifier]);
 
   const linePreview = useMemo<LinePreviewItem[]>(() => {
     return lineItems
@@ -235,7 +255,7 @@ export function useSalesCheckoutPage() {
       checkout.direccion.trim() !== "" ||
       checkout.email.trim() !== "" ||
       checkout.telefono.trim() !== "",
-    [authorizedSriInvoiceId, checkout, isQuoteMode, lineItems.length, printableSaleId],
+    [authorizedSriInvoiceId, checkout, lineItems.length, printableSaleId],
   );
 
   const filteredProducts = useMemo(() => {
@@ -279,10 +299,7 @@ export function useSalesCheckoutPage() {
         issuerId: current.issuerId || issuerId,
       }));
     } catch (error) {
-      setMessage({
-        text: error instanceof Error ? error.message : "No se pudo cargar checkout",
-        tone: "error",
-      });
+      notifier.apiError(error, "No se pudo cargar checkout");
     } finally {
       setLoading(false);
     }
@@ -333,19 +350,16 @@ export function useSalesCheckoutPage() {
       }
       applyQuoteToForm(detail, editing);
     } catch (error) {
-      setMessage({
-        text:
-          error instanceof Error
-            ? error.message
-            : editing
-              ? "No se pudo cargar cotizacion para editar"
-              : "No se pudo cargar cotizacion para facturar",
-        tone: "error",
-      });
+      notifier.apiError(
+        error,
+        editing
+          ? "No se pudo cargar cotizacion para editar"
+          : "No se pudo cargar cotizacion para facturar",
+      );
     }
   }
 
-  async function loadCustomers(search = "") {
+  const loadCustomers = useCallback(async (search = "") => {
     const normalized = search.trim();
     if (normalized.length < 2) {
       setCustomers([]);
@@ -361,15 +375,12 @@ export function useSalesCheckoutPage() {
       setCustomers(result);
       return result;
     } catch (error) {
-      setMessage({
-        text: error instanceof Error ? error.message : "No se pudo cargar clientes",
-        tone: "error",
-      });
+      notifier.apiError(error, "No se pudo cargar clientes");
       return [];
     } finally {
       setCustomerLoading(false);
     }
-  }
+  }, [notifier]);
 
   function updateLineByProduct(productId: string, patch: Partial<LineItem>) {
     setLineItems((prev) =>
@@ -663,7 +674,7 @@ export function useSalesCheckoutPage() {
   }
 
   function onResetCheckout() {
-    setCheckout(buildInitialCheckoutForm(defaultIssuerId, { isQuoteMode }));
+    setCheckout(buildInitialCheckoutForm(defaultIssuerId));
     setLineItems([]);
     setSelectedProductIds([]);
     setCustomerSearch("");
@@ -791,10 +802,7 @@ export function useSalesCheckoutPage() {
     } catch (error) {
       setPrintableSaleId(null);
       setAuthorizedSriInvoiceId(null);
-      setMessage({
-        text: error instanceof Error ? error.message : "No se pudo registrar la venta",
-        tone: "error",
-      });
+      notifier.apiError(error, "No se pudo registrar la venta");
     } finally {
       setSaving(false);
     }
@@ -832,15 +840,11 @@ export function useSalesCheckoutPage() {
         body: JSON.stringify(buildCheckoutPayload()),
       });
       setEditingQuoteId(quote.id);
-      setMessage({
-        text: `Cotizacion #${quote.quoteNumber} ${editingQuoteId ? "actualizada" : "guardada"} correctamente`,
-        tone: "success",
-      });
+      notifier.saved(
+        `Cotizacion #${quote.quoteNumber} ${editingQuoteId ? "actualizada" : "guardada"} correctamente`,
+      );
     } catch (error) {
-      setMessage({
-        text: error instanceof Error ? error.message : "No se pudo guardar la cotizacion",
-        tone: "error",
-      });
+      notifier.apiError(error, "No se pudo guardar la cotizacion");
     } finally {
       setSavingQuote(false);
     }
@@ -857,13 +861,7 @@ export function useSalesCheckoutPage() {
       const result = await fetchJson<Quote[]>("/api/v1/quotes?status=OPEN");
       setQuotes(result);
     } catch (error) {
-      setMessage({
-        text:
-          error instanceof Error
-            ? error.message
-            : "No se pudo cargar cotizaciones abiertas",
-        tone: "error",
-      });
+      notifier.apiError(error, "No se pudo cargar cotizaciones abiertas");
     } finally {
       setQuotesLoading(false);
     }
@@ -910,12 +908,6 @@ export function useSalesCheckoutPage() {
   }, []);
 
   useEffect(() => {
-    if (!message) return;
-    const timeoutId = setTimeout(() => setMessage(null), 4500);
-    return () => clearTimeout(timeoutId);
-  }, [message]);
-
-  useEffect(() => {
     const normalized = customerSearch.trim();
     if (normalized.length < 2) {
       setCustomers([]);
@@ -928,7 +920,7 @@ export function useSalesCheckoutPage() {
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [customerSearch]);
+  }, [customerSearch, loadCustomers]);
 
   return {
     mode,
@@ -938,7 +930,7 @@ export function useSalesCheckoutPage() {
     savingQuote,
     products,
     inventoryTrackingEnabled,
-    message,
+    message: null,
     setMessage,
     checkout,
     setCheckout,

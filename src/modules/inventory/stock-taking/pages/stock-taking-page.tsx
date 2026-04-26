@@ -1,10 +1,10 @@
 "use client";
 
-import Alert from "@mui/material/Alert";
 import Stack from "@mui/material/Stack";
 
 import type { StockItem } from "@/shared/dashboard/types";
 import type { StockTakingSummary } from "@/modules/inventory/stock-taking/types";
+import { PageErrorState } from "@/shared/states/page-error-state";
 
 import { StockTakingSection } from "../components/stock-taking-section";
 import { useStockTakingPage } from "../hooks/use-stock-taking-page";
@@ -23,16 +23,15 @@ export function StockTakingPage({
   const stockTakingPage = useStockTakingPage({
     initialStock,
     initialTakings,
-    initialError,
   });
+
+  if (initialError && initialStock.length === 0 && initialTakings.length === 0) {
+    return <PageErrorState message={initialError} />;
+  }
 
   return (
     <Stack spacing={2}>
-      {stockTakingPage.feedback ? (
-        <Alert severity={stockTakingPage.feedback.severity} variant="outlined">
-          {stockTakingPage.feedback.message}
-        </Alert>
-      ) : null}
+      {initialError ? <PageErrorState message={initialError} /> : null}
 
       <StockTakingSection
         rows={stockTakingPage.filteredRows}

@@ -2335,6 +2335,7 @@ export async function settleRestaurantOrder(
         subtotal: saleContext.totals.subtotal,
         taxTotal: saleContext.totals.taxTotal,
         total: saleContext.totals.total,
+        inventoryCostTotal: saleContext.totals.inventoryCostTotal,
       });
 
       const checkoutOptions: CheckoutOptions = {

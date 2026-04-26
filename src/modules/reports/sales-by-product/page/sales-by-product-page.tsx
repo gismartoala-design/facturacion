@@ -4,7 +4,6 @@ import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
-import CircularProgress from "@mui/material/CircularProgress";
 import Grid from "@mui/material/Grid";
 import InputAdornment from "@mui/material/InputAdornment";
 import MenuItem from "@mui/material/MenuItem";
@@ -17,6 +16,8 @@ import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import { CalendarRange, Download, Package, RefreshCcw, Search } from "lucide-react";
 
 import { useSalesByProductReport } from "@/modules/reports/sales-by-product/hooks/use-sales-by-product-report";
+import { PageErrorState } from "@/shared/states/page-error-state";
+import { PageLoadingState } from "@/shared/states/page-loading-state";
 
 import type {
   SalesByProductReportResponse,
@@ -300,45 +301,27 @@ export function SalesByProductPage({
         </Stack>
       </Paper>
 
-      {salesByProduct.error ? (
+      {salesByProduct.error && !salesByProduct.report ? (
+        <PageErrorState message={salesByProduct.error} onRetry={() => salesByProduct.refresh()} />
+      ) : null}
+
+      {salesByProduct.error && salesByProduct.report ? (
         <Alert severity="error" variant="outlined" sx={{ borderRadius: "18px" }}>
           {salesByProduct.error}
         </Alert>
       ) : null}
 
       {salesByProduct.loading && !salesByProduct.report ? (
-        <Paper
-          sx={{
-            borderRadius: "24px",
-            p: 4,
-            display: "grid",
-            placeItems: "center",
-            minHeight: 220,
-          }}
-        >
-          <Stack spacing={1.5} alignItems="center">
-            <CircularProgress size={30} />
-            <Typography color="text.secondary">
-              Cargando reporte de ventas por producto...
-            </Typography>
-          </Stack>
-        </Paper>
+        <PageLoadingState
+          message="Cargando reporte de ventas por producto..."
+          centered
+          minHeight={220}
+          size={30}
+        />
       ) : null}
 
       {salesByProduct.loading && salesByProduct.report ? (
-        <Paper
-          sx={{
-            borderRadius: "20px",
-            px: 2,
-            py: 1.5,
-            display: "flex",
-            alignItems: "center",
-            gap: 1.25,
-          }}
-        >
-          <CircularProgress size={18} />
-          <Typography color="text.secondary">Actualizando reporte...</Typography>
-        </Paper>
+        <PageLoadingState message="Actualizando reporte..." />
       ) : null}
 
       {salesByProduct.report ? (

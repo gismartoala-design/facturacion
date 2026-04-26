@@ -1,6 +1,12 @@
 import { MovementType, Prisma, ReferenceType, StockTakingStatus } from "@prisma/client";
 
+import { postInventoryAdjustmentEntryInTransaction } from "@/core/accounting/accounting-entry.service";
 import { stockTakingDraftSchema } from "@/core/inventory/stock-taking.schemas";
+import {
+  buildValuedMovement,
+  resolveStockValuationState,
+  toStockLevelValuationUpdate,
+} from "@/core/inventory/valuation.service";
 import type { SessionPayload } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { resolveProductCode } from "@/lib/utils";
@@ -274,6 +280,9 @@ export async function applyStockTaking(session: SessionPayload, id: string) {
       select: {
         productId: true,
         quantity: true,
+        averageCost: true,
+        lastCost: true,
+        inventoryValue: true,
       },
     });
 
@@ -296,33 +305,49 @@ export async function applyStockTaking(session: SessionPayload, id: string) {
       );
     }
 
-    const movementRows = record.items.filter(
-      (item) => Number(item.differenceQuantity) !== 0,
+    const currentStockLevelByProductId = new Map(
+      currentStockLevels.map((item) => [item.productId, item]),
     );
 
     for (const item of record.items) {
+      const stockLevel = currentStockLevelByProductId.get(item.productId);
+      if (!stockLevel) {
+        throw new Error("No existe stock para uno o mas productos de la toma");
+      }
+
+      const differenceQuantity = Number(item.differenceQuantity);
+      if (differenceQuantity === 0) {
+        continue;
+      }
+
+      const valuation = buildValuedMovement({
+        productId: item.productId,
+        movementType: MovementType.ADJUSTMENT,
+        quantity: differenceQuantity,
+        referenceType: ReferenceType.MANUAL,
+        referenceId: record.id,
+        createdById: session.sub,
+        notes:
+          `Toma #${record.takingNumber.toString()} | sistema ${Number(item.systemQuantity).toFixed(3)} | fisico ${Number(item.countedQuantity).toFixed(3)} | diferencia ${differenceQuantity.toFixed(3)}`,
+        state: resolveStockValuationState(stockLevel),
+      });
+
       await tx.stockLevel.update({
         where: {
           productId: item.productId,
         },
-        data: {
-          quantity: item.countedQuantity,
-        },
+        data: toStockLevelValuationUpdate(valuation.nextState),
       });
-    }
 
-    if (movementRows.length > 0) {
-      await tx.stockMovement.createMany({
-        data: movementRows.map((item) => ({
-          productId: item.productId,
-          movementType: MovementType.ADJUSTMENT,
-          referenceType: ReferenceType.MANUAL,
-          referenceId: record.id,
-          quantity: item.differenceQuantity,
-          createdById: session.sub,
-          notes:
-            `Toma #${record.takingNumber.toString()} | sistema ${Number(item.systemQuantity).toFixed(3)} | fisico ${Number(item.countedQuantity).toFixed(3)} | diferencia ${Number(item.differenceQuantity).toFixed(3)}`,
-        })),
+      const movement = await tx.stockMovement.create({
+        data: valuation.movement,
+        select: { id: true },
+      });
+
+      await postInventoryAdjustmentEntryInTransaction(tx, {
+        businessId: session.businessId,
+        sourceId: movement.id,
+        totalCost: valuation.signedTotalCost,
       });
     }
 

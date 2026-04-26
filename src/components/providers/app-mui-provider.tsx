@@ -6,6 +6,8 @@ import { ThemeProvider } from "@mui/material/styles";
 import { useServerInsertedHTML } from "next/navigation";
 import { useState, type ReactNode } from "react";
 
+import { AppConfirmProvider } from "@/components/providers/app-confirm-provider";
+import { AppNotificationProvider } from "@/components/providers/app-notification-provider";
 import { muiTheme } from "@/theme/mui-theme";
 
 type AppMuiProviderProps = {
@@ -61,7 +63,11 @@ export function AppMuiProvider({ children }: AppMuiProviderProps) {
 
   return (
     <CacheProvider value={cache}>
-      <ThemeProvider theme={muiTheme}>{children}</ThemeProvider>
+      <ThemeProvider theme={muiTheme}>
+        <AppConfirmProvider>
+          <AppNotificationProvider>{children}</AppNotificationProvider>
+        </AppConfirmProvider>
+      </ThemeProvider>
     </CacheProvider>
   );
 }

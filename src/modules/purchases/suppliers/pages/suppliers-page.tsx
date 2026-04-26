@@ -1,8 +1,8 @@
 "use client";
 
-import Alert from "@mui/material/Alert";
 import Stack from "@mui/material/Stack";
 
+import { PageErrorState } from "@/shared/states/page-error-state";
 import {
   CreateSupplierDialog,
   DeleteSupplierDialog,
@@ -23,17 +23,14 @@ export function SuppliersPage({
 }: SuppliersPageProps) {
   const suppliersPage = useSuppliersPage({
     initialSuppliers,
-    initialError,
   });
+
+  if (initialError) {
+    return <PageErrorState message={initialError} />;
+  }
 
   return (
     <Stack spacing={2}>
-      {suppliersPage.feedback ? (
-        <Alert severity={suppliersPage.feedback.severity}>
-          {suppliersPage.feedback.message}
-        </Alert>
-      ) : null}
-
       <SuppliersSection
         suppliers={suppliersPage.suppliers}
         onOpenSupplierModal={suppliersPage.openCreateDialog}

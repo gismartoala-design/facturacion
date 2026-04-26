@@ -7,6 +7,7 @@ import type {
   NewProductForm,
   Product,
 } from "@/shared/dashboard/types";
+import { useInventoryNotifier } from "@/shared/notifications/notifier-presets";
 
 import {
   createProduct,
@@ -15,14 +16,8 @@ import {
   updateProduct,
 } from "../services/products-client";
 
-type FeedbackState = {
-  message: string;
-  severity: "success" | "error";
-} | null;
-
 type UseProductsPageOptions = {
   initialProducts: Product[];
-  initialError?: string | null;
 };
 
 function createEmptyNewProductForm(): NewProductForm {
@@ -34,6 +29,7 @@ function createEmptyNewProductForm(): NewProductForm {
     precio: "",
     tarifaIva: "15",
     stockInicial: "0",
+    initialUnitCost: "0",
     minStock: "0",
   };
 }
@@ -64,12 +60,9 @@ function mapProductToEditForm(product: Product): EditProductForm {
 
 export function useProductsPage({
   initialProducts,
-  initialError = null,
 }: UseProductsPageOptions) {
+  const notifier = useInventoryNotifier();
   const [products, setProducts] = useState<Product[]>(initialProducts);
-  const [feedback, setFeedback] = useState<FeedbackState>(
-    initialError ? { message: initialError, severity: "error" } : null,
-  );
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [createForm, setCreateForm] = useState<NewProductForm>(
     createEmptyNewProductForm,
@@ -89,7 +82,6 @@ export function useProductsPage({
 
   function openCreateDialog() {
     setCreateForm(createEmptyNewProductForm());
-    setFeedback(null);
     setIsCreateDialogOpen(true);
   }
 
@@ -104,7 +96,6 @@ export function useProductsPage({
   function openEditDialog(product: Product) {
     setEditingProduct(product);
     setEditForm(mapProductToEditForm(product));
-    setFeedback(null);
   }
 
   function closeEditDialog() {
@@ -117,7 +108,6 @@ export function useProductsPage({
 
   function openDeleteDialog(product: Product) {
     setDeletingProduct(product);
-    setFeedback(null);
   }
 
   function closeDeleteDialog() {
@@ -131,25 +121,15 @@ export function useProductsPage({
   async function handleCreateProduct(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaving(true);
-    setFeedback(null);
 
     try {
       await createProduct(createForm);
       setCreateForm(createEmptyNewProductForm());
       setIsCreateDialogOpen(false);
-      setFeedback({
-        message: "Producto creado correctamente",
-        severity: "success",
-      });
+      notifier.saved("Producto creado correctamente");
       await reloadProducts();
     } catch (error) {
-      setFeedback({
-        message:
-          error instanceof Error
-            ? error.message
-            : "No se pudo crear producto",
-        severity: "error",
-      });
+      notifier.apiError(error, "No se pudo crear producto");
     } finally {
       setSaving(false);
     }
@@ -162,24 +142,14 @@ export function useProductsPage({
     }
 
     setSaving(true);
-    setFeedback(null);
 
     try {
       await updateProduct(editingProduct.id, editForm);
       setEditingProduct(null);
-      setFeedback({
-        message: "Producto actualizado correctamente",
-        severity: "success",
-      });
+      notifier.saved("Producto actualizado correctamente");
       await reloadProducts();
     } catch (error) {
-      setFeedback({
-        message:
-          error instanceof Error
-            ? error.message
-            : "No se pudo actualizar producto",
-        severity: "error",
-      });
+      notifier.apiError(error, "No se pudo actualizar producto");
     } finally {
       setSaving(false);
     }
@@ -191,24 +161,14 @@ export function useProductsPage({
     }
 
     setDeleting(true);
-    setFeedback(null);
 
     try {
       await deactivateProduct(deletingProduct.id);
       setDeletingProduct(null);
-      setFeedback({
-        message: "Producto desactivado correctamente",
-        severity: "success",
-      });
+      notifier.deleted("Producto desactivado correctamente");
       await reloadProducts();
     } catch (error) {
-      setFeedback({
-        message:
-          error instanceof Error
-            ? error.message
-            : "No se pudo desactivar producto",
-        severity: "error",
-      });
+      notifier.apiError(error, "No se pudo desactivar producto");
     } finally {
       setDeleting(false);
     }
@@ -216,7 +176,6 @@ export function useProductsPage({
 
   return {
     products,
-    feedback,
     isCreateDialogOpen,
     createForm,
     setCreateForm,

@@ -17,6 +17,7 @@ export async function createInventoryAdjustment(adjustment: StockAdjustmentForm)
       productId: adjustment.productId,
       movementType: adjustment.movementType,
       quantity: Number(adjustment.quantity),
+      unitCost: adjustment.unitCost === "" ? undefined : Number(adjustment.unitCost),
     }),
   });
 }

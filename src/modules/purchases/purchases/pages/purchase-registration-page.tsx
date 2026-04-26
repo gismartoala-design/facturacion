@@ -1,8 +1,8 @@
 "use client";
 
-import Alert from "@mui/material/Alert";
 import Stack from "@mui/material/Stack";
 
+import { PageErrorState } from "@/shared/states/page-error-state";
 import { PurchaseRegistrationSection } from "../components/purchase-registration-section";
 import {
   PurchasesSection,
@@ -27,17 +27,14 @@ export function PurchaseRegistrationPage({
     initialSuppliers: suppliers,
     initialProducts: products,
     initialPurchases: purchases,
-    initialError,
   });
+
+  if (initialError) {
+    return <PageErrorState message={initialError} />;
+  }
 
   return (
     <Stack spacing={2.5}>
-      {purchasePage.feedback ? (
-        <Alert severity={purchasePage.feedback.severity}>
-          {purchasePage.feedback.message}
-        </Alert>
-      ) : null}
-
       {mode === "register" ? (
         <PurchaseRegistrationSection
           suppliers={purchasePage.suppliers}

@@ -10,6 +10,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import { ACCOUNT_CODES } from "./chart-of-accounts";
 import {
+  ensureAccountingAccountsSeededInTransaction,
   getAccountingAccountByCodeInTransaction,
   getAccountingAccountNameMapByCodesInTransaction,
 } from "./account-plan.service";
@@ -278,12 +279,24 @@ async function validatePostingLines(
     credit: number;
   }>,
 ) {
-  for (const line of lines) {
-    const account = await getAccountingAccountByCodeInTransaction(
-      tx,
+  await ensureAccountingAccountsSeededInTransaction(tx, businessId);
+
+  const uniqueCodes = [...new Set(lines.map((line) => line.accountCode))];
+  const accounts = await tx.accountingAccount.findMany({
+    where: {
       businessId,
-      line.accountCode,
-    );
+      code: { in: uniqueCodes },
+      active: true,
+    },
+    select: {
+      code: true,
+      acceptsPostings: true,
+    },
+  });
+  const accountByCode = new Map(accounts.map((account) => [account.code, account]));
+
+  for (const line of lines) {
+    const account = accountByCode.get(line.accountCode);
 
     if (!account) {
       throw new Error(
@@ -663,6 +676,7 @@ export async function postSaleEntryInTransaction(
     subtotal: number;
     taxTotal: number;
     total: number;
+    inventoryCostTotal: number;
   },
 ): Promise<AccountingEntrySummary> {
   const lines: CreateDraftEntryInput["lines"] = [
@@ -679,6 +693,21 @@ export async function postSaleEntryInTransaction(
       memo: "Ingreso por ventas",
     },
   ];
+
+  if (input.inventoryCostTotal > 0) {
+    lines.push({
+      accountCode: ACCOUNT_CODES.costOfSalesMerchandise,
+      debit: input.inventoryCostTotal,
+      credit: 0,
+      memo: "Costo de mercaderias vendidas",
+    });
+    lines.push({
+      accountCode: ACCOUNT_CODES.inventoryMerchandise,
+      debit: 0,
+      credit: input.inventoryCostTotal,
+      memo: "Salida de inventario por venta",
+    });
+  }
 
   if (input.taxTotal > 0) {
     lines.push({
@@ -816,6 +845,58 @@ export async function postSupplierPaymentEntryInTransaction(
         memo: "Salida de fondos por pago a proveedor",
       },
     ],
+  });
+}
+
+export async function postInventoryAdjustmentEntryInTransaction(
+  tx: Prisma.TransactionClient | Prisma.DefaultPrismaClient,
+  input: {
+    businessId: string;
+    sourceId: string;
+    totalCost: number;
+  },
+): Promise<AccountingEntrySummary | null> {
+  const amount = Math.abs(input.totalCost);
+
+  if (amount <= 0) {
+    return null;
+  }
+
+  const isPositiveAdjustment = input.totalCost > 0;
+
+  return ensurePostedEntryInTransaction(tx, {
+    businessId: input.businessId,
+    sourceType: AccountingSourceType.ADJUSTMENT,
+    sourceId: input.sourceId,
+    lines: isPositiveAdjustment
+      ? [
+          {
+            accountCode: ACCOUNT_CODES.inventoryMerchandise,
+            debit: amount,
+            credit: 0,
+            memo: "Ingreso valorizado de inventario",
+          },
+          {
+            accountCode: ACCOUNT_CODES.inventoryAdjustmentGain,
+            debit: 0,
+            credit: amount,
+            memo: "Contrapartida por ajuste positivo de inventario",
+          },
+        ]
+      : [
+          {
+            accountCode: ACCOUNT_CODES.inventoryAdjustmentLoss,
+            debit: amount,
+            credit: 0,
+            memo: "Perdida por ajuste de inventario",
+          },
+          {
+            accountCode: ACCOUNT_CODES.inventoryMerchandise,
+            debit: 0,
+            credit: amount,
+            memo: "Salida valorizada de inventario",
+          },
+        ],
   });
 }
 

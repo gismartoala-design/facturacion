@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 
 import { useSalesPeriodReport } from "@/modules/reports/sales-period/hooks/use-sales-period-report";
+import { PageLoadingState } from "@/shared/states/page-loading-state";
 
 import type {
   SalesPeriodReportResponse,
@@ -393,38 +394,16 @@ export function SalesPeriodPage({
       </Paper>
 
       {salesPeriod.loading && !salesPeriod.report ? (
-        <Paper
-          sx={{
-            borderRadius: "24px",
-            p: 4,
-            display: "grid",
-            placeItems: "center",
-            minHeight: 220,
-          }}
-        >
-          <Stack spacing={1.5} alignItems="center">
-            <CircularProgress size={30} />
-            <Typography color="text.secondary">
-              Cargando reporte de ventas por periodo...
-            </Typography>
-          </Stack>
-        </Paper>
+        <PageLoadingState
+          message="Cargando reporte de ventas por periodo..."
+          centered
+          minHeight={220}
+          size={30}
+        />
       ) : null}
 
       {salesPeriod.loading && salesPeriod.report ? (
-        <Paper
-          sx={{
-            borderRadius: "20px",
-            px: 2,
-            py: 1.5,
-            display: "flex",
-            alignItems: "center",
-            gap: 1.25,
-          }}
-        >
-          <CircularProgress size={18} />
-          <Typography color="text.secondary">Actualizando reporte...</Typography>
-        </Paper>
+        <PageLoadingState message="Actualizando reporte..." />
       ) : null}
 
       {salesPeriod.report ? (

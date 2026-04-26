@@ -1,8 +1,8 @@
 "use client";
 
-import Alert from "@mui/material/Alert";
 import Stack from "@mui/material/Stack";
 
+import { PageErrorState } from "@/shared/states/page-error-state";
 import {
   PayablesSection,
   SupplierPaymentDialog,
@@ -22,17 +22,14 @@ export function PayablesPage({
 }: PayablesPageProps) {
   const payablesPage = usePayablesPage({
     initialPayables,
-    initialError,
   });
+
+  if (initialError) {
+    return <PageErrorState message={initialError} />;
+  }
 
   return (
     <Stack spacing={2.5}>
-      {payablesPage.feedback ? (
-        <Alert severity={payablesPage.feedback.severity}>
-          {payablesPage.feedback.message}
-        </Alert>
-      ) : null}
-
       <PayablesSection
         payables={payablesPage.payables}
         summary={payablesPage.summary}

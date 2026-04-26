@@ -2,6 +2,8 @@
 
 import { useState, type FormEvent } from "react";
 
+import { usePurchasesNotifier } from "@/shared/notifications/notifier-presets";
+
 import {
   createSupplier,
   deactivateSupplier,
@@ -10,14 +12,8 @@ import {
 } from "../services/suppliers-client";
 import type { Supplier, SupplierForm } from "../types";
 
-type FeedbackState = {
-  message: string;
-  severity: "success" | "error";
-} | null;
-
 type UseSuppliersPageOptions = {
   initialSuppliers: Supplier[];
-  initialError?: string | null;
 };
 
 function createEmptySupplierForm(): SupplierForm {
@@ -50,12 +46,9 @@ function mapSupplierToForm(supplier: Supplier): SupplierForm {
 
 export function useSuppliersPage({
   initialSuppliers,
-  initialError = null,
 }: UseSuppliersPageOptions) {
+  const notifier = usePurchasesNotifier();
   const [suppliers, setSuppliers] = useState<Supplier[]>(initialSuppliers);
-  const [feedback, setFeedback] = useState<FeedbackState>(
-    initialError ? { message: initialError, severity: "error" } : null,
-  );
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [createForm, setCreateForm] = useState<SupplierForm>(
     createEmptySupplierForm,
@@ -75,7 +68,6 @@ export function useSuppliersPage({
 
   function openCreateDialog() {
     setCreateForm(createEmptySupplierForm());
-    setFeedback(null);
     setIsCreateDialogOpen(true);
   }
 
@@ -87,7 +79,6 @@ export function useSuppliersPage({
   function openEditDialog(supplier: Supplier) {
     setEditingSupplier(supplier);
     setEditForm(mapSupplierToForm(supplier));
-    setFeedback(null);
   }
 
   function closeEditDialog() {
@@ -97,7 +88,6 @@ export function useSuppliersPage({
 
   function openDeleteDialog(supplier: Supplier) {
     setDeletingSupplier(supplier);
-    setFeedback(null);
   }
 
   function closeDeleteDialog() {
@@ -108,25 +98,15 @@ export function useSuppliersPage({
   async function handleCreateSupplier(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaving(true);
-    setFeedback(null);
 
     try {
       await createSupplier(createForm);
       setCreateForm(createEmptySupplierForm());
       setIsCreateDialogOpen(false);
-      setFeedback({
-        message: "Proveedor creado correctamente",
-        severity: "success",
-      });
+      notifier.saved("Proveedor creado correctamente");
       await reloadSuppliers();
     } catch (error) {
-      setFeedback({
-        message:
-          error instanceof Error
-            ? error.message
-            : "No se pudo crear proveedor",
-        severity: "error",
-      });
+      notifier.apiError(error, "No se pudo crear proveedor");
     } finally {
       setSaving(false);
     }
@@ -137,24 +117,14 @@ export function useSuppliersPage({
     if (!editingSupplier) return;
 
     setSaving(true);
-    setFeedback(null);
 
     try {
       await updateSupplier(editingSupplier.id, editForm);
       setEditingSupplier(null);
-      setFeedback({
-        message: "Proveedor actualizado correctamente",
-        severity: "success",
-      });
+      notifier.saved("Proveedor actualizado correctamente");
       await reloadSuppliers();
     } catch (error) {
-      setFeedback({
-        message:
-          error instanceof Error
-            ? error.message
-            : "No se pudo actualizar proveedor",
-        severity: "error",
-      });
+      notifier.apiError(error, "No se pudo actualizar proveedor");
     } finally {
       setSaving(false);
     }
@@ -164,24 +134,14 @@ export function useSuppliersPage({
     if (!deletingSupplier) return;
 
     setDeleting(true);
-    setFeedback(null);
 
     try {
       await deactivateSupplier(deletingSupplier.id);
       setDeletingSupplier(null);
-      setFeedback({
-        message: "Proveedor desactivado correctamente",
-        severity: "success",
-      });
+      notifier.deleted("Proveedor desactivado correctamente");
       await reloadSuppliers();
     } catch (error) {
-      setFeedback({
-        message:
-          error instanceof Error
-            ? error.message
-            : "No se pudo desactivar proveedor",
-        severity: "error",
-      });
+      notifier.apiError(error, "No se pudo desactivar proveedor");
     } finally {
       setDeleting(false);
     }
@@ -189,7 +149,6 @@ export function useSuppliersPage({
 
   return {
     suppliers,
-    feedback,
     isCreateDialogOpen,
     createForm,
     setCreateForm,

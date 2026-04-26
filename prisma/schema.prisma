@@ -589,26 +589,34 @@ model Product {
 }
 
 model StockLevel {
-  id          String   @id @default(uuid()) @db.Uuid
-  productId   String   @unique @db.Uuid
-  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  quantity    Decimal  @default(0) @db.Decimal(14, 3)
-  minQuantity Decimal  @default(0) @db.Decimal(14, 3)
-  updatedAt   DateTime @updatedAt
+  id             String   @id @default(uuid()) @db.Uuid
+  productId      String   @unique @db.Uuid
+  product        Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity       Decimal  @default(0) @db.Decimal(14, 3)
+  minQuantity    Decimal  @default(0) @db.Decimal(14, 3)
+  averageCost    Decimal  @default(0) @db.Decimal(12, 4)
+  lastCost       Decimal  @default(0) @db.Decimal(12, 4)
+  inventoryValue Decimal  @default(0) @db.Decimal(14, 2)
+  updatedAt      DateTime @updatedAt
 }
 
 model StockMovement {
-  id            String        @id @default(uuid()) @db.Uuid
-  productId     String        @db.Uuid
-  product       Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
-  movementType  MovementType
-  quantity      Decimal       @db.Decimal(14, 3)
-  referenceType ReferenceType
-  referenceId   String?       @db.Uuid
-  notes         String?
-  createdById   String?       @db.Uuid
-  createdBy     User?         @relation(fields: [createdById], references: [id], onDelete: SetNull)
-  createdAt     DateTime      @default(now())
+  id                 String        @id @default(uuid()) @db.Uuid
+  productId          String        @db.Uuid
+  product            Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
+  movementType       MovementType
+  quantity           Decimal       @db.Decimal(14, 3)
+  unitCost           Decimal       @default(0) @db.Decimal(12, 4)
+  totalCost          Decimal       @default(0) @db.Decimal(14, 2)
+  balanceQuantity    Decimal       @default(0) @db.Decimal(14, 3)
+  balanceAverageCost Decimal       @default(0) @db.Decimal(12, 4)
+  balanceValue       Decimal       @default(0) @db.Decimal(14, 2)
+  referenceType      ReferenceType
+  referenceId        String?       @db.Uuid
+  notes              String?
+  createdById        String?       @db.Uuid
+  createdBy          User?         @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt          DateTime      @default(now())
 
   @@index([productId, createdAt])
 }

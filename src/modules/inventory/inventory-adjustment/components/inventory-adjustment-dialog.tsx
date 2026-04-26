@@ -45,6 +45,8 @@ export function InventoryAdjustmentDialog({
 }: InventoryAdjustmentDialogProps) {
   const selectedProduct =
     products.find((product) => product.id === adjustment.productId) ?? null;
+  const needsCostInput =
+    adjustment.movementType === "IN" || adjustment.movementType === "ADJUSTMENT";
 
   return (
     <Dialog
@@ -113,7 +115,7 @@ export function InventoryAdjustmentDialog({
               )}
             />
 
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-3">
               <TextField
                 select
                 id="inventory-adjustment-type"
@@ -152,6 +154,38 @@ export function InventoryAdjustmentDialog({
                     step: "0.001",
                   },
                 }}
+              />
+
+              <TextField
+                id="inventory-adjustment-unit-cost"
+                label="Costo unitario"
+                type="number"
+                value={adjustment.unitCost}
+                onChange={(e) =>
+                  setAdjustment((prev) => ({
+                    ...prev,
+                    unitCost: e.target.value,
+                  }))
+                }
+                required={
+                  needsCostInput &&
+                  !!selectedProduct &&
+                  selectedProduct.averageCost <= 0 &&
+                  Number(adjustment.quantity) > 0
+                }
+                slotProps={{
+                  htmlInput: {
+                    min: 0,
+                    step: "0.0001",
+                  },
+                }}
+                helperText={
+                  selectedProduct
+                    ? selectedProduct.averageCost > 0
+                      ? `Promedio vigente ${selectedProduct.averageCost.toFixed(4)}`
+                      : "Indica costo si el producto aun no tiene promedio"
+                    : "Opcional si el producto ya tiene costo promedio"
+                }
               />
             </div>
           </Stack>

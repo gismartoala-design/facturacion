@@ -2,7 +2,6 @@ import {
   AccountingEntryStatus,
   AccountingSourceType,
   MovementType,
-  Prisma,
   ReferenceType,
   SaleDocumentStatus,
   SaleStatus,
@@ -12,6 +11,11 @@ import {
   parsePosFeatureBlueprint,
   parsePosFeatureConfig,
 } from "@/core/business/feature-config";
+import {
+  buildValuedMovement,
+  resolveStockValuationState,
+  toStockLevelValuationUpdate,
+} from "@/core/inventory/valuation.service";
 import { mergeBusinessBlueprint } from "@/core/platform/blueprint-config";
 import { mapLegacyPosBlueprint } from "@/core/platform/legacy-mappers";
 import { prisma } from "@/lib/prisma";
@@ -93,38 +97,74 @@ export async function cancelSaleBySriInvoiceId(sriInvoiceId: string) {
       blueprint: posBlueprint,
     }).operationalRules.trackInventoryOnSale;
 
-    const productQuantities = new Map<string, number>();
+    const saleMovements = await tx.stockMovement.findMany({
+      where: {
+        referenceType: ReferenceType.SALE,
+        referenceId: invoice.saleId,
+        movementType: MovementType.OUT,
+      },
+      select: {
+        productId: true,
+        quantity: true,
+        unitCost: true,
+      },
+    });
+
+    const productQuantities = new Map<
+      string,
+      { quantity: number; unitCost: number }
+    >();
     for (const item of invoice.sale.items) {
       if (item.product.tipoProducto !== "BIEN") {
         continue;
       }
 
-      const current = productQuantities.get(item.productId) ?? 0;
-      productQuantities.set(item.productId, current + Number(item.cantidad));
+      const storedMovement = saleMovements.find(
+        (movement) => movement.productId === item.productId,
+      );
+      const current = productQuantities.get(item.productId);
+      productQuantities.set(item.productId, {
+        quantity: (current?.quantity ?? 0) + Number(item.cantidad),
+        unitCost:
+          current?.unitCost ??
+          Number(storedMovement?.unitCost ?? 0),
+      });
     }
 
     if (trackInventoryOnSale) {
-      for (const [productId, quantity] of productQuantities.entries()) {
-        const updated = await tx.stockLevel.updateMany({
+      for (const [productId, item] of productQuantities.entries()) {
+        const stockLevel = await tx.stockLevel.findUnique({
           where: { productId },
-          data: { quantity: { increment: quantity } },
+          select: {
+            quantity: true,
+            averageCost: true,
+            lastCost: true,
+            inventoryValue: true,
+          },
         });
 
-        if (updated.count === 0) {
+        if (!stockLevel) {
           throw new Error("No existe registro de stock para uno o mas productos de la venta");
         }
-      }
 
-      if (productQuantities.size > 0) {
-        await tx.stockMovement.createMany({
-          data: Array.from(productQuantities.entries()).map(([productId, quantity]) => ({
-            productId,
-            movementType: MovementType.IN,
-            referenceType: ReferenceType.SALE,
-            referenceId: invoice.saleId,
-            quantity: new Prisma.Decimal(quantity),
-            notes: `Ingreso por anulacion de venta #${invoice.sale.saleNumber.toString()}`,
-          })),
+        const valuation = buildValuedMovement({
+          productId,
+          movementType: MovementType.IN,
+          quantity: item.quantity,
+          unitCost: item.unitCost,
+          referenceType: ReferenceType.SALE,
+          referenceId: invoice.saleId,
+          notes: `Ingreso por anulacion de venta #${invoice.sale.saleNumber.toString()}`,
+          state: resolveStockValuationState(stockLevel),
+        });
+
+        await tx.stockLevel.update({
+          where: { productId },
+          data: toStockLevelValuationUpdate(valuation.nextState),
+        });
+
+        await tx.stockMovement.create({
+          data: valuation.movement,
         });
       }
     }

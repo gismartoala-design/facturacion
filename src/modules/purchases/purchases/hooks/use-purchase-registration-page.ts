@@ -2,6 +2,7 @@
 
 import { useMemo, useState, type FormEvent } from "react";
 
+import { usePurchasesNotifier } from "@/shared/notifications/notifier-presets";
 import type { Product } from "@/shared/dashboard/types";
 
 import {
@@ -16,16 +17,10 @@ import type {
 } from "../types";
 import type { Supplier } from "../../suppliers/types";
 
-type FeedbackState = {
-  message: string;
-  severity: "success" | "error";
-} | null;
-
 type UsePurchaseRegistrationPageOptions = {
   initialSuppliers: Supplier[];
   initialProducts: Product[];
   initialPurchases: Purchase[];
-  initialError?: string | null;
 };
 
 function todayInputValue() {
@@ -67,8 +62,8 @@ export function usePurchaseRegistrationPage({
   initialSuppliers,
   initialProducts,
   initialPurchases,
-  initialError = null,
 }: UsePurchaseRegistrationPageOptions) {
+  const notifier = usePurchasesNotifier();
   const [suppliers] = useState(initialSuppliers);
   const [products] = useState(initialProducts);
   const [purchases, setPurchases] = useState(initialPurchases);
@@ -77,9 +72,6 @@ export function usePurchaseRegistrationPage({
   const [voiding, setVoiding] = useState(false);
   const [voidingPurchase, setVoidingPurchase] = useState<Purchase | null>(null);
   const [voidReason, setVoidReason] = useState("");
-  const [feedback, setFeedback] = useState<FeedbackState>(
-    initialError ? { message: initialError, severity: "error" } : null,
-  );
 
   const activeProducts = useMemo(
     () => products.filter((product) => product.activo),
@@ -153,7 +145,6 @@ export function usePurchaseRegistrationPage({
   function openVoidDialog(purchase: Purchase) {
     setVoidingPurchase(purchase);
     setVoidReason("");
-    setFeedback(null);
   }
 
   function closeVoidDialog() {
@@ -165,24 +156,14 @@ export function usePurchaseRegistrationPage({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaving(true);
-    setFeedback(null);
 
     try {
       await createPurchase(form);
       setForm(createEmptyPurchaseForm());
-      setFeedback({
-        message: "Compra registrada y stock actualizado",
-        severity: "success",
-      });
+      notifier.saved("Compra registrada y stock actualizado");
       await reloadPurchases();
     } catch (error) {
-      setFeedback({
-        message:
-          error instanceof Error
-            ? error.message
-            : "No se pudo registrar compra",
-        severity: "error",
-      });
+      notifier.apiError(error, "No se pudo registrar compra");
     } finally {
       setSaving(false);
     }
@@ -192,7 +173,6 @@ export function usePurchaseRegistrationPage({
     if (!voidingPurchase) return;
 
     setVoiding(true);
-    setFeedback(null);
 
     try {
       const updatedPurchase = await voidPurchase(voidingPurchase.id, voidReason);
@@ -203,16 +183,9 @@ export function usePurchaseRegistrationPage({
       );
       setVoidingPurchase(null);
       setVoidReason("");
-      setFeedback({
-        message: "Compra anulada y stock revertido correctamente",
-        severity: "success",
-      });
+      notifier.deleted("Compra anulada y stock revertido correctamente");
     } catch (error) {
-      setFeedback({
-        message:
-          error instanceof Error ? error.message : "No se pudo anular compra",
-        severity: "error",
-      });
+      notifier.apiError(error, "No se pudo anular compra");
     } finally {
       setVoiding(false);
     }
@@ -229,7 +202,6 @@ export function usePurchaseRegistrationPage({
     voidingPurchase,
     voidReason,
     setVoidReason,
-    feedback,
     totals,
     selectProduct,
     updateLine,

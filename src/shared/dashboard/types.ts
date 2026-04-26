@@ -18,6 +18,9 @@ export type Product = {
   prepTimeMinutes?: number | null;
   stock: number;
   minStock: number;
+  averageCost: number;
+  lastCost: number;
+  inventoryValue: number;
 };
 
 export type StockItem = {
@@ -26,6 +29,9 @@ export type StockItem = {
   codigo: string;
   quantity: number;
   minQuantity: number;
+  averageCost: number;
+  lastCost: number;
+  inventoryValue: number;
   lowStock: boolean;
 };
 
@@ -228,6 +234,7 @@ export type NewProductForm = {
   precio: string;
   tarifaIva: string;
   stockInicial: string;
+  initialUnitCost: string;
   minStock: string;
 };
 
@@ -245,6 +252,7 @@ export type StockAdjustmentForm = {
   productId: string;
   movementType: "IN" | "OUT" | "ADJUSTMENT";
   quantity: string;
+  unitCost: string;
 };
 
 export type CheckoutForm = {

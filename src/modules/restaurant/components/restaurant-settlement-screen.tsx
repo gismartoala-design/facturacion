@@ -9,7 +9,6 @@ import {
   Divider,
   MenuItem,
   Paper,
-  Snackbar,
   Stack,
   TextField,
   Typography,
@@ -20,6 +19,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { fetchJson } from "@/shared/dashboard/api";
+import { useRestaurantNotifier } from "@/shared/notifications/notifier-presets";
 import { PAYMENT_METHODS } from "@/shared/dashboard/types";
 import type {
   RestaurantBootstrap,
@@ -103,14 +103,11 @@ export function RestaurantSettlementScreen({
   initialBootstrapError = null,
   orderId,
 }: RestaurantSettlementScreenProps) {
+  const { apiError, error, info, success } = useRestaurantNotifier();
   const [order, setOrder] = useState<RestaurantOrderDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [bootError, setBootError] = useState<string | null>(initialBootstrapError);
-  const [message, setMessage] = useState<{
-    tone: "success" | "error" | "info";
-    text: string;
-  } | null>(null);
   const [documentType, setDocumentType] = useState<"NONE" | "INVOICE">("NONE");
   const [notes, setNotes] = useState("");
   const [payments, setPayments] = useState<SettlementPaymentDraft[]>([
@@ -151,11 +148,11 @@ export function RestaurantSettlementScreen({
           ? error.message
           : "No se pudo cargar la orden para liquidar";
       setBootError(nextMessage);
-      setMessage({ tone: "error", text: nextMessage });
+      apiError(error, "No se pudo cargar la orden para liquidar");
     } finally {
       setLoading(false);
     }
-  }, [orderId]);
+  }, [apiError, orderId]);
 
   useEffect(() => {
     void loadOrder();
@@ -230,15 +227,12 @@ export function RestaurantSettlementScreen({
     }
 
     if (settlementItems.length === 0) {
-      setMessage({ tone: "info", text: "Selecciona al menos un item para liquidar" });
+      info("Selecciona al menos un item para liquidar");
       return;
     }
 
     if (roundMoney(paymentTotal) !== roundMoney(selectionTotals.total)) {
-      setMessage({
-        tone: "error",
-        text: "La suma de pagos debe ser igual al total seleccionado",
-      });
+      error("La suma de pagos debe ser igual al total seleccionado");
       return;
     }
 
@@ -269,10 +263,7 @@ export function RestaurantSettlementScreen({
         },
       );
 
-      setMessage({
-        tone: "success",
-        text: `Liquidación registrada en venta ${result.saleNumber}`,
-      });
+      success(`Liquidación registrada en venta ${result.saleNumber}`);
 
       if (result.order) {
         setOrder(result.order);
@@ -297,11 +288,7 @@ export function RestaurantSettlementScreen({
         }, 900);
       }
     } catch (error) {
-      setMessage({
-        tone: "error",
-        text:
-          error instanceof Error ? error.message : "No se pudo liquidar la orden",
-      });
+      apiError(error, "No se pudo liquidar la orden");
     } finally {
       setSubmitting(false);
     }
@@ -699,21 +686,6 @@ export function RestaurantSettlementScreen({
           </Stack>
         ) : null}
       </Stack>
-
-      <Snackbar
-        open={Boolean(message)}
-        autoHideDuration={3600}
-        onClose={() => setMessage(null)}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-      >
-        <Alert
-          severity={message?.tone === "error" ? "error" : message?.tone === "success" ? "success" : "info"}
-          variant="filled"
-          onClose={() => setMessage(null)}
-        >
-          {message?.text ?? ""}
-        </Alert>
-      </Snackbar>
     </Box>
   );
 }

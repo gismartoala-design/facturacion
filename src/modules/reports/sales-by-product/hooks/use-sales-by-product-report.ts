@@ -197,6 +197,12 @@ export function useSalesByProductReport(params: {
     });
   }
 
+  function refresh() {
+    startRoutingTransition(() => {
+      router.refresh();
+    });
+  }
+
   return {
     report,
     filters,
@@ -211,5 +217,6 @@ export function useSalesByProductReport(params: {
     exportVisibleRows,
     applyFilters,
     resetFilters,
+    refresh,
   };
 }

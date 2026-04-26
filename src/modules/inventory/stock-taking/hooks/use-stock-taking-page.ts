@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 
 import type { StockItem } from "@/shared/dashboard/types";
 import type { StockTakingDetail, StockTakingSummary } from "@/modules/inventory/stock-taking/types";
+import { useInventoryNotifier } from "@/shared/notifications/notifier-presets";
 
 import {
   applyStockTakingDraft,
@@ -31,15 +32,9 @@ export type StockTakingFilter =
   | "UNCHANGED"
   | "INVALID";
 
-type FeedbackState = {
-  message: string;
-  severity: "success" | "error" | "info";
-} | null;
-
 type UseStockTakingPageOptions = {
   initialStock: StockItem[];
   initialTakings: StockTakingSummary[];
-  initialError?: string | null;
 };
 
 const EPSILON = 0.000_001;
@@ -61,8 +56,8 @@ function mapTakingCounts(taking: StockTakingDetail) {
 export function useStockTakingPage({
   initialStock,
   initialTakings,
-  initialError = null,
 }: UseStockTakingPageOptions) {
+  const notifier = useInventoryNotifier();
   const [stock, setStock] = useState<StockItem[]>(initialStock);
   const [takings, setTakings] = useState<StockTakingSummary[]>(initialTakings);
   const [activeTaking, setActiveTaking] = useState<StockTakingDetail | null>(null);
@@ -73,9 +68,6 @@ export function useStockTakingPage({
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [loadingTakingId, setLoadingTakingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [feedback, setFeedback] = useState<FeedbackState>(
-    initialError ? { message: initialError, severity: "error" } : null,
-  );
 
   const savedSystemQuantities = useMemo(() => {
     return new Map(
@@ -255,10 +247,7 @@ export function useStockTakingPage({
         ]),
       ),
     );
-    setFeedback({
-      message: "Se copio el stock actual como conteo base",
-      severity: "info",
-    });
+    notifier.info("Se copio el stock actual como conteo base");
   }
 
   function clearCounts() {
@@ -267,10 +256,7 @@ export function useStockTakingPage({
     }
 
     setCounts({});
-    setFeedback({
-      message: "Se limpiaron los conteos capturados",
-      severity: "info",
-    });
+    notifier.info("Se limpiaron los conteos capturados");
   }
 
   function startNewTaking() {
@@ -282,10 +268,7 @@ export function useStockTakingPage({
     setNotes("");
     setCounts({});
     setEditingProductId(null);
-    setFeedback({
-      message: "Nueva toma lista para registrar conteos",
-      severity: "info",
-    });
+    notifier.info("Nueva toma lista para registrar conteos");
   }
 
   async function reloadStock() {
@@ -328,7 +311,6 @@ export function useStockTakingPage({
 
   async function openTaking(id: string) {
     setLoadingTakingId(id);
-    setFeedback(null);
 
     try {
       const detail = await fetchStockTakingDetail(id);
@@ -337,13 +319,7 @@ export function useStockTakingPage({
       setCounts(mapTakingCounts(detail));
       setEditingProductId(null);
     } catch (error) {
-      setFeedback({
-        message:
-          error instanceof Error
-            ? error.message
-            : "No se pudo abrir la toma de inventario",
-        severity: "error",
-      });
+      notifier.apiError(error, "No se pudo abrir la toma de inventario");
     } finally {
       setLoadingTakingId(null);
     }
@@ -355,7 +331,6 @@ export function useStockTakingPage({
     }
 
     setSaving(true);
-    setFeedback(null);
 
     try {
       const payload = buildDraftPayload();
@@ -367,20 +342,13 @@ export function useStockTakingPage({
       setNotes(savedTaking.notes ?? "");
       setCounts(mapTakingCounts(savedTaking));
       await reloadTakings();
-      setFeedback({
-        message: activeTaking
+      notifier.saved(
+        activeTaking
           ? `Toma #${savedTaking.takingNumber} actualizada`
           : `Toma #${savedTaking.takingNumber} guardada como borrador`,
-        severity: "success",
-      });
+      );
     } catch (error) {
-      setFeedback({
-        message:
-          error instanceof Error
-            ? error.message
-            : "No se pudo guardar la toma de inventario",
-        severity: "error",
-      });
+      notifier.apiError(error, "No se pudo guardar la toma de inventario");
     } finally {
       setSaving(false);
     }
@@ -392,15 +360,11 @@ export function useStockTakingPage({
     }
 
     if (activeTaking && draftDirty) {
-      setFeedback({
-        message: "Guarda el borrador antes de aplicar la toma",
-        severity: "error",
-      });
+      notifier.error("Guarda el borrador antes de aplicar la toma");
       return;
     }
 
     setSaving(true);
-    setFeedback(null);
 
     try {
       const draft =
@@ -412,18 +376,9 @@ export function useStockTakingPage({
       setNotes(appliedTaking.notes ?? "");
       setCounts(mapTakingCounts(appliedTaking));
       await Promise.all([reloadStock(), reloadTakings()]);
-      setFeedback({
-        message: `Toma #${appliedTaking.takingNumber} aplicada correctamente`,
-        severity: "success",
-      });
+      notifier.saved(`Toma #${appliedTaking.takingNumber} aplicada correctamente`);
     } catch (error) {
-      setFeedback({
-        message:
-          error instanceof Error
-            ? error.message
-            : "No se pudo aplicar la toma de inventario",
-        severity: "error",
-      });
+      notifier.apiError(error, "No se pudo aplicar la toma de inventario");
     } finally {
       setSaving(false);
     }
@@ -442,7 +397,6 @@ export function useStockTakingPage({
     summary,
     saving,
     loadingTakingId,
-    feedback,
     canEdit,
     canSaveDraft,
     canApplyTaking,

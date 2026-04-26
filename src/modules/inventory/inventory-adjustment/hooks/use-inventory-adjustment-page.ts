@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 
 import type { Product, StockAdjustmentForm, StockItem } from "@/shared/dashboard/types";
+import { useInventoryNotifier } from "@/shared/notifications/notifier-presets";
 
 import {
   createInventoryAdjustment,
@@ -10,15 +11,9 @@ import {
   fetchStockItems,
 } from "../services/inventory-adjustment-client";
 
-type FeedbackState = {
-  message: string;
-  severity: "success" | "error" | "info";
-} | null;
-
 type UseInventoryAdjustmentPageOptions = {
   initialProducts: Product[];
   initialStock: StockItem[];
-  initialError?: string | null;
 };
 
 function createEmptyAdjustment(): StockAdjustmentForm {
@@ -26,19 +21,17 @@ function createEmptyAdjustment(): StockAdjustmentForm {
     productId: "",
     movementType: "IN",
     quantity: "0",
+    unitCost: "",
   };
 }
 
 export function useInventoryAdjustmentPage({
   initialProducts,
   initialStock,
-  initialError = null,
 }: UseInventoryAdjustmentPageOptions) {
+  const notifier = useInventoryNotifier();
   const [stock, setStock] = useState<StockItem[]>(initialStock);
   const [products, setProducts] = useState<Product[]>(initialProducts);
-  const [feedback, setFeedback] = useState<FeedbackState>(
-    initialError ? { message: initialError, severity: "error" } : null,
-  );
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [adjustment, setAdjustment] = useState<StockAdjustmentForm>(
@@ -57,7 +50,6 @@ export function useInventoryAdjustmentPage({
 
   function openDialog() {
     setAdjustment(createEmptyAdjustment());
-    setFeedback(null);
     setIsDialogOpen(true);
   }
 
@@ -72,24 +64,14 @@ export function useInventoryAdjustmentPage({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaving(true);
-    setFeedback(null);
 
     try {
       await createInventoryAdjustment(adjustment);
       setIsDialogOpen(false);
-      setFeedback({
-        message: "Stock actualizado",
-        severity: "success",
-      });
+      notifier.saved("Stock actualizado");
       await reloadData();
     } catch (error) {
-      setFeedback({
-        message:
-          error instanceof Error
-            ? error.message
-            : "No se pudo ajustar stock",
-        severity: "error",
-      });
+      notifier.apiError(error, "No se pudo ajustar stock");
     } finally {
       setSaving(false);
     }
@@ -98,7 +80,6 @@ export function useInventoryAdjustmentPage({
   return {
     stock,
     products,
-    feedback,
     isDialogOpen,
     adjustment,
     setAdjustment,

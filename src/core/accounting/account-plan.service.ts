@@ -276,11 +276,12 @@ export async function ensureAccountingAccountsSeededInTransaction(
   tx: DbClient,
   businessId: string,
 ) {
-  const existingCount = await tx.accountingAccount.count({
+  const existingAccount = await tx.accountingAccount.findFirst({
     where: { businessId },
+    select: { id: true },
   });
 
-  if (existingCount > 0) {
+  if (existingAccount) {
     return;
   }
 

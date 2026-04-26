@@ -11,6 +11,11 @@ import {
   reversePostedEntryBySourceInTransaction,
 } from "@/core/accounting/accounting-entry.service";
 import {
+  buildValuedMovement,
+  resolveStockValuationState,
+  toStockLevelValuationUpdate,
+} from "@/core/inventory/valuation.service";
+import {
   cancelPayableForPurchaseInTransaction,
   createPayableForPurchaseInTransaction,
 } from "@/core/purchases/accounts-payable.service";
@@ -148,170 +153,194 @@ export async function createPurchase(
 ) {
   const input = createPurchaseSchema.parse(rawInput);
 
-  return prisma.$transaction(async (tx) => {
-    const supplier = await tx.supplier.findFirst({
-      where: {
-        id: input.supplierId,
-        businessId,
-        activo: true,
-      },
-      select: { id: true, diasCredito: true },
-    });
-
-    if (!supplier) {
-      throw new Error("Proveedor no encontrado");
-    }
-
-    const productIds = [...new Set(input.items.map((item) => item.productId))];
-    const products = await tx.product.findMany({
-      where: {
-        id: { in: productIds },
-        activo: true,
-      },
-      select: {
-        id: true,
-        nombre: true,
-        tipoProducto: true,
-      },
-    });
-    const productById = new Map(products.map((product) => [product.id, product]));
-
-    if (products.length !== productIds.length) {
-      throw new Error("Uno o mas productos no existen o estan inactivos");
-    }
-
-    const calculatedItems = input.items.map((item) => {
-      const gross = roundMoney(item.quantity * item.unitCost);
-      const discount = roundMoney(item.discount);
-
-      if (discount > gross) {
-        throw new Error("El descuento no puede superar el subtotal de una linea");
-      }
-
-      const subtotal = roundMoney(gross - discount);
-      const taxTotal = roundMoney(subtotal * (item.taxRate / 100));
-      const total = roundMoney(subtotal + taxTotal);
-
-      return {
-        productId: item.productId,
-        productType: productById.get(item.productId)?.tipoProducto,
-        quantity: roundQuantity(item.quantity),
-        unitCost: roundMoney(item.unitCost),
-        discount,
-        taxRate: roundMoney(item.taxRate),
-        subtotal,
-        taxTotal,
-        total,
-      };
-    });
-
-    const subtotal = roundMoney(
-      calculatedItems.reduce((sum, item) => sum + item.subtotal, 0),
-    );
-    const discountTotal = roundMoney(
-      calculatedItems.reduce((sum, item) => sum + item.discount, 0),
-    );
-    const taxTotal = roundMoney(
-      calculatedItems.reduce((sum, item) => sum + item.taxTotal, 0),
-    );
-    const total = roundMoney(
-      calculatedItems.reduce((sum, item) => sum + item.total, 0),
-    );
-    const inventorySubtotal = roundMoney(
-      calculatedItems
-        .filter((item) => item.productType === "BIEN")
-        .reduce((sum, item) => sum + item.subtotal, 0),
-    );
-    const serviceSubtotal = roundMoney(
-      calculatedItems
-        .filter((item) => item.productType !== "BIEN")
-        .reduce((sum, item) => sum + item.subtotal, 0),
-    );
-
-    const purchase = await tx.purchase.create({
-      data: {
-        businessId,
-        supplierId: input.supplierId,
-        documentType: input.documentType,
-        documentNumber: input.documentNumber.trim(),
-        authorizationNumber: nullableText(input.authorizationNumber),
-        issuedAt: input.issuedAt,
-        subtotal: new Prisma.Decimal(subtotal),
-        discountTotal: new Prisma.Decimal(discountTotal),
-        taxTotal: new Prisma.Decimal(taxTotal),
-        total: new Prisma.Decimal(total),
-        notes: nullableText(input.notes),
-        createdById,
-        items: {
-          create: calculatedItems.map((item) => ({
-            productId: item.productId,
-            quantity: new Prisma.Decimal(item.quantity),
-            unitCost: new Prisma.Decimal(item.unitCost),
-            discount: new Prisma.Decimal(item.discount),
-            taxRate: new Prisma.Decimal(item.taxRate),
-            subtotal: new Prisma.Decimal(item.subtotal),
-            taxTotal: new Prisma.Decimal(item.taxTotal),
-            total: new Prisma.Decimal(item.total),
-          })),
+  return prisma.$transaction(
+    async (tx) => {
+      const supplier = await tx.supplier.findFirst({
+        where: {
+          id: input.supplierId,
+          businessId,
+          activo: true,
         },
-      },
-      select: purchaseSelect,
-    });
+        select: { id: true, diasCredito: true },
+      });
 
-    await createPayableForPurchaseInTransaction(tx, {
-      businessId,
-      supplierId: input.supplierId,
-      purchaseId: purchase.id,
-      documentType: input.documentType,
-      documentNumber: purchase.documentNumber,
-      issuedAt: purchase.issuedAt,
-      total,
-      supplierCreditDays: supplier.diasCredito,
-    });
-
-    await postPurchaseEntryInTransaction(tx, {
-      businessId,
-      purchaseId: purchase.id,
-      inventorySubtotal,
-      serviceSubtotal,
-      taxTotal,
-      total,
-    });
-
-    for (const item of calculatedItems) {
-      if (item.productType !== "BIEN") {
-        continue;
+      if (!supplier) {
+        throw new Error("Proveedor no encontrado");
       }
 
-      await tx.stockLevel.upsert({
-        where: { productId: item.productId },
-        create: {
+      const productIds = [...new Set(input.items.map((item) => item.productId))];
+      const products = await tx.product.findMany({
+        where: {
+          id: { in: productIds },
+          activo: true,
+        },
+        select: {
+          id: true,
+          nombre: true,
+          tipoProducto: true,
+        },
+      });
+      const productById = new Map(products.map((product) => [product.id, product]));
+
+      if (products.length !== productIds.length) {
+        throw new Error("Uno o mas productos no existen o estan inactivos");
+      }
+
+      const calculatedItems = input.items.map((item) => {
+        const gross = roundMoney(item.quantity * item.unitCost);
+        const discount = roundMoney(item.discount);
+
+        if (discount > gross) {
+          throw new Error("El descuento no puede superar el subtotal de una linea");
+        }
+
+        const subtotal = roundMoney(gross - discount);
+        const taxTotal = roundMoney(subtotal * (item.taxRate / 100));
+        const total = roundMoney(subtotal + taxTotal);
+
+        return {
           productId: item.productId,
-          quantity: new Prisma.Decimal(item.quantity),
-          minQuantity: new Prisma.Decimal(0),
-        },
-        update: {
-          quantity: {
-            increment: new Prisma.Decimal(item.quantity),
+          productType: productById.get(item.productId)?.tipoProducto,
+          quantity: roundQuantity(item.quantity),
+          unitCost: roundMoney(item.unitCost),
+          discount,
+          taxRate: roundMoney(item.taxRate),
+          subtotal,
+          taxTotal,
+          total,
+        };
+      });
+
+      const subtotal = roundMoney(
+        calculatedItems.reduce((sum, item) => sum + item.subtotal, 0),
+      );
+      const discountTotal = roundMoney(
+        calculatedItems.reduce((sum, item) => sum + item.discount, 0),
+      );
+      const taxTotal = roundMoney(
+        calculatedItems.reduce((sum, item) => sum + item.taxTotal, 0),
+      );
+      const total = roundMoney(
+        calculatedItems.reduce((sum, item) => sum + item.total, 0),
+      );
+      const inventorySubtotal = roundMoney(
+        calculatedItems
+          .filter((item) => item.productType === "BIEN")
+          .reduce((sum, item) => sum + item.subtotal, 0),
+      );
+      const serviceSubtotal = roundMoney(
+        calculatedItems
+          .filter((item) => item.productType !== "BIEN")
+          .reduce((sum, item) => sum + item.subtotal, 0),
+      );
+
+      const purchase = await tx.purchase.create({
+        data: {
+          businessId,
+          supplierId: input.supplierId,
+          documentType: input.documentType,
+          documentNumber: input.documentNumber.trim(),
+          authorizationNumber: nullableText(input.authorizationNumber),
+          issuedAt: input.issuedAt,
+          subtotal: new Prisma.Decimal(subtotal),
+          discountTotal: new Prisma.Decimal(discountTotal),
+          taxTotal: new Prisma.Decimal(taxTotal),
+          total: new Prisma.Decimal(total),
+          notes: nullableText(input.notes),
+          createdById,
+          items: {
+            create: calculatedItems.map((item) => ({
+              productId: item.productId,
+              quantity: new Prisma.Decimal(item.quantity),
+              unitCost: new Prisma.Decimal(item.unitCost),
+              discount: new Prisma.Decimal(item.discount),
+              taxRate: new Prisma.Decimal(item.taxRate),
+              subtotal: new Prisma.Decimal(item.subtotal),
+              taxTotal: new Prisma.Decimal(item.taxTotal),
+              total: new Prisma.Decimal(item.total),
+            })),
           },
         },
+        select: purchaseSelect,
       });
 
-      await tx.stockMovement.create({
-        data: {
+      await createPayableForPurchaseInTransaction(tx, {
+        businessId,
+        supplierId: input.supplierId,
+        purchaseId: purchase.id,
+        documentType: input.documentType,
+        documentNumber: purchase.documentNumber,
+        issuedAt: purchase.issuedAt,
+        total,
+        supplierCreditDays: supplier.diasCredito,
+      });
+
+      await postPurchaseEntryInTransaction(tx, {
+        businessId,
+        purchaseId: purchase.id,
+        inventorySubtotal,
+        serviceSubtotal,
+        taxTotal,
+        total,
+      });
+
+      for (const item of calculatedItems) {
+        if (item.productType !== "BIEN") {
+          continue;
+        }
+
+        const existingStock = await tx.stockLevel.findUnique({
+          where: { productId: item.productId },
+          select: {
+            quantity: true,
+            averageCost: true,
+            lastCost: true,
+            inventoryValue: true,
+          },
+        });
+
+        const currentState = resolveStockValuationState({
+          quantity: existingStock?.quantity ?? 0,
+          averageCost: existingStock?.averageCost ?? 0,
+          lastCost: existingStock?.lastCost ?? 0,
+          inventoryValue: existingStock?.inventoryValue ?? 0,
+        });
+        const effectiveUnitCost = roundMoney(item.subtotal / item.quantity);
+        const valuedMovement = buildValuedMovement({
           productId: item.productId,
           movementType: MovementType.IN,
+          quantity: item.quantity,
+          unitCost: effectiveUnitCost,
           referenceType: ReferenceType.PURCHASE,
           referenceId: purchase.id,
-          quantity: new Prisma.Decimal(item.quantity),
           createdById,
           notes: `Compra #${purchase.purchaseNumber.toString()} | ${purchase.documentNumber}`,
-        },
-      });
-    }
+          state: currentState,
+        });
 
-    return purchasePresenter(purchase);
-  });
+        await tx.stockLevel.upsert({
+          where: { productId: item.productId },
+          create: {
+            productId: item.productId,
+            minQuantity: new Prisma.Decimal(0),
+            ...toStockLevelValuationUpdate(valuedMovement.nextState),
+          },
+          update: toStockLevelValuationUpdate(valuedMovement.nextState),
+        });
+
+        await tx.stockMovement.create({
+          data: valuedMovement.movement,
+        });
+      }
+
+      return purchasePresenter(purchase);
+    },
+    {
+      maxWait: 15000,
+      timeout: 60000,
+      isolationLevel: "Serializable",
+    },
+  );
 }
 
 export async function voidPurchase(
@@ -322,8 +351,9 @@ export async function voidPurchase(
 ) {
   const input = voidPurchaseSchema.parse(rawInput);
 
-  return prisma.$transaction(async (tx) => {
-    const purchase = await tx.purchase.findFirst({
+  return prisma.$transaction(
+    async (tx) => {
+      const purchase = await tx.purchase.findFirst({
       where: {
         id: purchaseId,
         businessId,
@@ -357,7 +387,10 @@ export async function voidPurchase(
       sourceId: purchase.id,
     });
 
-    const productQuantities = new Map<string, { name: string; quantity: number }>();
+    const productQuantities = new Map<
+      string,
+      { name: string; quantity: number; totalCost: number }
+    >();
     for (const item of purchase.items) {
       if (item.product.tipoProducto !== "BIEN") {
         continue;
@@ -367,13 +400,19 @@ export async function voidPurchase(
       productQuantities.set(item.productId, {
         name: item.product.nombre,
         quantity: (current?.quantity ?? 0) + Number(item.quantity),
+        totalCost: (current?.totalCost ?? 0) + Number(item.subtotal),
       });
     }
 
     for (const [productId, item] of productQuantities.entries()) {
       const stockLevel = await tx.stockLevel.findUnique({
         where: { productId },
-        select: { quantity: true },
+        select: {
+          quantity: true,
+          averageCost: true,
+          lastCost: true,
+          inventoryValue: true,
+        },
       });
       const currentQuantity = Number(stockLevel?.quantity ?? 0);
 
@@ -385,40 +424,40 @@ export async function voidPurchase(
     }
 
     for (const [productId, item] of productQuantities.entries()) {
-      const updated = await tx.stockLevel.updateMany({
-        where: {
-          productId,
-          quantity: {
-            gte: new Prisma.Decimal(item.quantity),
-          },
-        },
-        data: {
-          quantity: {
-            decrement: new Prisma.Decimal(item.quantity),
-          },
+      const stockLevel = await tx.stockLevel.findUnique({
+        where: { productId },
+        select: {
+          quantity: true,
+          averageCost: true,
+          lastCost: true,
+          inventoryValue: true,
         },
       });
 
-      if (updated.count === 0) {
-        throw new Error(
-          `No se pudo revertir el stock de ${item.name}; intenta nuevamente`,
-        );
+      if (!stockLevel) {
+        throw new Error(`No existe stock registrado para ${item.name}`);
       }
-    }
 
-    if (productQuantities.size > 0) {
-      await tx.stockMovement.createMany({
-        data: Array.from(productQuantities.entries()).map(
-          ([productId, item]) => ({
-            productId,
-            movementType: MovementType.OUT,
-            referenceType: ReferenceType.PURCHASE,
-            referenceId: purchase.id,
-            quantity: new Prisma.Decimal(item.quantity),
-            createdById: voidedById,
-            notes: `Salida por anulacion de compra #${purchase.purchaseNumber.toString()} | ${input.reason}`,
-          }),
-        ),
+      const currentState = resolveStockValuationState(stockLevel);
+      const valuedMovement = buildValuedMovement({
+        productId,
+        movementType: MovementType.OUT,
+        quantity: item.quantity,
+        unitCost: item.quantity > 0 ? roundMoney(item.totalCost / item.quantity) : 0,
+        referenceType: ReferenceType.PURCHASE,
+        referenceId: purchase.id,
+        createdById: voidedById,
+        notes: `Salida por anulacion de compra #${purchase.purchaseNumber.toString()} | ${input.reason}`,
+        state: currentState,
+      });
+
+      await tx.stockLevel.update({
+        where: { productId },
+        data: toStockLevelValuationUpdate(valuedMovement.nextState),
+      });
+
+      await tx.stockMovement.create({
+        data: valuedMovement.movement,
       });
     }
 
@@ -433,6 +472,12 @@ export async function voidPurchase(
       select: purchaseSelect,
     });
 
-    return purchasePresenter(updatedPurchase);
-  });
+      return purchasePresenter(updatedPurchase);
+    },
+    {
+      maxWait: 15000,
+      timeout: 60000,
+      isolationLevel: "Serializable",
+    },
+  );
 }

@@ -51,6 +51,10 @@ function formatSignedQuantity(value: number) {
   return `${value > 0 ? "+" : ""}${value.toFixed(3)}`;
 }
 
+function formatSignedMoney(value: number) {
+  return `${value > 0 ? "+" : ""}$${value.toFixed(2)}`;
+}
+
 export function KardexSection({
   entries,
   selectedProductId,
@@ -165,6 +169,34 @@ export function KardexSection({
         },
       },
       {
+        field: "unitCost",
+        headerName: "Costo unit.",
+        minWidth: 120,
+        flex: 0.7,
+        align: "right",
+        headerAlign: "right",
+        valueFormatter: (value) => `$${Number(value).toFixed(4)}`,
+      },
+      {
+        field: "signedTotalCost",
+        headerName: "Valor mov.",
+        minWidth: 125,
+        flex: 0.75,
+        align: "right",
+        headerAlign: "right",
+        renderCell: (params) => {
+          const value = params.row.signedTotalCost;
+          const color =
+            value > 0 ? "#15803d" : value < 0 ? "#b91c1c" : "#4b5563";
+
+          return (
+            <span className="w-full text-right font-semibold" style={{ color }}>
+              {formatSignedMoney(value)}
+            </span>
+          );
+        },
+      },
+      {
         field: "balanceBefore",
         headerName: "Saldo anterior",
         minWidth: 135,
@@ -181,6 +213,24 @@ export function KardexSection({
         align: "right",
         headerAlign: "right",
         valueFormatter: (value) => Number(value).toFixed(3),
+      },
+      {
+        field: "balanceAverageCost",
+        headerName: "Costo prom.",
+        minWidth: 120,
+        flex: 0.7,
+        align: "right",
+        headerAlign: "right",
+        valueFormatter: (value) => `$${Number(value).toFixed(4)}`,
+      },
+      {
+        field: "balanceValue",
+        headerName: "Saldo valor",
+        minWidth: 130,
+        flex: 0.8,
+        align: "right",
+        headerAlign: "right",
+        valueFormatter: (value) => `$${Number(value).toFixed(2)}`,
       },
       {
         field: "createdByName",
@@ -236,8 +286,8 @@ export function KardexSection({
                 fontSize: 14,
               }}
             >
-              Historial operativo de entradas, salidas y ajustes con saldo
-              anterior y saldo resultante por producto.
+              Historial operativo valorizado de entradas, salidas y ajustes con
+              saldo en cantidad y valor por producto.
             </Typography>
           </Stack>
         </Box>

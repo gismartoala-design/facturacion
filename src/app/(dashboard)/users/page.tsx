@@ -3,10 +3,12 @@
 import { Loader2, Pencil, Trash2, UserPlus } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { PageErrorState } from "@/shared/states/page-error-state";
 import { fetchJson } from "@/shared/dashboard/api";
+import { useUsersNotifier } from "@/shared/notifications/notifier-presets";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TBody, Td, Th, THead, Tr } from "@/components/ui/table";
@@ -37,11 +39,12 @@ const EMPTY_FORM: NewUserForm = { name: "", email: "", password: "", role: "SELL
 const EMPTY_EDIT_FORM: EditUserForm = { name: "", email: "", password: "", role: "SELLER" };
 
 export default function UsersPage() {
+  const notifier = useUsersNotifier();
   const [users, setUsers] = useState<UserItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [message, setMessage] = useState("");
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [form, setForm] = useState<NewUserForm>(EMPTY_FORM);
   const [editingUser, setEditingUser] = useState<UserItem | null>(null);
@@ -51,15 +54,22 @@ export default function UsersPage() {
 
   async function loadUsers() {
     setLoading(true);
+    setLoadError(null);
+    setUnauthorized(false);
+
     try {
       const result = await fetchJson<UserItem[]>("/api/v1/users");
       setUsers(result);
+      return true;
     } catch (error) {
       if (error instanceof Error && error.message.includes("403")) {
         setUnauthorized(true);
       } else {
-        setMessage(error instanceof Error ? error.message : "No se pudo cargar usuarios");
+        setLoadError(
+          error instanceof Error ? error.message : "No se pudo cargar usuarios",
+        );
       }
+      return false;
     } finally {
       setLoading(false);
     }
@@ -70,7 +80,6 @@ export default function UsersPage() {
   async function onCreateUser(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSaving(true);
-    setMessage("");
 
     try {
       await fetchJson("/api/v1/users", {
@@ -79,10 +88,10 @@ export default function UsersPage() {
       });
       setForm(EMPTY_FORM);
       setIsFormOpen(false);
-      setMessage("Usuario creado correctamente");
       await loadUsers();
+      notifier.saved("Usuario creado correctamente");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "No se pudo crear usuario");
+      notifier.apiError(error, "No se pudo crear usuario");
     } finally {
       setSaving(false);
     }
@@ -96,14 +105,12 @@ export default function UsersPage() {
       password: "",
       role: user.role,
     });
-    setMessage("");
   }
 
   async function onUpdateUser(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!editingUser) return;
     setSaving(true);
-    setMessage("");
 
     try {
       await fetchJson(`/api/v1/users/${editingUser.id}`, {
@@ -118,10 +125,10 @@ export default function UsersPage() {
 
       setEditingUser(null);
       setEditForm(EMPTY_EDIT_FORM);
-      setMessage("Usuario actualizado correctamente");
       await loadUsers();
+      notifier.saved("Usuario actualizado correctamente");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "No se pudo actualizar usuario");
+      notifier.apiError(error, "No se pudo actualizar usuario");
     } finally {
       setSaving(false);
     }
@@ -130,15 +137,14 @@ export default function UsersPage() {
   async function onDeleteUser() {
     if (!deletingUser) return;
     setDeleting(true);
-    setMessage("");
 
     try {
       await fetchJson(`/api/v1/users/${deletingUser.id}`, { method: "DELETE" });
       setDeletingUser(null);
-      setMessage("Usuario eliminado correctamente");
       await loadUsers();
+      notifier.deleted("Usuario eliminado correctamente");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "No se pudo eliminar usuario");
+      notifier.apiError(error, "No se pudo eliminar usuario");
     } finally {
       setDeleting(false);
     }
@@ -161,6 +167,10 @@ export default function UsersPage() {
     );
   }
 
+  if (loadError && users.length === 0) {
+    return <PageErrorState message={loadError} onRetry={() => void loadUsers()} />;
+  }
+
   return (
     <div className="space-y-6">
       <div className="space-y-4 p-4">
@@ -171,8 +181,6 @@ export default function UsersPage() {
           </CardDescription>
         </div>
       </div>
-
-      {message ? <p className="text-sm font-medium text-emerald-700">{message}</p> : null}
 
       <Card className="rounded-[28px]">
         <CardContent>
@@ -227,7 +235,9 @@ export default function UsersPage() {
                           type="button"
                           variant="destructive"
                           size="sm"
-                          onClick={() => { setDeletingUser(user); setMessage(""); }}
+                          onClick={() => {
+                            setDeletingUser(user);
+                          }}
                           title="Eliminar"
                         >
                           <Trash2 className="h-3.5 w-3.5" />

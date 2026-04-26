@@ -1,11 +1,8 @@
 "use client";
 
-import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
-import CircularProgress from "@mui/material/CircularProgress";
 import Grid from "@mui/material/Grid";
 import Paper from "@mui/material/Paper";
-import Snackbar from "@mui/material/Snackbar";
 import Typography from "@mui/material/Typography";
 import {
   FilePlus2,
@@ -27,6 +24,9 @@ import type {
   AccountRow,
 } from "@/modules/accounting/accounting-ledger/components/account-plan-view-model";
 import { fetchJson } from "@/shared/dashboard/api";
+import { useAccountingNotifier } from "@/shared/notifications/notifier-presets";
+import { PageErrorState } from "@/shared/states/page-error-state";
+import { PageLoadingState } from "@/shared/states/page-loading-state";
 import { DashboardPageHeader } from "@/shared/dashboard/page-header";
 import { AccountFormDialog } from "../components/account-form-dialog";
 import { AccountImportDialog } from "../components/account-import-dialog";
@@ -79,6 +79,7 @@ export function AccountPlanPage({
   initialData,
   initialError = null,
 }: AccountPlanPageProps) {
+  const { apiError, error: notifyError, show, success } = useAccountingNotifier();
   const [data, setData] = useState<AccountPlanResponse | null>(
     () => initialData,
   );
@@ -101,11 +102,21 @@ export function AccountPlanPage({
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(
     null,
   );
-  const [snackbar, setSnackbar] = useState<SnackbarState>(null);
+
+  function setSnackbar(nextSnackbar: SnackbarState) {
+    if (!nextSnackbar) {
+      return;
+    }
+
+    show({
+      message: nextSnackbar.text,
+      severity: nextSnackbar.tone,
+    });
+  }
 
   const importState = useAccountPlanImport({
     onImported: () => setRefreshKey((current) => current + 1),
-    onNotify: (nextSnackbar) => setSnackbar(nextSnackbar),
+    onNotify: setSnackbar,
   });
 
   useEffect(() => {
@@ -330,10 +341,7 @@ export function AccountPlanPage({
     }
 
     if (selectedAccount?.system) {
-      setSnackbar({
-        tone: "error",
-        text: "Las cuentas base del sistema no se pueden modificar",
-      });
+      notifyError("Las cuentas base del sistema no se pueden modificar");
       return;
     }
 
@@ -350,19 +358,10 @@ export function AccountPlanPage({
 
       setSelectedAccountId(saved.id);
       setEditDialogOpen(false);
-      setSnackbar({
-        tone: "success",
-        text: "Cuenta contable actualizada correctamente",
-      });
+      success("Cuenta contable actualizada correctamente");
       setRefreshKey((current) => current + 1);
     } catch (submitError) {
-      setSnackbar({
-        tone: "error",
-        text:
-          submitError instanceof Error
-            ? submitError.message
-            : "No se pudo guardar la cuenta contable",
-      });
+      apiError(submitError, "No se pudo guardar la cuenta contable");
     } finally {
       setSavingEdit(false);
     }
@@ -384,42 +383,21 @@ export function AccountPlanPage({
       setCreateDialogOpen(false);
       setCreateForm(createEmptyForm());
       setSelectedAccountId(saved.id);
-      setSnackbar({
-        tone: "success",
-        text: "Cuenta contable creada correctamente",
-      });
+      success("Cuenta contable creada correctamente");
       setRefreshKey((current) => current + 1);
     } catch (submitError) {
-      setSnackbar({
-        tone: "error",
-        text:
-          submitError instanceof Error
-            ? submitError.message
-            : "No se pudo guardar la cuenta contable",
-      });
+      apiError(submitError, "No se pudo guardar la cuenta contable");
     } finally {
       setSavingCreate(false);
     }
   }
 
   if (loading && !data) {
-    return (
-      <Paper
-        elevation={0}
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          gap: 1.5,
-          borderRadius: "20px",
-          border: "1px solid rgba(226, 232, 240, 1)",
-          p: 2,
-          color: "text.secondary",
-        }}
-      >
-        <CircularProgress size={18} thickness={5} />
-        <Typography>Cargando plan de cuentas...</Typography>
-      </Paper>
-    );
+    return <PageLoadingState message="Cargando plan de cuentas..." />;
+  }
+
+  if (error && !data) {
+    return <PageErrorState message={error} />;
   }
 
   return (
@@ -597,22 +575,6 @@ export function AccountPlanPage({
         formatCurrency={formatCurrency}
         formatDateTime={formatLastPostedAt}
       />
-
-      <Snackbar
-        open={Boolean(snackbar)}
-        autoHideDuration={3500}
-        onClose={() => setSnackbar(null)}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-      >
-        <Alert
-          severity={snackbar?.tone ?? "success"}
-          variant="filled"
-          onClose={() => setSnackbar(null)}
-          sx={{ borderRadius: "14px", alignItems: "center" }}
-        >
-          {snackbar?.text}
-        </Alert>
-      </Snackbar>
     </>
   );
 }

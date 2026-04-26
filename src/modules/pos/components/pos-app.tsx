@@ -2,7 +2,6 @@
 
 import { format } from "date-fns";
 import {
-  Alert,
   Autocomplete,
   Box,
   Button,
@@ -15,7 +14,6 @@ import {
   Menu,
   MenuItem,
   Paper,
-  Snackbar,
   Stack,
   TextField,
   Typography,
@@ -44,6 +42,7 @@ import {
 import NextLink from "next/link";
 import {
   startTransition,
+  useCallback,
   useEffect,
   useEffectEvent,
   useId,
@@ -51,7 +50,6 @@ import {
   useRef,
   useState,
   type MouseEvent,
-  type SyntheticEvent,
 } from "react";
 import {
   alpha,
@@ -83,6 +81,7 @@ import type { BillingRuntime } from "@/modules/billing/policies/billing-runtime"
 import type { PosRuntime } from "@/modules/pos/policies/pos-runtime";
 import type { CashRuntime } from "@/modules/cash-management/policies/cash-runtime";
 import { fetchJson } from "@/shared/dashboard/api";
+import { usePosNotifier } from "@/shared/notifications/notifier-presets";
 import {
   IDENTIFICATION_TYPES,
   PAYMENT_METHODS,
@@ -454,6 +453,7 @@ export function PosApp({
   initialBootstrapError = null,
 }: PosAppProps) {
   const theme = useTheme();
+  const notifier = usePosNotifier();
   const barcodeInputRef = useRef<HTMLInputElement | null>(null);
   const identificationInputRef = useRef<HTMLInputElement | null>(null);
   const customerNameInputRef = useRef<HTMLInputElement | null>(null);
@@ -466,7 +466,6 @@ export function PosApp({
     initialBootstrapError,
   );
   const [initialized, setInitialized] = useState(false);
-  const [message, setMessage] = useState<MessageState>(null);
   const [customerLookupLoading, setCustomerLookupLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [cashSubmitting, setCashSubmitting] = useState(false);
@@ -514,9 +513,7 @@ export function PosApp({
   const products = bootstrap?.products ?? EMPTY_PRODUCTS;
   const heldSales = bootstrap?.heldSales ?? EMPTY_HELD_SALES;
   const cashSession = bootstrap?.cashSession ?? null;
-  const desktopContentHeight = message
-    ? "calc(100vh - 198px)"
-    : "calc(100vh - 156px)";
+  const desktopContentHeight = "calc(100vh - 156px)";
   const isToolbarMenuOpen = Boolean(toolbarMenuAnchor);
   const subtleBorder = alpha(theme.palette.divider, 0.9);
   const subtleBorderSoft = alpha(theme.palette.divider, 0.55);
@@ -532,6 +529,24 @@ export function PosApp({
     () => new Map(products.map((product) => [product.id, product])),
     [products],
   );
+
+  const setMessage = useCallback((nextMessage: MessageState) => {
+    if (!nextMessage) {
+      return;
+    }
+
+    if (nextMessage.tone === "success") {
+      notifier.success(nextMessage.text);
+      return;
+    }
+
+    if (nextMessage.tone === "error") {
+      notifier.error(nextMessage.text);
+      return;
+    }
+
+    notifier.info(nextMessage.text);
+  }, [notifier]);
 
   const linePreview = useMemo<LinePreviewRow[]>(
     () =>
@@ -2259,14 +2274,6 @@ export function PosApp({
     };
   }
 
-  function handleSnackbarClose(_: Event | SyntheticEvent, reason?: string) {
-    if (reason === "clickaway") {
-      return;
-    }
-
-    setMessage(null);
-  }
-
   if (bootLoading && !bootstrap) {
     return (
       <Box
@@ -2772,31 +2779,6 @@ export function PosApp({
             </Stack>
           </MenuItem>
         </Menu>
-
-        <Snackbar
-          open={Boolean(message)}
-          autoHideDuration={4200}
-          onClose={handleSnackbarClose}
-          anchorOrigin={{ vertical: "top", horizontal: "right" }}
-        >
-          {message ? (
-            <Alert
-              onClose={handleSnackbarClose}
-              severity={
-                message.tone === "error"
-                  ? "error"
-                  : message.tone === "success"
-                    ? "success"
-                    : "info"
-              }
-              variant="filled"
-              sx={{ py: 0, borderRadius: "16px", minWidth: 320 }}
-            >
-              {message.text}
-            </Alert>
-          ) : undefined}
-        </Snackbar>
-
         <Grid
           container
           spacing={{ xs: 1, md: 1.5 }}

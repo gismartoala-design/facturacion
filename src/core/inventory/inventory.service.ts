@@ -1,6 +1,12 @@
 import { MovementType, Prisma, ReferenceType } from "@prisma/client";
 
+import { postInventoryAdjustmentEntryInTransaction } from "@/core/accounting/accounting-entry.service";
 import { createProductSchema, stockAdjustmentSchema, updateProductSchema } from "@/core/inventory/schemas";
+import {
+  buildValuedMovement,
+  resolveStockValuationState,
+  toStockLevelValuationUpdate,
+} from "@/core/inventory/valuation.service";
 import { prisma } from "@/lib/prisma";
 import { normalizeProductSku, resolveProductCode } from "@/lib/utils";
 
@@ -25,6 +31,9 @@ const productSelect = {
     select: {
       quantity: true,
       minQuantity: true,
+      averageCost: true,
+      lastCost: true,
+      inventoryValue: true,
     },
   },
 } satisfies Prisma.ProductSelect;
@@ -49,6 +58,9 @@ function productPresenter(product: Prisma.ProductGetPayload<{ select: typeof pro
     prepTimeMinutes: product.prepTimeMinutes,
     stock: Number(product.stockLevel?.quantity ?? 0),
     minStock: Number(product.stockLevel?.minQuantity ?? 0),
+    averageCost: Number(product.stockLevel?.averageCost ?? 0),
+    lastCost: Number(product.stockLevel?.lastCost ?? 0),
+    inventoryValue: Number(product.stockLevel?.inventoryValue ?? 0),
     createdAt: product.createdAt,
   };
 }
@@ -102,7 +114,10 @@ export async function listProducts() {
   return products.map(productPresenter);
 }
 
-export async function createProduct(rawInput: unknown) {
+export async function createProduct(
+  rawInput: unknown,
+  context?: { businessId?: string | null; createdById?: string | null },
+) {
   const input = createProductSchema.parse(rawInput);
   const normalizedSku = normalizeProductSku(input.sku);
   const normalizedBarcode = input.codigoBarras?.trim() || null;
@@ -110,43 +125,85 @@ export async function createProduct(rawInput: unknown) {
   await ensureActiveSkuAvailable(normalizedSku);
   await ensureActiveBarcodeAvailable(normalizedBarcode);
 
-  const product = await prisma.product.create({
-    data: {
-      sku: normalizedSku,
-      codigoBarras: normalizedBarcode,
-      tipoProducto: input.tipoProducto,
-      nombre: input.nombre,
-      descripcion: input.descripcion || null,
-      precio: input.precio,
-      tarifaIva: input.tarifaIva,
-      restaurantVisible: input.restaurantVisible,
-      restaurantCategory: input.restaurantCategory || null,
-      restaurantStationCode: input.restaurantStationCode || null,
-      allowsModifiers: input.allowsModifiers,
-      prepTimeMinutes: input.prepTimeMinutes ?? null,
-      stockLevel: {
-        create: {
-          quantity: input.tipoProducto === "BIEN" ? input.stockInicial : 0,
-          minQuantity: input.tipoProducto === "BIEN" ? input.minStock : 0,
+  return prisma.$transaction(async (tx) => {
+    const initialState = resolveStockValuationState({
+      quantity: 0,
+      averageCost: 0,
+      lastCost: 0,
+      inventoryValue: 0,
+    });
+    const initialMovement =
+      input.tipoProducto === "BIEN" && input.stockInicial > 0
+        ? buildValuedMovement({
+            productId: "",
+            movementType: MovementType.IN,
+            quantity: input.stockInicial,
+            unitCost: input.initialUnitCost,
+            referenceType: ReferenceType.MANUAL,
+            createdById: context?.createdById ?? null,
+            notes: "Stock inicial",
+            state: initialState,
+          })
+        : null;
+
+    const product = await tx.product.create({
+      data: {
+        sku: normalizedSku,
+        codigoBarras: normalizedBarcode,
+        tipoProducto: input.tipoProducto,
+        nombre: input.nombre,
+        descripcion: input.descripcion || null,
+        precio: input.precio,
+        tarifaIva: input.tarifaIva,
+        restaurantVisible: input.restaurantVisible,
+        restaurantCategory: input.restaurantCategory || null,
+        restaurantStationCode: input.restaurantStationCode || null,
+        allowsModifiers: input.allowsModifiers,
+        prepTimeMinutes: input.prepTimeMinutes ?? null,
+        stockLevel: {
+          create: {
+            quantity:
+              input.tipoProducto === "BIEN"
+                ? new Prisma.Decimal(initialMovement?.nextState.quantity ?? 0)
+                : new Prisma.Decimal(0),
+            minQuantity: input.tipoProducto === "BIEN" ? input.minStock : 0,
+            averageCost:
+              input.tipoProducto === "BIEN"
+                ? new Prisma.Decimal(initialMovement?.nextState.averageCost ?? 0)
+                : new Prisma.Decimal(0),
+            lastCost:
+              input.tipoProducto === "BIEN"
+                ? new Prisma.Decimal(initialMovement?.nextState.lastCost ?? 0)
+                : new Prisma.Decimal(0),
+            inventoryValue:
+              input.tipoProducto === "BIEN"
+                ? new Prisma.Decimal(initialMovement?.nextState.inventoryValue ?? 0)
+                : new Prisma.Decimal(0),
+          },
         },
       },
-    },
-    select: productSelect,
-  });
-
-  if (input.tipoProducto === "BIEN" && input.stockInicial > 0) {
-    await prisma.stockMovement.create({
-      data: {
-        productId: product.id,
-        movementType: MovementType.IN,
-        referenceType: ReferenceType.MANUAL,
-        quantity: new Prisma.Decimal(input.stockInicial),
-        notes: "Stock inicial",
-      },
+      select: productSelect,
     });
-  }
 
-  return productPresenter(product);
+    if (initialMovement) {
+      const movement = {
+        ...initialMovement.movement,
+        productId: product.id,
+      };
+
+      await tx.stockMovement.create({ data: movement });
+
+      if (context?.businessId) {
+        await postInventoryAdjustmentEntryInTransaction(tx, {
+          businessId: context.businessId,
+          sourceId: product.id,
+          totalCost: initialMovement.signedTotalCost,
+        });
+      }
+    }
+
+    return productPresenter(product);
+  });
 }
 
 export async function updateProduct(id: string, rawInput: unknown) {
@@ -170,6 +227,9 @@ export async function updateProduct(id: string, rawInput: unknown) {
       stockLevel: {
         select: {
           quantity: true,
+          averageCost: true,
+          lastCost: true,
+          inventoryValue: true,
         },
       },
     },
@@ -239,6 +299,9 @@ export async function listStock() {
       productId: true,
       quantity: true,
       minQuantity: true,
+      averageCost: true,
+      lastCost: true,
+      inventoryValue: true,
       updatedAt: true,
       product: {
         select: {
@@ -270,18 +333,26 @@ export async function listStock() {
     codigo: resolveProductCode(item.product.sku, item.product.secuencial),
     quantity: Number(item.quantity),
     minQuantity: Number(item.minQuantity),
+    averageCost: Number(item.averageCost),
+    lastCost: Number(item.lastCost),
+    inventoryValue: Number(item.inventoryValue),
     lowStock: item.quantity.lte(item.minQuantity),
     updatedAt: item.updatedAt,
   }));
 }
 
-export async function adjustStock(rawInput: unknown) {
+export async function adjustStock(
+  rawInput: unknown,
+  context?: { businessId?: string | null; createdById?: string | null },
+) {
   const input = stockAdjustmentSchema.parse(rawInput);
 
   return prisma.$transaction(async (tx) => {
     const stockLevel = await tx.stockLevel.findUnique({
       where: { productId: input.productId },
-      include: { product: true },
+      include: {
+        product: true,
+      },
     });
 
     if (!stockLevel) {
@@ -293,37 +364,64 @@ export async function adjustStock(rawInput: unknown) {
     }
 
     const currentQty = Number(stockLevel.quantity);
-    let nextQty = currentQty;
+    const currentState = resolveStockValuationState({
+      quantity: stockLevel.quantity,
+      averageCost: stockLevel.averageCost,
+      lastCost: stockLevel.lastCost,
+      inventoryValue: stockLevel.inventoryValue,
+    });
 
-    if (input.movementType === MovementType.IN) {
-      nextQty += input.quantity;
+    const movementType = input.movementType as MovementType;
+    let movementQuantity = input.quantity;
+
+    if (movementType === MovementType.ADJUSTMENT) {
+      movementQuantity = Number(input.quantity) - currentQty;
     }
 
-    if (input.movementType === MovementType.OUT) {
-      if (currentQty < input.quantity) {
-        throw new Error("Stock insuficiente para salida manual");
-      }
-      nextQty -= input.quantity;
+    if (movementType === MovementType.OUT && currentQty < input.quantity) {
+      throw new Error("Stock insuficiente para salida manual");
     }
 
-    if (input.movementType === MovementType.ADJUSTMENT) {
-      nextQty = input.quantity;
+    if (movementType === MovementType.ADJUSTMENT && currentQty + movementQuantity < -0.000001) {
+      throw new Error("El ajuste no puede dejar stock negativo");
     }
 
-    const movementQuantity =
-      input.movementType === MovementType.ADJUSTMENT
-        ? nextQty - currentQty
-        : input.quantity;
+    if (
+      movementQuantity > 0 &&
+      currentState.averageCost <= 0 &&
+      currentState.lastCost <= 0 &&
+      (!input.unitCost || input.unitCost <= 0)
+    ) {
+      throw new Error(
+        "Debes indicar un costo unitario cuando el producto no tiene costo promedio previo",
+      );
+    }
+
+    const valuedMovement = buildValuedMovement({
+      productId: input.productId,
+      movementType,
+      quantity: movementQuantity,
+      unitCost: input.unitCost,
+      referenceType: ReferenceType.MANUAL,
+      createdById: context?.createdById ?? null,
+      notes:
+        input.notes ||
+        (input.movementType === MovementType.ADJUSTMENT
+          ? `Ajuste manual | stock anterior ${currentQty.toFixed(3)} | stock nuevo ${(currentQty + movementQuantity).toFixed(3)}`
+          : "Ajuste manual"),
+      state: currentState,
+    });
 
     const updated = await tx.stockLevel.update({
       where: { productId: input.productId },
-      data: {
-        quantity: new Prisma.Decimal(nextQty),
-      },
+      data: toStockLevelValuationUpdate(valuedMovement.nextState),
       select: {
         productId: true,
         quantity: true,
         minQuantity: true,
+        averageCost: true,
+        lastCost: true,
+        inventoryValue: true,
         product: {
           select: {
             nombre: true,
@@ -334,19 +432,21 @@ export async function adjustStock(rawInput: unknown) {
       },
     });
 
-    if (Math.abs(movementQuantity) > 0.000_001) {
-      await tx.stockMovement.create({
-        data: {
-          productId: input.productId,
-          movementType: input.movementType,
-          referenceType: ReferenceType.MANUAL,
-          quantity: new Prisma.Decimal(movementQuantity),
-          notes:
-            input.notes ||
-            (input.movementType === MovementType.ADJUSTMENT
-              ? `Ajuste manual | stock anterior ${currentQty.toFixed(3)} | stock nuevo ${nextQty.toFixed(3)}`
-              : "Ajuste manual"),
-        },
+    let movementId: string | null = null;
+
+    if (Math.abs(valuedMovement.signedQuantity) > 0.000_001) {
+      const movement = await tx.stockMovement.create({
+        data: valuedMovement.movement,
+        select: { id: true },
+      });
+      movementId = movement.id;
+    }
+
+    if (movementId && context?.businessId) {
+      await postInventoryAdjustmentEntryInTransaction(tx, {
+        businessId: context.businessId,
+        sourceId: movementId,
+        totalCost: valuedMovement.signedTotalCost,
       });
     }
 
@@ -356,6 +456,9 @@ export async function adjustStock(rawInput: unknown) {
       codigo: resolveProductCode(updated.product.sku, updated.product.secuencial),
       quantity: Number(updated.quantity),
       minQuantity: Number(updated.minQuantity),
+      averageCost: Number(updated.averageCost),
+      lastCost: Number(updated.lastCost),
+      inventoryValue: Number(updated.inventoryValue),
     };
   });
 }

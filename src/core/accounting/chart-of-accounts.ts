@@ -30,8 +30,11 @@ export const ACCOUNT_CODES = {
   vatPayable: "210201",
   cashManualBridge: "230101",
   revenue: "410101",
+  inventoryAdjustmentGain: "420201",
   refundExpense: "510101",
   professionalServicesExpense: "510205",
+  inventoryAdjustmentLoss: "510702",
+  costOfSalesMerchandise: "520101",
 } as const;
 
 export const ACCOUNTING_CHART: AccountingAccountCatalogItem[] = [

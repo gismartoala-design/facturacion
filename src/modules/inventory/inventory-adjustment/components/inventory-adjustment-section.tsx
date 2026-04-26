@@ -76,6 +76,26 @@ export function InventoryAdjustmentSection({
         valueFormatter: (value) => Number(value).toFixed(3),
       },
       {
+        field: "averageCost",
+        headerName: "Costo prom.",
+        type: "number",
+        minWidth: 130,
+        flex: 0.75,
+        align: "right",
+        headerAlign: "right",
+        valueFormatter: (value) => `$${Number(value).toFixed(4)}`,
+      },
+      {
+        field: "inventoryValue",
+        headerName: "Valor inv.",
+        type: "number",
+        minWidth: 130,
+        flex: 0.75,
+        align: "right",
+        headerAlign: "right",
+        valueFormatter: (value) => `$${Number(value).toFixed(2)}`,
+      },
+      {
         field: "lowStock",
         headerName: "Estado",
         minWidth: 150,
@@ -126,8 +146,8 @@ export function InventoryAdjustmentSection({
                 fontSize: 14,
               }}
             >
-              Entradas, salidas y ajustes manuales con trazabilidad sobre el stock
-              actual.
+              Entradas, salidas y ajustes manuales con trazabilidad sobre stock,
+              costo promedio y valor actual del inventario.
             </Typography>
           </Stack>
         </Box>

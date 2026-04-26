@@ -13,8 +13,12 @@ export type KardexEntry = {
   referenceId: string | null;
   quantity: number;
   signedQuantity: number;
+  unitCost: number;
+  signedTotalCost: number;
   balanceBefore: number;
   balanceAfter: number;
+  balanceValue: number;
+  balanceAverageCost: number;
   createdAt: string;
   createdByName: string | null;
   notes: string | null;

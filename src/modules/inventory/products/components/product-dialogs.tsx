@@ -79,7 +79,7 @@ export function CreateProductDialog({
                   ...prev,
                   tipoProducto: e.target.value as NewProductForm["tipoProducto"],
                   ...(e.target.value === "SERVICIO"
-                    ? { stockInicial: "0", minStock: "0" }
+                    ? { stockInicial: "0", initialUnitCost: "0", minStock: "0" }
                     : {}),
                 }))
               }
@@ -134,7 +134,7 @@ export function CreateProductDialog({
             />
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
             <TextField
               id="modal-iva"
               label="IVA %"
@@ -169,6 +169,26 @@ export function CreateProductDialog({
               }}
             />
             <TextField
+              id="modal-costo-inicial"
+              label="Costo inicial"
+              type="number"
+              value={form.initialUnitCost}
+              onChange={(e) =>
+                setForm((prev) => ({
+                  ...prev,
+                  initialUnitCost: e.target.value,
+                }))
+              }
+              required={!isService && Number(form.stockInicial) > 0}
+              disabled={isService}
+              slotProps={{
+                htmlInput: {
+                  min: 0,
+                  step: "0.0001",
+                },
+              }}
+            />
+            <TextField
               id="modal-min-stock"
               label="Stock minimo"
               type="number"
@@ -190,6 +210,10 @@ export function CreateProductDialog({
           {isService ? (
             <p className="text-xs text-[#4a3c58]/62">
               Los servicios no generan stock ni alertas de inventario.
+            </p>
+          ) : Number(form.stockInicial) > 0 ? (
+            <p className="text-xs text-[#4a3c58]/62">
+              El costo inicial se usara para valorizar el inventario desde el primer registro.
             </p>
           ) : null}
         </form>

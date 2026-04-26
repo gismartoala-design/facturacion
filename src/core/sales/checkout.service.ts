@@ -284,6 +284,7 @@ export async function checkout(rawInput: unknown, options?: CheckoutOptions) {
             subtotal: saleContext.totals.subtotal,
             taxTotal: saleContext.totals.taxTotal,
             total: saleContext.totals.total,
+            inventoryCostTotal: saleContext.totals.inventoryCostTotal,
           });
         }
         // Registra Cobros

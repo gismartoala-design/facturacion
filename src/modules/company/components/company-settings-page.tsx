@@ -5,11 +5,9 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   FormControlLabel,
   MenuItem,
   Paper,
-  Snackbar,
   Stack,
   Switch,
   TextField,
@@ -25,7 +23,7 @@ import {
   Upload,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState, type ChangeEvent, type SyntheticEvent } from "react";
+import { useCallback, useEffect, useState, type ChangeEvent } from "react";
 
 import type { BusinessBlueprint } from "@/core/platform/business-blueprint";
 import {
@@ -41,6 +39,8 @@ import type {
   PolicyPackKey,
 } from "@/core/platform/contracts";
 import { fetchJson } from "@/shared/dashboard/api";
+import { useCompanyNotifier } from "@/shared/notifications/notifier-presets";
+import { PageLoadingState } from "@/shared/states/page-loading-state";
 
 type CompanySettingsPageProps = {
   canEdit: boolean;
@@ -344,12 +344,23 @@ async function convertImageToPng(file: File) {
 
 export function CompanySettingsPage({ canEdit }: CompanySettingsPageProps) {
   const theme = useTheme();
+  const { apiError, error, saved, show, success } = useCompanyNotifier();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [logoUploading, setLogoUploading] = useState(false);
   const [form, setForm] = useState<FormState>(DEFAULT_FORM);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
-  const [snackbar, setSnackbar] = useState<SnackbarState>(null);
+
+  const setSnackbar = useCallback((nextSnackbar: SnackbarState) => {
+    if (!nextSnackbar) {
+      return;
+    }
+
+    show({
+      message: nextSnackbar.text,
+      severity: nextSnackbar.tone,
+    });
+  }, [show]);
 
   function applyBusinessSettings(data: BusinessSettingsResponse) {
     setForm(toFormState(data));
@@ -366,13 +377,7 @@ export function CompanySettingsPage({ canEdit }: CompanySettingsPageProps) {
         applyBusinessSettings(data);
       } catch (error) {
         if (!mounted) return;
-        setSnackbar({
-          tone: "error",
-          text:
-            error instanceof Error
-              ? error.message
-              : "No se pudo cargar la compania",
-        });
+        apiError(error, "No se pudo cargar la compania");
       } finally {
         if (mounted) {
           setLoading(false);
@@ -385,7 +390,7 @@ export function CompanySettingsPage({ canEdit }: CompanySettingsPageProps) {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [apiError, setSnackbar]);
 
   function updateField<K extends keyof FormState>(field: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -496,10 +501,7 @@ export function CompanySettingsPage({ canEdit }: CompanySettingsPageProps) {
     }
 
     if (!canEdit) {
-      setSnackbar({
-        tone: "error",
-        text: "Tu usuario no tiene permisos para actualizar el logo",
-      });
+      error("Tu usuario no tiene permisos para actualizar el logo");
       return;
     }
 
@@ -525,18 +527,9 @@ export function CompanySettingsPage({ canEdit }: CompanySettingsPageProps) {
       }
 
       setLogoUrl(payload.data.logoUrl);
-      setSnackbar({
-        tone: "success",
-        text: "Logo actualizado correctamente",
-      });
+      success("Logo actualizado correctamente");
     } catch (error) {
-      setSnackbar({
-        tone: "error",
-        text:
-          error instanceof Error
-            ? error.message
-            : "No se pudo actualizar el logo",
-      });
+      apiError(error, "No se pudo actualizar el logo");
     } finally {
       setLogoUploading(false);
     }
@@ -559,28 +552,12 @@ export function CompanySettingsPage({ canEdit }: CompanySettingsPageProps) {
         body: JSON.stringify(payload),
       });
       applyBusinessSettings(data);
-      setSnackbar({
-        tone: "success",
-        text: "Datos de la compania actualizados correctamente",
-      });
+      saved("Datos de la compania actualizados correctamente");
     } catch (error) {
-      setSnackbar({
-        tone: "error",
-        text:
-          error instanceof Error
-            ? error.message
-            : "No se pudo guardar la compania",
-      });
+      apiError(error, "No se pudo guardar la compania");
     } finally {
       setSaving(false);
     }
-  }
-
-  function handleCloseSnackbar(_: Event | SyntheticEvent, reason?: string) {
-    if (reason === "clickaway") {
-      return;
-    }
-    setSnackbar(null);
   }
 
   const groupedCapabilities = new Set(
@@ -711,22 +688,11 @@ export function CompanySettingsPage({ canEdit }: CompanySettingsPageProps) {
 
   if (loading) {
     return (
-      <Box
-        sx={{
-          minHeight: "55vh",
-          display: "grid",
-          placeItems: "center",
-          px: 2,
-          py: 4,
-        }}
-      >
-        <Stack spacing={1.5} alignItems="center">
-          <CircularProgress size={30} />
-          <Typography color="text.secondary">
-            Cargando configuracion de la compania...
-          </Typography>
-        </Stack>
-      </Box>
+      <PageLoadingState
+        message="Cargando configuracion de la compania..."
+        centered
+        size={30}
+      />
     );
   }
 
@@ -1725,24 +1691,6 @@ export function CompanySettingsPage({ canEdit }: CompanySettingsPageProps) {
           </Stack>
         </Stack>
       </Box>
-
-      <Snackbar
-        open={Boolean(snackbar)}
-        autoHideDuration={4200}
-        onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: "top", horizontal: "right" }}
-      >
-        {snackbar ? (
-          <Alert
-            severity={snackbar.tone}
-            variant="filled"
-            onClose={handleCloseSnackbar}
-            sx={{ borderRadius: "16px", minWidth: 320 }}
-          >
-            {snackbar.text}
-          </Alert>
-        ) : undefined}
-      </Snackbar>
     </>
   );
 }

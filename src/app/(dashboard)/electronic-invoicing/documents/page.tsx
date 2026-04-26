@@ -1,9 +1,9 @@
 "use client";
 
-import Alert from "@mui/material/Alert";
-import Snackbar from "@mui/material/Snackbar";
 import { useDeferredValue, useEffect, useState } from "react";
 
+import { useAppConfirm } from "@/components/providers/app-confirm-provider";
+import { useAppNotifications } from "@/components/providers/app-notification-provider";
 import { fetchJson } from "@/shared/dashboard/api";
 import { InvoiceDetailModal } from "@/shared/dashboard/modals";
 import { type PaginatedResult, type SriInvoice, type SriInvoiceDetail } from "@/shared/dashboard/types";
@@ -13,18 +13,14 @@ export type SriStatusFilter = "NOT_AUTHORIZED" | "ALL" | "DRAFT" | "AUTHORIZED" 
 export type SaleStatusFilter = "ALL" | "COMPLETED" | "CANCELLED";
 export type RetryFilter = "ALL" | "RETRYABLE" | "NON_RETRYABLE";
 
-type SriToast = {
-  message: string;
-  severity: "success" | "error" | "info";
-};
-
 export default function SriPage() {
+  const confirm = useAppConfirm();
+  const { error: showError, info, success } = useAppNotifications();
   const [invoices, setInvoices] = useState<SriInvoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailCancelling, setDetailCancelling] = useState(false);
-  const [toast, setToast] = useState<SriToast | null>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<SriInvoiceDetail | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [page, setPage] = useState(1);
@@ -76,13 +72,9 @@ export default function SriPage() {
       setTotal(result.pagination.total);
       setTotalPages(result.pagination.totalPages);
     } catch (error) {
-      setToast({
-        message:
-          error instanceof Error
-            ? error.message
-            : "No se pudo cargar facturas SRI",
-        severity: "error",
-      });
+      showError(
+        error instanceof Error ? error.message : "No se pudo cargar facturas SRI",
+      );
     } finally {
       setLoading(false);
     }
@@ -145,18 +137,13 @@ export default function SriPage() {
 
   async function onRetry(invoiceId: string) {
     setSaving(true);
-    setToast(null);
 
     try {
       await fetchJson(`/api/v1/sri-invoices/${invoiceId}/retry`, { method: "POST" });
-      setToast({ message: "Reintento ejecutado", severity: "success" });
+      success("Reintento ejecutado");
       await loadInvoices();
     } catch (error) {
-      setToast({
-        message:
-          error instanceof Error ? error.message : "No se pudo reintentar",
-        severity: "error",
-      });
+      showError(error instanceof Error ? error.message : "No se pudo reintentar");
     } finally {
       setSaving(false);
     }
@@ -166,15 +153,11 @@ export default function SriPage() {
     const invoiceIds = getRetryableInvoiceIds(invoices);
 
     if (invoiceIds.length === 0) {
-      setToast({
-        message: "No hay facturas visibles pendientes para reintentar",
-        severity: "info",
-      });
+      info("No hay facturas visibles pendientes para reintentar");
       return;
     }
 
     setSaving(true);
-    setToast(null);
 
     try {
       const result = await fetchJson<{
@@ -198,26 +181,24 @@ export default function SriPage() {
           ? `Reintentos ejecutados: ${result.succeeded} exitosos, ${result.failed} con error`
           : `Reintentos ejecutados sobre ${result.succeeded} factura${result.succeeded === 1 ? "" : "s"}`;
 
-      setToast({
-        message,
-        severity: result.failed > 0 ? "info" : "success",
-      });
+      if (result.failed > 0) {
+        info(message);
+      } else {
+        success(message);
+      }
       await loadInvoices();
     } catch (error) {
-      setToast({
-        message:
-          error instanceof Error
-            ? error.message
-            : "No se pudo ejecutar el reintento masivo",
-        severity: "error",
-      });
+      showError(
+        error instanceof Error
+          ? error.message
+          : "No se pudo ejecutar el reintento masivo",
+      );
     } finally {
       setSaving(false);
     }
   }
 
   async function onViewDetails(invoiceId: string) {
-    setToast(null);
     setSelectedInvoice(null);
     setIsDetailOpen(true);
     setDetailLoading(true);
@@ -225,42 +206,42 @@ export default function SriPage() {
       const detail = await fetchJson<SriInvoiceDetail>(`/api/v1/sri-invoices/${invoiceId}`);
       setSelectedInvoice(detail);
     } catch (error) {
-      setToast({
-        message:
-          error instanceof Error
-            ? error.message
-            : "No se pudo cargar detalle de factura",
-        severity: "error",
-      });
+      showError(
+        error instanceof Error
+          ? error.message
+          : "No se pudo cargar detalle de factura",
+      );
     } finally {
       setDetailLoading(false);
     }
   }
 
   async function onCancelSaleAndInvoice(invoiceId: string) {
-    if (!window.confirm("Se anulara la venta y se revertira el stock. Esta accion no se puede deshacer. ¿Deseas continuar?")) {
+    const accepted = await confirm({
+      title: "Anular venta y factura",
+      message:
+        "Se anulara la venta y se revertira el stock.\nEsta accion no se puede deshacer.",
+      confirmLabel: "Anular venta",
+      severity: "error",
+      destructive: true,
+    });
+    if (!accepted) {
       return;
     }
 
     setDetailCancelling(true);
-    setToast(null);
     try {
       await fetchJson(`/api/v1/sri-invoices/${invoiceId}/cancel`, { method: "POST" });
       setIsDetailOpen(false);
       setSelectedInvoice(null);
-      setToast({
-        message: "Venta/factura anulada correctamente",
-        severity: "success",
-      });
+      success("Venta/factura anulada correctamente");
       await loadInvoices();
     } catch (error) {
-      setToast({
-        message:
-          error instanceof Error
-            ? error.message
-            : "No se pudo anular la venta/factura",
-        severity: "error",
-      });
+      showError(
+        error instanceof Error
+          ? error.message
+          : "No se pudo anular la venta/factura",
+      );
     } finally {
       setDetailCancelling(false);
     }
@@ -304,29 +285,6 @@ export default function SriPage() {
           setSelectedInvoice(null);
         }}
       />
-      <Snackbar
-        open={Boolean(toast)}
-        autoHideDuration={4200}
-        onClose={(_, reason) => {
-          if (reason === "clickaway") return;
-          setToast(null);
-        }}
-        anchorOrigin={{ vertical: "top", horizontal: "right" }}
-      >
-        <Alert
-          elevation={0}
-          variant="filled"
-          severity={toast?.severity ?? "info"}
-          onClose={() => setToast(null)}
-          sx={{
-            minWidth: 280,
-            borderRadius: "16px",
-            boxShadow: "0 18px 38px rgba(74, 60, 88, 0.18)",
-          }}
-        >
-          {toast?.message ?? ""}
-        </Alert>
-      </Snackbar>
     </>
   );
 }

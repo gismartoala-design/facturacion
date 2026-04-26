@@ -149,6 +149,38 @@ export function ProductsSection({
         ),
       },
       {
+        field: "averageCost",
+        headerName: "Costo prom.",
+        type: "number",
+        minWidth: 130,
+        flex: 0.8,
+        align: "right",
+        headerAlign: "right",
+        renderCell: (params) => (
+          <span className="w-full text-right">
+            {params.row.tipoProducto === "SERVICIO"
+              ? "-"
+              : `$${Number(params.row.averageCost).toFixed(4)}`}
+          </span>
+        ),
+      },
+      {
+        field: "inventoryValue",
+        headerName: "Valor inv.",
+        type: "number",
+        minWidth: 130,
+        flex: 0.8,
+        align: "right",
+        headerAlign: "right",
+        renderCell: (params) => (
+          <span className="w-full text-right">
+            {params.row.tipoProducto === "SERVICIO"
+              ? "-"
+              : `$${Number(params.row.inventoryValue).toFixed(2)}`}
+          </span>
+        ),
+      },
+      {
         field: "actions",
         headerName: "Acciones",
         sortable: false,

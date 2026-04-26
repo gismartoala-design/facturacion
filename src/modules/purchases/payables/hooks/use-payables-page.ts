@@ -2,6 +2,7 @@
 
 import { useMemo, useState, type FormEvent } from "react";
 
+import { usePurchasesNotifier } from "@/shared/notifications/notifier-presets";
 import {
   fetchPayables,
   registerSupplierPayment,
@@ -13,14 +14,8 @@ import type {
   SupplierPaymentForm,
 } from "../types";
 
-type FeedbackState = {
-  message: string;
-  severity: "success" | "error";
-} | null;
-
 type UsePayablesPageOptions = {
   initialPayables: AccountsPayable[];
-  initialError?: string | null;
 };
 
 function todayInputValue() {
@@ -39,12 +34,9 @@ function createEmptyPaymentForm(): SupplierPaymentForm {
 
 export function usePayablesPage({
   initialPayables,
-  initialError = null,
 }: UsePayablesPageOptions) {
+  const notifier = usePurchasesNotifier();
   const [payables, setPayables] = useState(initialPayables);
-  const [feedback, setFeedback] = useState<FeedbackState>(
-    initialError ? { message: initialError, severity: "error" } : null,
-  );
   const [payingPayable, setPayingPayable] = useState<AccountsPayable | null>(
     null,
   );
@@ -87,7 +79,6 @@ export function usePayablesPage({
       ...createEmptyPaymentForm(),
       amount: payable.pendingAmount.toFixed(2),
     });
-    setFeedback(null);
   }
 
   function closePaymentDialog() {
@@ -102,7 +93,6 @@ export function usePayablesPage({
   ) {
     setVoidingPayment({ payable, payment });
     setVoidReason("");
-    setFeedback(null);
   }
 
   function closeVoidPaymentDialog() {
@@ -116,7 +106,6 @@ export function usePayablesPage({
     if (!payingPayable) return;
 
     setSaving(true);
-    setFeedback(null);
 
     try {
       const updatedPayable = await registerSupplierPayment(
@@ -130,17 +119,12 @@ export function usePayablesPage({
       );
       setPayingPayable(null);
       setPaymentForm(createEmptyPaymentForm());
-      setFeedback({
-        message: `Pago registrado. Secuencial #${updatedPayable.payments[0]?.supplierPaymentNumber ?? ""}`,
-        severity: "success",
-      });
+      notifier.saved(
+        `Pago registrado. Secuencial #${updatedPayable.payments[0]?.supplierPaymentNumber ?? ""}`,
+      );
       await reloadPayables();
     } catch (error) {
-      setFeedback({
-        message:
-          error instanceof Error ? error.message : "No se pudo registrar pago",
-        severity: "error",
-      });
+      notifier.apiError(error, "No se pudo registrar pago");
     } finally {
       setSaving(false);
     }
@@ -150,7 +134,6 @@ export function usePayablesPage({
     if (!voidingPayment) return;
 
     setVoiding(true);
-    setFeedback(null);
 
     try {
       const updatedPayable = await voidSupplierPayment(
@@ -164,17 +147,12 @@ export function usePayablesPage({
       );
       setVoidingPayment(null);
       setVoidReason("");
-      setFeedback({
-        message: `Pago #${voidingPayment.payment.supplierPaymentNumber} anulado correctamente`,
-        severity: "success",
-      });
+      notifier.deleted(
+        `Pago #${voidingPayment.payment.supplierPaymentNumber} anulado correctamente`,
+      );
       await reloadPayables();
     } catch (error) {
-      setFeedback({
-        message:
-          error instanceof Error ? error.message : "No se pudo anular pago",
-        severity: "error",
-      });
+      notifier.apiError(error, "No se pudo anular pago");
     } finally {
       setVoiding(false);
     }
@@ -183,7 +161,6 @@ export function usePayablesPage({
   return {
     payables,
     summary,
-    feedback,
     payingPayable,
     paymentForm,
     setPaymentForm,

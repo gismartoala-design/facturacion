@@ -16,7 +16,20 @@ export const createProductSchema = z.object({
   allowsModifiers: z.boolean().default(false),
   prepTimeMinutes: z.number().int().min(0).max(1440).optional(),
   stockInicial: z.number().min(0).default(0),
+  initialUnitCost: z.number().min(0).default(0),
   minStock: z.number().min(0).default(0),
+}).superRefine((value, ctx) => {
+  if (
+    value.tipoProducto === "BIEN" &&
+    value.stockInicial > 0 &&
+    value.initialUnitCost <= 0
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["initialUnitCost"],
+      message: "Debes indicar el costo inicial cuando registras stock inicial",
+    });
+  }
 });
 
 export const updateProductSchema = z.object({
@@ -37,7 +50,27 @@ export const updateProductSchema = z.object({
 
 export const stockAdjustmentSchema = z.object({
   productId: z.string().uuid(),
-  quantity: z.number().positive(),
+  quantity: z.number(),
+  unitCost: z.number().min(0).optional(),
   movementType: z.enum(["IN", "OUT", "ADJUSTMENT"]),
   notes: z.string().trim().max(300).optional().or(z.literal("")),
+}).superRefine((value, ctx) => {
+  if (
+    (value.movementType === "IN" || value.movementType === "OUT") &&
+    value.quantity <= 0
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["quantity"],
+      message: "La cantidad debe ser mayor a cero",
+    });
+  }
+
+  if (value.movementType === "ADJUSTMENT" && value.quantity < 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["quantity"],
+      message: "El stock final del ajuste no puede ser negativo",
+    });
+  }
 });

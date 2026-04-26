@@ -1,9 +1,9 @@
 "use client";
 
-import Alert from "@mui/material/Alert";
 import Stack from "@mui/material/Stack";
 
 import type { Product } from "@/shared/dashboard/types";
+import { PageErrorState } from "@/shared/states/page-error-state";
 
 import {
   CreateProductDialog,
@@ -24,12 +24,14 @@ export function ProductsPage({
 }: ProductsPageProps) {
   const productsPage = useProductsPage({
     initialProducts,
-    initialError,
   });
+
+  if (initialError) {
+    return <PageErrorState message={initialError} />;
+  }
 
   return (
     <Stack spacing={2}>
-
       <ProductsSection
         products={productsPage.products}
         onOpenProductModal={productsPage.openCreateDialog}

@@ -1,39 +1,19 @@
 "use client";
 
 import Backdrop from "@mui/material/Backdrop";
-import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
 import Paper from "@mui/material/Paper";
-import Typography from "@mui/material/Typography";
-import { Loader2 } from "lucide-react";
 
 import { OpenQuotesDialog } from "@/modules/sales/components/open-quotes-dialog";
 import { SalesCheckoutSection } from "@/modules/sales/components/sales-checkout-section";
-import {
-  SalesMessagePopover,
-} from "@/modules/sales/components/sales-message-popover";
 import { useSalesCheckoutPage } from "@/modules/sales/hooks/use-sales-checkout-page";
+import { PageLoadingState } from "@/shared/states/page-loading-state";
 
 export default function CheckoutPage() {
   const salesPage = useSalesCheckoutPage();
 
   if (salesPage.loading) {
-    return (
-      <Paper
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          gap: 1.5,
-          borderRadius: "20px",
-          border: "1px solid rgba(226, 232, 240, 1)",
-          p: 2,
-          color: "text.secondary",
-        }}
-      >
-        <Loader2 className="h-4 w-4 animate-spin" />
-        <Typography>Cargando checkout...</Typography>
-      </Paper>
-    );
+    return <PageLoadingState message="Cargando checkout..." />;
   }
 
   return (
@@ -66,10 +46,6 @@ export default function CheckoutPage() {
           </Paper>
         </Backdrop>
       ) : null}
-      <SalesMessagePopover
-        message={salesPage.message}
-        onClose={() => salesPage.setMessage(null)}
-      />
       <SalesCheckoutSection
         mode={salesPage.mode}
         products={salesPage.products}

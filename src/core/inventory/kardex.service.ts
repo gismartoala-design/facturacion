@@ -9,6 +9,11 @@ const kardexMovementSelect = {
   productId: true,
   movementType: true,
   quantity: true,
+  unitCost: true,
+  totalCost: true,
+  balanceQuantity: true,
+  balanceAverageCost: true,
+  balanceValue: true,
   referenceType: true,
   referenceId: true,
   notes: true,
@@ -95,8 +100,8 @@ export async function listKardexEntries() {
 
   return movements.map<KardexEntry>((record) => {
     const signedQuantity = resolveSignedQuantity(record);
-    const balanceAfter = runningBalanceByProductId.get(record.productId) ?? 0;
-    const balanceBefore = balanceAfter - signedQuantity;
+    const computedBalanceAfter = runningBalanceByProductId.get(record.productId) ?? 0;
+    const balanceBefore = computedBalanceAfter - signedQuantity;
 
     runningBalanceByProductId.set(record.productId, balanceBefore);
 
@@ -112,8 +117,12 @@ export async function listKardexEntries() {
       referenceId: record.referenceId,
       quantity: Number(record.quantity),
       signedQuantity,
+      unitCost: Number(record.unitCost),
+      signedTotalCost: Number(record.totalCost),
       balanceBefore,
-      balanceAfter,
+      balanceAfter: computedBalanceAfter,
+      balanceValue: Number(record.balanceValue),
+      balanceAverageCost: Number(record.balanceAverageCost),
       createdAt: record.createdAt.toISOString(),
       createdByName: record.createdBy?.name ?? null,
       notes: record.notes,

@@ -1,5 +1,10 @@
 import { Prisma, ReferenceType, type SaleStatus } from "@prisma/client";
 
+import {
+  buildValuedMovement,
+  resolveStockValuationState,
+  toStockLevelValuationUpdate,
+} from "@/core/inventory/valuation.service";
 import type { CheckoutInput } from "@/core/sales/schemas";
 import { createLogger, startTimer, timerDurationMs } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
@@ -32,6 +37,7 @@ export type CreatedSaleContext = {
     discountTotal: number;
     taxTotal: number;
     total: number;
+    inventoryCostTotal: number;
   };
   lines: Array<{
     productId: string;
@@ -123,22 +129,51 @@ export async function createSaleInTransaction(
     }
 
     const stockStartedAt = startTimer();
+    const stockValuations = new Map<
+      string,
+      ReturnType<typeof buildValuedMovement>
+    >();
     if (inventoryTrackingEnabled) {
-      for (const [productId, qty] of aggregateQty) {
-        const updated = await tx.stockLevel.updateMany({
-          where: {
-            productId,
-            quantity: { gte: qty },
+      const stockLevels = await tx.stockLevel.findMany({
+        where: {
+          productId: {
+            in: Array.from(aggregateQty.keys()),
           },
-          data: {
-            quantity: { decrement: qty },
-          },
-        });
+        },
+        select: {
+          productId: true,
+          quantity: true,
+          averageCost: true,
+          lastCost: true,
+          inventoryValue: true,
+        },
+      });
+      const stockLevelByProductId = new Map(
+        stockLevels.map((stockLevel) => [stockLevel.productId, stockLevel]),
+      );
 
-        if (updated.count === 0) {
+      for (const [productId, qty] of aggregateQty) {
+        const stockLevel = stockLevelByProductId.get(productId);
+        if (!stockLevel) {
           const productName = productMap.get(productId)?.nombre ?? productId;
           throw new Error(`Stock insuficiente para ${productName}`);
         }
+
+        const valuation = buildValuedMovement({
+          productId,
+          movementType: "OUT",
+          quantity: qty,
+          referenceType: ReferenceType.SALE,
+          createdById: input.createdById,
+          state: resolveStockValuationState(stockLevel),
+        });
+
+        await tx.stockLevel.update({
+          where: { productId },
+          data: toStockLevelValuationUpdate(valuation.nextState),
+        });
+
+        stockValuations.set(productId, valuation);
       }
     }
 
@@ -183,6 +218,12 @@ export async function createSaleInTransaction(
       lineComputations.reduce((acc, line) => acc + line.lineTax, 0),
     );
     const total = roundMoney(subtotal + taxTotal);
+    const inventoryCostTotal = roundMoney(
+      Array.from(stockValuations.values()).reduce(
+        (acc, valuation) => acc + Math.abs(valuation.signedTotalCost),
+        0,
+      ),
+    );
 
     if (roundMoney(paymentSum) !== total) {
       throw new Error("La suma de pagos no coincide con el total de la venta");
@@ -227,17 +268,11 @@ export async function createSaleInTransaction(
     });
 
     const stockMovements = inventoryTrackingEnabled
-      ? lineComputations
-          .filter((line) => line.productType === "BIEN")
-          .map((line) => ({
-            productId: line.productId,
-            movementType: "OUT" as const,
-            referenceType: ReferenceType.SALE,
-            referenceId: sale.id,
-            quantity: line.quantity,
-            createdById: input.createdById,
-            notes: `Salida por venta #${sale.saleNumber.toString()}`,
-          }))
+      ? Array.from(stockValuations.values()).map((valuation) => ({
+          ...valuation.movement,
+          referenceId: sale.id,
+          notes: `Salida por venta #${sale.saleNumber.toString()}`,
+        }))
       : [];
 
     if (stockMovements.length > 0) {
@@ -278,6 +313,7 @@ export async function createSaleInTransaction(
         discountTotal,
         taxTotal,
         total,
+        inventoryCostTotal,
       },
       lines: lineComputations,
       payments: input.payments,
