@@ -17,6 +17,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ClipboardList,
+  Cpu,
   FileText,
   FolderTree,
   HandCoins,
@@ -112,6 +113,16 @@ const RESTAURANT_NAV_ITEMS: NavItem[] = [
         icon: Table2,
       },
     ],
+  },
+];
+
+const ADMIN_NAV_ITEMS: NavItem[] = [
+  {
+    id: "admin-platform",
+    href: "/admin/platform",
+    label: "Motor de composición",
+    icon: Cpu,
+    adminOnly: true,
   },
 ];
 
@@ -381,6 +392,11 @@ function getNavSections(options?: { restaurantEnabled?: boolean }) {
       id: "business",
       label: "Procesos del negocio",
       items: BUSINESS_NAV_ITEMS,
+    },
+    {
+      id: "admin",
+      label: "Administración",
+      items: ADMIN_NAV_ITEMS,
     },
   ];
 }

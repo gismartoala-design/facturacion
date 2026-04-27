@@ -527,3 +527,45 @@ export async function updateBusinessSettings(
 
   return toBusinessContext(refreshed);
 }
+
+export async function updateBusinessBlueprint(
+  businessId: string,
+  rawBlueprint: BusinessBlueprint,
+) {
+  const nextBlueprint = normalizeBusinessBlueprint(rawBlueprint);
+  const nextEnabledFeatures = blueprintToEnabledBusinessFeatures(nextBlueprint);
+  const posEnabled = nextEnabledFeatures.includes("POS");
+  const nextPosPolicy = posBlueprintToEditorValue(nextBlueprint);
+  const nextPosLegacyFlags = posPolicyToLegacyFlags(nextPosPolicy);
+
+  await prisma.business.update({
+    where: { id: businessId },
+    data: { blueprintConfig: serializeBusinessBlueprint(nextBlueprint) },
+  });
+
+  await prisma.businessFeature.upsert({
+    where: { businessId_key: { businessId, key: "POS" } },
+    update: {
+      enabled: posEnabled,
+      config: serializePosFeatureConfigWithBlueprint(nextPosLegacyFlags, nextBlueprint),
+    },
+    create: {
+      businessId,
+      key: "POS",
+      enabled: posEnabled,
+      config: serializePosFeatureConfigWithBlueprint(nextPosLegacyFlags, nextBlueprint),
+    },
+  });
+
+  await Promise.all(
+    (["BILLING", "QUOTES"] as const).map((key) =>
+      prisma.businessFeature.upsert({
+        where: { businessId_key: { businessId, key } },
+        update: { enabled: nextEnabledFeatures.includes(key) },
+        create: { businessId, key, enabled: nextEnabledFeatures.includes(key) },
+      }),
+    ),
+  );
+
+  return nextBlueprint;
+}
