@@ -52,6 +52,10 @@ export type PurchaseLineForm = {
   taxRate: string;
 };
 
+export type DraftLineForm = PurchaseLineForm & {
+  codeSearch: string;
+};
+
 export type PurchaseForm = {
   supplierId: string;
   documentType: string;

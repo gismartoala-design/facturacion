@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { listProducts } from "@/core/inventory/inventory.service";
 import { listSuppliers } from "@/core/purchases/supplier.service";
 import { getSession } from "@/lib/auth";
-import { PurchaseRegistrationPage } from "@/modules/purchases/purchases/pages/purchase-registration-page";
+import { PurchaseRegistrationPage } from "@/modules/purchases/purchase-records/pages/purchase-registration-page";
 import type { Supplier } from "@/modules/purchases/suppliers/types";
 import type { Product } from "@/shared/dashboard/types";
 
@@ -42,7 +42,6 @@ export default async function NewPurchaseRoute() {
     <PurchaseRegistrationPage
       suppliers={suppliers}
       products={products}
-      purchases={[]}
       initialError={initialError}
     />
   );

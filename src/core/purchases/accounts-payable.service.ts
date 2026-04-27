@@ -328,7 +328,7 @@ export async function createSupplierPayment(
     });
 
     return payablePresenter(updated);
-  });
+  }, { timeout: 15000 });
 }
 
 export async function voidSupplierPayment(
@@ -401,5 +401,5 @@ export async function voidSupplierPayment(
     });
 
     return payablePresenter(updated);
-  });
+  }, { timeout: 15000 });
 }

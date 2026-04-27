@@ -32,7 +32,6 @@ export function PayablesPage({
     <Stack spacing={2.5}>
       <PayablesSection
         payables={payablesPage.payables}
-        summary={payablesPage.summary}
         onOpenPaymentDialog={payablesPage.openPaymentDialog}
         onOpenVoidPaymentDialog={payablesPage.openVoidPaymentDialog}
       />

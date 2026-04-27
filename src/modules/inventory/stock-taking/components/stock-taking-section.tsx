@@ -306,7 +306,7 @@ export function StockTakingSection({
     <Grid container spacing={3}>
       <Grid size={12}>
         <DashboardPageHeader
-          icon={<ClipboardList className="h-[18px] w-[18px]" />}
+          icon={<ClipboardList className="h-4.5 w-4.5" />}
           title="Toma de Inventario"
           description="Captura el conteo fisico de cada producto y aplica solo las diferencias contra el stock del sistema."
           titleColor="#4a3c58"
